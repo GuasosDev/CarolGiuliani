@@ -1,0 +1,3 @@
+Django==5.2.9
+xhtml2pdf==0.2.17
+# Dependencies for the above packages (e.g. reportlab, pillow, etc.) will be installed automatically.

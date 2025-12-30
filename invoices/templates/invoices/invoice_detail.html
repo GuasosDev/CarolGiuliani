@@ -1,0 +1,142 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h1 class="page-title">Factura</h1>
+        <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}"><i class="fas fa-home"></i></a> /
+            <a href="{% url 'invoice_list' %}">Factura</a> /
+            <span>Factura #{{ invoice.id|stringformat:"06d" }}</span>
+        </div>
+    </div>
+
+    <div class="card-box">
+        <div style="text-align: right; margin-bottom: 20px;">
+            {% if not readonly %}
+            <button class="btn btn-success" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
+            <button class="btn btn-primary"><i class="far fa-save"></i> Guardar</button>
+            {% endif %}
+        </div>
+
+        <div
+            style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+            <div>
+                <h2 style="margin: 0; color: var(--heading-color);">Factura</h2>
+            </div>
+            <div>
+                <h4 style="margin: 0; color: var(--heading-color);">{{ invoice.issue_date|date:"d F Y" }}</h4>
+            </div>
+        </div>
+
+        <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+            <div style="width: 48%;">
+                <h5 style="color: var(--heading-color);">De</h5>
+                <h4 style="color: var(--primary-color); margin-top: 5px;">{{ company_settings.name }}</h4>
+                <p style="color: var(--text-color); font-size: 13px; line-height: 1.6;">
+                    {{ company_settings.address|linebreaksbr }}<br>
+                    Phone: {{ company_settings.phone }}<br>
+                    Email: {{ company_settings.email }}
+                </p>
+                <p><strong>Factura #{{ invoice.id|stringformat:"06d" }}</strong></p>
+            </div>
+            <div style="width: 48%; text-align: right;">
+                <h5 style="color: var(--heading-color);">Para</h5>
+                <h4 style="color: var(--heading-color); margin-top: 5px;">{{ invoice.client }}</h4>
+                <div style="color: var(--text-color); font-size: 13px; line-height: 1.6;">
+                    <!-- Mock address since Client model assumes simple structure -->
+                    795 Folsom Ave, Suite 600<br>
+                    San Francisco, CA 94107<br>
+                    P: (123) 456-7890
+                </div>
+                <p style="margin-top: 10px;">
+                    <strong>Orden ID:</strong> #12345<br>
+                    <strong>Fecha de Vencimiento:</strong> {{ invoice.due_date|date:"d/m/Y" }}<br>
+                    <strong>Cuenta:</strong> 123-456-7890
+                </p>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #f4f5f7; color: var(--heading-color);">
+                        <th style="padding: 10px; border-bottom: 2px solid #e2e7f1; text-align: left;">#</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #e2e7f1; text-align: left;">Descripción</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #e2e7f1; text-align: left;">Serial #</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #e2e7f1; text-align: right;">Cantidad</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #e2e7f1; text-align: right;">Costo Unitario
+                        </th>
+                        <th style="padding: 10px; border-bottom: 2px solid #e2e7f1; text-align: right;">Subtotal</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #e2e7f1; text-align: center;">Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="invoice-lines">
+                    {% include 'invoices/partials/invoice_lines.html' %}
+                </tbody>
+                <!-- Add Line Form (Simple Row) -->
+                <tfoot>
+                    <tr class="no-print">
+                        <form hx-post="{% url 'invoice_line_create' invoice.pk %}" hx-target="#invoice-lines"
+                            hx-swap="innerHTML" hx-on::after-request="this.reset()">
+                            {% csrf_token %}
+                            <td>-</td>
+                            <td><input type="text" name="description" class="form-control" placeholder="Item Name"
+                                    required></td>
+                            <td><input type="text" name="serial_number" class="form-control" placeholder="Serial"></td>
+                            <td><input type="number" name="quantity" class="form-control" value="1"
+                                    style="text-align: right;" required></td>
+                            <td><input type="number" name="unit_cost" class="form-control" step="0.01"
+                                    placeholder="0.00" style="text-align: right;" required></td>
+                            <td>-</td>
+                            <td style="text-align: center;">
+                                <button type="submit" class="btn btn-primary btn-sm"><i
+                                        class="fas fa-plus"></i></button>
+                            </td>
+                        </form>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="row" style="display: flex; justify-content: flex-end; margin-top: 30px;">
+            <div style="width: 30%;">
+                <p style="text-align: right; color: var(--danger-color); font-weight: 600;">Payment Due: {{
+                    invoice.due_date|date:"d/m/Y" }}</p>
+                <div style="background-color: #f4f5f7; padding: 20px; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Sub - Total amount:</span>
+                        <span>${{ invoice.total }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Tax (18%):</span>
+                        <span>$0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Shipping:</span>
+                        <span>$0.00</span>
+                    </div>
+                    <hr style="border-top: 1px solid #e2e7f1;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; color: var(--heading-color); margin-top: 10px;">
+                        <span>Total:</span>
+                        <span>${{ invoice.total }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; text-align: right;">
+            <a href="{% url 'invoice_list' %}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+</div>
+{% if print_mode %}
+<script>
+    window.onload = function () {
+        window.print();
+    }
+</script>
+{% endif %}
+{% endblock %}

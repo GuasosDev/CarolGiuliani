@@ -1,0 +1,109 @@
+{% extends 'core/base.html' %}
+{% load core_tags %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">{{ title }}</h1>
+    </div>
+
+    <div class="card-box">
+        <div class="header-actions" style="margin-bottom: 20px; text-align: right;">
+            {% if create_url %}
+            <button hx-get="{{ create_url }}" hx-target="#modal-body" hx-trigger="click" onclick="openModal()"
+                class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nuevo
+            </button>
+            {% endif %}
+        </div>
+
+        <table id="datatable" class="display dt-responsive nowrap" style="width:100%">
+            <thead>
+                <tr>
+                    {% for header in headers %}
+                    <th>{{ header }}</th>
+                    {% endfor %}
+                    <th style="width: 80px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in object_list %}
+                <tr>
+                    {% for field in fields %}
+                    <td>{{ obj|get_attr:field }}</td>
+                    {% endfor %}
+                    <td>
+                        <div class="dropdown">
+                            <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                                aria-expanded="false" style="border: none; background: transparent; color: #98a6ad;">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                {% if action_template_name %}
+                                {% include action_template_name %}
+                                {% endif %}
+                                {% if detail_url_name %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url detail_url_name obj.pk %}">
+                                        <i class="fas fa-eye me-2" style="color: var(--primary-color);"></i> Ver
+                                    </a>
+                                </li>
+                                {% endif %}
+                                {% if update_url_name %}
+                                <li>
+                                    <button class="dropdown-item" hx-get="{% url update_url_name obj.pk %}"
+                                        hx-target="#modal-body" onclick="openModal()">
+                                        <i class="fas fa-edit me-2" style="color: #98a6ad;"></i> Editar
+                                    </button>
+                                </li>
+                                {% endif %}
+                                {% if delete_url_name %}
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li>
+                                    <button class="dropdown-item text-danger" hx-get="{% url delete_url_name obj.pk %}"
+                                        hx-target="#modal-body" onclick="openModal()">
+                                        <i class="fas fa-trash-alt me-2"></i> Borrar
+                                    </button>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Ensure this runs after jQuery is loaded
+    window.addEventListener('load', function () {
+        if ($.fn.DataTable.isDataTable('#datatable')) {
+            $('#datatable').DataTable().destroy();
+        }
+        $('#datatable').DataTable({
+            dom: 'Bfrtip',
+            buttons: [
+                'copy', 'csv', 'excel', 'pdf', 'print'
+            ],
+            language: {
+                search: "Buscar:",
+                paginate: {
+                    previous: "<",
+                    next: ">"
+                }
+            },
+            drawCallback: function () {
+                // Re-initialize dropdowns if needed provided by bootstrap bundle
+                var dropdownTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'))
+                var dropdownList = dropdownTriggerList.map(function (dropdownTriggerEl) {
+                    return new bootstrap.Dropdown(dropdownTriggerEl)
+                })
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - GD Soft</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+</head>
+
+<body>
+
+    <div class="auth-fluid">
+        <div class="auth-card">
+            <h2 class="auth-title">GuasosDev Soft</h2>
+            <p class="auth-subtitle">Inicia sesión para continuar</p>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="form-group" style="position: relative;">
+                    <!-- Hacky way to handle Django form rendering without manual loops, or manual rendering -->
+                    {% for field in form %}
+                    <div style="margin-bottom: 15px; text-align: left;">
+                        <label style="display:none;">{{ field.label }}</label>
+                        <!-- Input Icon Mock (Ideally we iterate and add icons, but simpler to just show field) -->
+                        {{ field }}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 13px;">
+                    <label><input type="checkbox"> Recordarme</label>
+                    <a href="#" style="color: var(--primary-color);">Olvidaste tu contraseña?</a>
+                </div>
+
+                <button type="submit" class="btn btn-danger" style="width: 100%; padding: 10px;">INGRESAR</button>
+            </form>
+
+            <div style="margin-top: 20px;">
+                <p style="font-size: 13px;">No tienes una cuenta? <a href="#" style="color: #f7b84b;">Registrarse</a>
+                </p>
+            </div>
+
+            <div style="margin-top: 30px; border-top: 1px solid #eee; position: relative;">
+                <span
+                    style="background: white; padding: 0 10px; position: relative; top: -10px; color: #aaa; font-size: 12px;">-
+                    Sign With -</span>
+            </div>
+
+            <ul class="social-list">
+                <li class="social-circle" style="background: #3b5998;"><i class="fab fa-facebook-f"></i></li>
+                <li class="social-circle" style="background: #1da1f2;"><i class="fab fa-twitter"></i></li>
+                <li class="social-circle" style="background: #e1306c;"><i class="fab fa-instagram"></i></li>
+            </ul>
+        </div>
+    </div>
+
+</body>
+
+</html>

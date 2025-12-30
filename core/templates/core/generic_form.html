@@ -1,0 +1,44 @@
+<div class="modal-header">
+    <h4 class="modal-title">{{ title }}</h4>
+    <span class="close" onclick="closeModal()">&times;</span>
+</div>
+
+<form hx-post="{{ action_url }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <div class="modal-body">
+        {% if form.non_field_errors %}
+        <div style="color: red;">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <!-- Clean Form Rendering (Simulated Sections) -->
+        <h5
+            style="color: var(--primary-color); border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+            <i class="far fa-user"></i> Info
+        </h5>
+
+        {% for field in form %}
+        <div class="form-group">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<small style="color: #999;">{{ field.help_text }}</small>{% endif %}
+            {% for error in field.errors %}<div style="color: red; font-size: 12px;">{{ error }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-warning" onclick="closeModal()">
+            <i class="fas fa-trash-alt"></i> Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+            <i class="far fa-save"></i> Save
+        </button>
+    </div>
+</form>
+
+<script>
+    // re-apply form-control class to django rendered inputs if needed (or done via widget tweaks in python)
+    document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el => {
+        el.classList.add('form-control');
+    });
+</script>

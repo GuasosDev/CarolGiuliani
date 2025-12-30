@@ -1,0 +1,102 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">Dashboard</h1>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row" style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Card 1 -->
+        <div class="card-box"
+            style="flex: 1; min-width: 200px; display: flex; align-items: center; justify-content: space-between;">
+            <div class="widget-stat-card">
+                <h3>4,235</h3>
+                <p class="text-muted">Total Patients</p>
+            </div>
+            <div class="widget-icon" style="background-color: rgba(102,88,221,0.2); color: var(--primary-color);">
+                <i class="fas fa-heartbeat"></i>
+            </div>
+        </div>
+        <!-- Card 2 -->
+        <div class="card-box"
+            style="flex: 1; min-width: 200px; display: flex; align-items: center; justify-content: space-between;">
+            <div class="widget-stat-card">
+                <h3>394</h3>
+                <p class="text-muted">Available Staff</p>
+            </div>
+            <div class="widget-icon" style="background-color: rgba(79,198,225,0.2); color: var(--info-color);">
+                <i class="fas fa-user-md"></i>
+            </div>
+        </div>
+        <!-- Card 3 -->
+        <div class="card-box"
+            style="flex: 1; min-width: 200px; display: flex; align-items: center; justify-content: space-between;">
+            <div class="widget-stat-card">
+                <h3>$2,526</h3>
+                <p class="text-muted">Avg Treat. Costs</p>
+            </div>
+            <div class="widget-icon" style="background-color: rgba(247,184,75,0.2); color: var(--warning-color);">
+                <i class="fas fa-dollar-sign"></i>
+            </div>
+        </div>
+        <!-- Card 4 -->
+        <div class="card-box"
+            style="flex: 1; min-width: 200px; display: flex; align-items: center; justify-content: space-between;">
+            <div class="widget-stat-card">
+                <h3>35</h3>
+                <p class="text-muted">Available Cars</p>
+            </div>
+            <div class="widget-icon" style="background-color: rgba(241,85,108,0.2); color: var(--danger-color);">
+                <i class="fas fa-ambulance"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row Mockup -->
+    <div class="row" style="display: flex; gap: 20px; margin-top: 20px;">
+        <div class="card-box" style="flex: 2;">
+            <h4>Out Patients vs. In Patients Trend</h4>
+            <div
+                style="height: 250px; background: #fafafa; display: flex; align-items: flex-end; justify-content: space-around; padding-bottom: 10px;">
+                <!-- Mock Bars -->
+                <div style="width: 10px; height: 40%; background: var(--primary-color);"></div>
+                <div style="width: 10px; height: 60%; background: var(--danger-color);"></div>
+                <div style="width: 10px; height: 50%; background: var(--primary-color);"></div>
+                <div style="width: 10px; height: 70%; background: var(--danger-color);"></div>
+                <div style="width: 10px; height: 80%; background: var(--primary-color);"></div>
+                <div style="width: 10px; height: 60%; background: var(--danger-color);"></div>
+                <div style="width: 10px; height: 90%; background: var(--primary-color);"></div>
+                <div style="width: 10px; height: 50%; background: var(--danger-color);"></div>
+            </div>
+        </div>
+        <div class="card-box" style="flex: 1;">
+            <h4>Bed Availability</h4>
+            <div
+                style="height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
+                <div
+                    style="width: 150px; height: 150px; border-radius: 50%; border: 10px solid #f2f4f8; border-top: 10px solid var(--primary-color);">
+                </div>
+                <span
+                    style="position: absolute; font-size: 24px; font-weight: bold; color: var(--primary-color);">117</span>
+            </div>
+            <p style="text-align: center;">Bed Availability</p>
+        </div>
+        <div class="card-box" style="flex: 1;">
+            <h4>Patients by Gender</h4>
+            <div
+                style="height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
+                <div
+                    style="width: 120px; height: 120px; border-radius: 50%; border: 10px solid var(--danger-color); border-left: 10px solid #f2f4f8;">
+                </div>
+                <span
+                    style="position: absolute; font-size: 24px; font-weight: bold; color: var(--danger-color);">86</span>
+            </div>
+            <p style="text-align: center;">Male</p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
