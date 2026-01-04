@@ -78,12 +78,29 @@
                 <!-- Add Line Form (Simple Row) -->
                 <tfoot>
                     <tr class="no-print">
-                        <form hx-post="{% url 'invoice_line_create' invoice.pk %}" hx-target="#invoice-lines"
-                            hx-swap="innerHTML" hx-on::after-request="this.reset()">
+                        <form hx-post="{% url 'invoice_line_create' invoice.pk %}" hx-target="this"
+                            hx-swap="none" hx-on::after-request="this.reset()">
                             {% csrf_token %}
-                            <td>-</td>
-                            <td><input type="text" name="description" class="form-control" placeholder="Item Name"
-                                    required></td>
+                            <td style="width: 50px; text-align: center;">{{ forloop.counter|add:1 }}</td>
+
+                            <!-- Article Selection -->
+                            <td>
+                                <div style="margin-bottom: 5px;">
+                                    <select name="article" class="form-control" onchange="updateLineDetails(this)"
+                                        style="font-size: 13px;">
+                                        <option value="">-- Select Article --</option>
+                                        {% for article in articles %}
+                                        <option value="{{ article.id }}" data-price="{{ article.price }}"
+                                            data-desc="{{ article.description }}">
+                                            {{ article.code }} - {{ article.description }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <input type="text" name="description" class="form-control"
+                                    placeholder="Item Name / Description" required>
+                            </td>
+
                             <td><input type="text" name="serial_number" class="form-control" placeholder="Serial"></td>
                             <td><input type="number" name="quantity" class="form-control" value="1"
                                     style="text-align: right;" required></td>
@@ -94,6 +111,25 @@
                                 <button type="submit" class="btn btn-primary btn-sm"><i
                                         class="fas fa-plus"></i></button>
                             </td>
+
+                            <script>
+                                function updateLineDetails(selectElement) {
+                                    const selectedOption = selectElement.options[selectElement.selectedIndex];
+                                    const price = selectedOption.getAttribute('data-price');
+                                    const description = selectedOption.getAttribute('data-desc');
+
+                                    const row = selectElement.closest('tr');
+                                    const descInput = row.querySelector('input[name="description"]');
+                                    const priceInput = row.querySelector('input[name="unit_cost"]');
+
+                                    if (price) {
+                                        priceInput.value = price;
+                                    }
+                                    if (description) {
+                                        descInput.value = description;
+                                    }
+                                }
+                            </script>
                         </form>
                     </tr>
                 </tfoot>
@@ -102,28 +138,7 @@
 
         <div class="row" style="display: flex; justify-content: flex-end; margin-top: 30px;">
             <div style="width: 30%;">
-                <p style="text-align: right; color: var(--danger-color); font-weight: 600;">Payment Due: {{
-                    invoice.due_date|date:"d/m/Y" }}</p>
-                <div style="background-color: #f4f5f7; padding: 20px; border-radius: 4px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                        <span>Sub - Total amount:</span>
-                        <span>${{ invoice.total }}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                        <span>Tax (18%):</span>
-                        <span>$0.00</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                        <span>Shipping:</span>
-                        <span>$0.00</span>
-                    </div>
-                    <hr style="border-top: 1px solid #e2e7f1;">
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; color: var(--heading-color); margin-top: 10px;">
-                        <span>Total:</span>
-                        <span>${{ invoice.total }}</span>
-                    </div>
-                </div>
+                {% include 'invoices/partials/invoice_totals.html' %}
             </div>
         </div>
 

@@ -35,7 +35,7 @@
     <script src="https://unpkg.com/htmx.org@1.9.5"></script>
 
     <script>
-        document.body.addEventListener('htmx:configRequest', (event) => {
+        document.addEventListener('htmx:configRequest', (event) => {
             event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
         });
     </script>
@@ -95,6 +95,10 @@
                         class="fas fa-tachometer-alt"></i> Dashboard</a></li>
             <li><a href="{% url 'client_list' %}" class="{% if 'clients' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i> Clientes
+                </a></li>
+            </a></li>
+            <li><a href="{% url 'article_list' %}" class="{% if 'inventory' in request.path %}active{% endif %}">
+                    <i class="fas fa-boxes"></i> Inventario
                 </a></li>
             <li><a href="{% url 'invoice_list' %}" class="{% if 'invoices' in request.path %}active{% endif %}">
                     <i class="fas fa-file-invoice-dollar"></i> Facturas

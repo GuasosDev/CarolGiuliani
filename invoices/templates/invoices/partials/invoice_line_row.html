@@ -1,0 +1,17 @@
+<tr id="line-{{ line.pk }}">
+    <td style="padding: 10px; border-bottom: 1px solid #eee;">{{ forloop.counter }}</td>
+    <td style="padding: 10px; border-bottom: 1px solid #eee;">{{ line.description }}</td>
+    <td style="padding: 10px; border-bottom: 1px solid #eee;">{{ line.serial_number|default:"-" }}</td>
+    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">{{ line.quantity }}</td>
+    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${{ line.unit_cost }}</td>
+    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${{ line.subtotal }}</td>
+    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">
+        {% if not readonly %}
+        <button class="btn-icon" style="color: var(--warning-color);" hx-get="{% url 'invoice_line_update' line.pk %}"
+            hx-target="closest tr" hx-swap="outerHTML"><i class="fas fa-edit"></i></button>
+        <button class="btn-icon" style="color: red;" hx-delete="{% url 'invoice_line_delete' line.pk %}"
+            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none" hx-confirm="Delete?"><i
+                class="fas fa-trash"></i></button>
+        {% endif %}
+    </td>
+</tr>

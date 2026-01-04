@@ -23,6 +23,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('clients/', include('clients.urls')),
     path('invoices/', include('invoices.urls')),
+    path('inventory/', include('inventory.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
     path('settings/company/', CompanySettingsUpdateView.as_view(), name='company_settings'),
     path('settings/profile/', UserProfileUpdateView.as_view(), name='user_profile'),

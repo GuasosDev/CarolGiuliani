@@ -21,11 +21,12 @@ class GenericFormMixin:
 
     def form_valid(self, form):
         self.object = form.save()
-        # Return 204 to signal success to HTMX (handled by js)
-        # Or return a script to close modal and refresh
-        response = HttpResponse(status=204)
-        response['HX-Trigger'] = 'reloadPage' 
-        return response
+        if self.request.headers.get('HX-Request'):
+            # Return 204 to signal success to HTMX (handled by js)
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'reloadPage' 
+            return response
+        return super().form_valid(form)
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'core/dashboard.html'
