@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}TPV - Punto de Venta{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" 
+                           href="{% url 'tpv:home' %}">
+                            <i class="bi bi-speedometer2"></i> Inicio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'new_sale' %}active{% endif %}" 
+                           href="{% url 'tpv:new_sale' %}">
+                            <i class="bi bi-cart-plus"></i> Nueva Venta
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'sales_list' %}active{% endif %}" 
+                           href="{% url 'tpv:sales_list' %}">
+                            <i class="bi bi-list-ul"></i> Ventas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'open_register' %}active{% endif %}" 
+                           href="{% url 'tpv:open_register' %}">
+                            <i class="bi bi-cash-coin"></i> Caja
+                        </a>
+                    </li>
+                </ul>
+                
+                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                    <span>Estado de Caja</span>
+                </h6>
+                <ul class="nav flex-column mb-2">
+                    {% if open_register %}
+                    <li class="nav-item">
+                        <div class="alert alert-success small p-2 mb-0">
+                            <strong>Caja Abierta</strong><br>
+                            <small>Saldo Inicial: ${{ open_register.opening_balance|floatformat:2 }}</small><br>
+                            <small>Hora: {{ open_register.opening_time|time:"H:i" }}</small>
+                        </div>
+                        <a href="{% url 'tpv:close_register' %}" class="btn btn-sm btn-outline-danger w-100 mt-2">
+                            Cerrar Caja
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <div class="alert alert-warning small p-2">
+                            <strong>Caja Cerrada</strong><br>
+                            <small>Debe abrir caja para vender</small>
+                        </div>
+                        <a href="{% url 'tpv:open_register' %}" class="btn btn-sm btn-outline-success w-100">
+                            Abrir Caja
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">{% block page_title %}{% endblock %}</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    {% block header_actions %}{% endblock %}
+                </div>
+            </div>
+
+            {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% block tpv_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-hide alerts after 5 seconds
+setTimeout(function() {
+    var alerts = document.querySelectorAll('.alert');
+    alerts.forEach(function(alert) {
+        var bsAlert = new bootstrap.Alert(alert);
+        bsAlert.close();
+    });
+}, 5000);
+</script>
+{% endblock %}

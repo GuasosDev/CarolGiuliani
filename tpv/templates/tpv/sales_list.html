@@ -1,0 +1,86 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Historial de Ventas</h2>
+            <a href="{% url 'tpv:home' %}" class="btn btn-secondary">Volver al TPV</a>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <table id="salesTable" class="table table-striped table-bordered" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Vendedor</th>
+                            <th>Método Pago</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in sales %}
+                        <tr>
+                            <td>{{ sale.code }}</td>
+                            <td>{{ sale.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>{{ sale.customer.name|default:"Consumidor Final" }}</td>
+                            <td>{{ sale.seller.username }}</td>
+                            <td>{{ sale.get_payment_method_display }}</td>
+                            <td>${{ sale.total }}</td>
+                            <td>
+                                {% if sale.status == 'completed' %}
+                                <span class="badge bg-success">Completada</span>
+                                {% elif sale.status == 'cancelled' %}
+                                <span class="badge bg-danger">Cancelada</span>
+                                {% else %}
+                                <span class="badge bg-warning">{{ sale.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'tpv:sale_detail' sale.id %}" class="btn btn-sm btn-info"
+                                    title="Ver Detalle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'tpv:receipt' sale.id %}" target="_blank"
+                                    class="btn btn-sm btn-secondary" title="Imprimir Ticket">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                                {% if request.user.is_staff and sale.cash_register and sale.cash_register.status == 'open' and sale.status != 'cancelled' %}
+                                <a href="{% url 'tpv:modify_sale' sale.id %}" class="btn btn-sm btn-warning"
+                                    title="Editar Venta">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="post" action="{% url 'tpv:delete_sale' sale.id %}" style="display:inline;"
+                                    onsubmit="return confirm('¿Está seguro de eliminar esta venta? Se revertirá el stock.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar Venta">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#salesTable').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+            },
+            order: [[1, "desc"]]
+        });
+    });
+</script>
+{% endblock %}

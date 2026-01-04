@@ -1,0 +1,228 @@
+{% extends 'tpv/base.html' %}
+{% load static %}
+
+{% block page_title %}Nueva Venta{% endblock %}
+
+{% block header_actions %}
+<button type="button" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#addProductModal">
+    <i class="bi bi-plus-lg"></i> Agregar Producto
+</button>
+<button type="button" class="btn btn-outline-success me-2" data-bs-toggle="modal" data-bs-target="#checkoutModal">
+    <i class="bi bi-credit-card"></i> Cobrar
+</button>
+<button type="button" class="btn btn-outline-secondary" id="clearCart">
+    <i class="bi bi-trash"></i> Limpiar
+</button>
+{% endblock %}
+
+{% block tpv_content %}
+<div class="row">
+    <!-- Lista de productos en el carrito -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Productos</h5>
+                <div>
+                    <span class="badge bg-primary" id="cart-count">0</span> productos
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="cart-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Producto</th>
+                                <th class="text-center" style="width: 120px;">Cantidad</th>
+                                <th class="text-end" style="width: 120px;">Precio</th>
+                                <th class="text-end" style="width: 120px;">Subtotal</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cart-items">
+                            <!-- Los productos se agregarán aquí dinámicamente -->
+                            <tr id="empty-cart-message">
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="bi bi-cart-x fs-1 d-block mb-2"></i>
+                                    <span>El carrito está vacío</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen de la venta -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Resumen de Venta</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Subtotal:</span>
+                    <span id="subtotal">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>IVA (16%):</span>
+                    <span id="tax">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Descuento:</span>
+                    <div class="input-group input-group-sm" style="width: 120px;">
+                        <span class="input-group-text">$</span>
+                        <input type="number" class="form-control" id="discount" value="0.00" min="0" step="0.01">
+                    </div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <h5>Total:</h5>
+                    <h4 id="total">$0.00</h4>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="payment-method" class="form-label">Método de pago</label>
+                    <select class="form-select" id="payment-method">
+                        <option value="cash">Efectivo</option>
+                        <option value="card">Tarjeta</option>
+                        <option value="transfer">Transferencia</option>
+                    </select>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary btn-lg" id="checkout-btn" disabled>
+                        <i class="bi bi-credit-card"></i> Cobrar
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Teclado numérico -->
+        <div class="card">
+            <div class="card-body p-2">
+                <div class="row g-2">
+                    {% for num in "123456789"|make_list %}
+                    <div class="col-4">
+                        <button class="btn btn-outline-secondary w-100 num-btn" data-num="{{ num }}">{{ num }}</button>
+                    </div>
+                    {% endfor %}
+                    <div class="col-4">
+                        <button class="btn btn-outline-secondary w-100 num-btn" data-num=".">.</button>
+                    </div>
+                    <div class="col-4">
+                        <button class="btn btn-outline-secondary w-100 num-btn" data-num="0">0</button>
+                    </div>
+                    <div class="col-4">
+                        <button class="btn btn-outline-danger w-100" id="backspace">
+                            <i class="bi bi-backspace"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar producto -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                        <input type="text" class="form-control" id="barcode-input" 
+                               placeholder="Escanear código de barras o buscar producto..." autofocus>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover" id="products-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th style="width: 120px;">Cantidad</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="search-results">
+                            <!-- Los resultados de búsqueda se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de pago -->
+<div class="modal fade" id="checkoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Pago</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="checkout-form">
+                    <div class="mb-3">
+                        <label for="total-amount" class="form-label">Total a Pagar</label>
+                        <input type="text" class="form-control form-control-lg text-end fw-bold" 
+                               id="total-amount" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="amount-received" class="form-label">Recibido</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control text-end" 
+                                   id="amount-received" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="change" class="form-label">Cambio</label>
+                        <input type="text" class="form-control form-control-lg text-end fw-bold" 
+                               id="change" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="customer" class="form-label">Cliente (opcional)</label>
+                        <select class="form-select" id="customer" name="customer">
+                            <option value="">Seleccionar cliente...</option>
+                            <!-- Se cargarán los clientes dinámicamente -->
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notas</label>
+                        <textarea class="form-control" id="notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="confirm-payment">
+                    <i class="bi bi-check-lg"></i> Confirmar Pago
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/tpv.js' %}"></script>
+{% endblock %}

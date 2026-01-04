@@ -1,0 +1,84 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Detalle de Venta #{{ sale.code }}</h2>
+        <div>
+            <a href="{% url 'tpv:receipt' sale.id %}" target="_blank" class="btn btn-primary"><i
+                    class="fas fa-print"></i> Imprimir Ticket</a>
+            <a href="{% url 'tpv:sales_list' %}" class="btn btn-secondary">Volver</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Información General
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>Fecha:</strong> {{ sale.created_at }}</p>
+                    <p><strong>Vendedor:</strong> {{ sale.seller.username }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Cliente:</strong> {{ sale.customer.name|default:"Consumidor Final" }}</p>
+                    <p><strong>Método de Pago:</strong> {{ sale.get_payment_method_display }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Estado:</strong> {{ sale.get_status_display }}</p>
+                    <p><strong>ID Venta:</strong> {{ sale.id }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            Items
+        </div>
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Artículo</th>
+                        <th>Cantidad</th>
+                        <th>Precio Unit.</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sale.items.all %}
+                    <tr>
+                        <td>{{ item.article.description }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>${{ item.unit_price }}</td>
+                        <td>${{ item.subtotal }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3" class="text-end">Subtotal:</th>
+                        <th>${{ sale.subtotal }}</th>
+                    </tr>
+                    {% if sale.discount > 0 %}
+                    <tr>
+                        <th colspan="3" class="text-end">Descuento:</th>
+                        <th>-${{ sale.discount }}</th>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th colspan="3" class="text-end">
+                            <h3>Total:</h3>
+                        </th>
+                        <th>
+                            <h3>${{ sale.total }}</h3>
+                        </th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
