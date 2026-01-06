@@ -22,6 +22,7 @@ def tpv_home(request):
     ).first()
     
     context = {
+        'title': 'Punto de Venta',
         'active_register': active_register,
         'recent_sales': Sale.objects.filter(seller=request.user).order_by('-created_at')[:5]
     }

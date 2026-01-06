@@ -7,6 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GuasosDev Soft - Admin</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'core/images/favicon.ico' %}">
+
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
 
@@ -90,13 +93,15 @@
     </header>
 
     <nav class="navbar">
-        <ul class="nav-links">
+        <button class="navbar-toggler" id="navbar-toggler" aria-label="Toggle navigation">
+            <i class="fas fa-bars"></i>
+        </button>
+        <ul class="nav-links" id="nav-links">
             <li><a href="{% url 'dashboard' %}" class="{% if request.path == '/' %}active{% endif %}"><i
                         class="fas fa-tachometer-alt"></i> Dashboard</a></li>
             <li><a href="{% url 'client_list' %}" class="{% if 'clients' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i> Clientes
                 </a></li>
-            </a></li>
             <li><a href="{% url 'article_list' %}" class="{% if 'inventory' in request.path %}active{% endif %}">
                     <i class="fas fa-boxes"></i> Inventario
                 </a></li>
