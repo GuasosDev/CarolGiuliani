@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from core.views import DashboardView, CompanySettingsUpdateView, UserProfileUpdateView
 
 urlpatterns = [
@@ -25,7 +27,12 @@ urlpatterns = [
     path('invoices/', include('invoices.urls')),
     path('tpv/', include('tpv.urls')),
     path('inventory/', include('inventory.urls')),
+    path('communications/', include('communications.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
     path('settings/company/', CompanySettingsUpdateView.as_view(), name='company_settings'),
     path('settings/profile/', UserProfileUpdateView.as_view(), name='user_profile'),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

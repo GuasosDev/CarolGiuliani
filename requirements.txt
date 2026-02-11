@@ -1,3 +1,13 @@
 Django==5.2.9
 xhtml2pdf==0.2.17
 # Dependencies for the above packages (e.g. reportlab, pillow, etc.) will be installed automatically.
+
+# Multichannel Communication System
+channels==4.0.0
+channels-redis==4.1.0
+djangorestframework==3.14.0
+celery==5.3.4
+redis==5.0.1
+requests==2.31.0
+cryptography==41.0.7
+daphne==4.0.0
