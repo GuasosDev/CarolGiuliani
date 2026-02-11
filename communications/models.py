@@ -381,7 +381,7 @@ class EmailMessage(models.Model):
     plain_body = models.TextField(blank=True, null=True, verbose_name="Cuerpo Texto Plano")
     
     # Email headers for threading
-    message_id = models.CharField(max_length=255, unique=True, verbose_name="Message-ID")
+    email_message_id = models.CharField(max_length=255, unique=True, verbose_name="Message-ID")
     in_reply_to = models.CharField(max_length=255, blank=True, null=True, verbose_name="In-Reply-To")
     references = models.TextField(blank=True, null=True, verbose_name="References")
     

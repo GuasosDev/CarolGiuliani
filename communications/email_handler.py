@@ -193,7 +193,7 @@ class EmailHandler:
                 subject=subject,
                 html_body=html_body,
                 plain_body=plain_body,
-                message_id=message_id,
+                email_message_id=message_id,
                 in_reply_to=in_reply_to,
                 references=references,
                 thread=email_thread,
@@ -248,7 +248,7 @@ class EmailHandler:
         if in_reply_to or references:
             existing_thread = EmailThread.objects.filter(
                 conversation__contact=contact,
-                messages__message_id__in=[in_reply_to] if in_reply_to else []
+                messages__email_message_id__in=[in_reply_to] if in_reply_to else []
             ).first()
             
             if existing_thread:
@@ -275,7 +275,7 @@ class EmailHandler:
         if in_reply_to:
             existing_thread = EmailThread.objects.filter(
                 conversation=conversation,
-                messages__message_id=in_reply_to
+                messages__email_message_id=in_reply_to
             ).first()
             
             if existing_thread:
@@ -368,7 +368,7 @@ class EmailHandler:
                     subject=subject,
                     html_body=html_body,
                     plain_body=body,
-                    message_id=msg['Message-ID'],
+                    email_message_id=msg['Message-ID'],
                     to_addresses=to_addresses,
                     cc_addresses=cc_addresses or [],
                     bcc_addresses=bcc_addresses or [],
