@@ -111,6 +111,9 @@
             <li><a href="{% url 'tpv:home' %}" class="{% if 'tpv' in request.path %}active{% endif %}">
                     <i class="fas fa-cash-register"></i> TPV
                 </a></li>
+            <li><a href="{% url 'communications:dashboard' %}" class="{% if 'communications' in request.path %}active{% endif %}">
+                    <i class="fas fa-comments"></i> Communications
+                </a></li>
         </ul>
     </nav>
 

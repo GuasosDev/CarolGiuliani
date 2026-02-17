@@ -1,0 +1,62 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Supervisor{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="fw-bold">Conversaciones Totales</div>
+                    <div class="display-6">{{ total_conversations }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="fw-bold">Abiertas</div>
+                    <div class="display-6">{{ open_conversations }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="fw-bold">Cerradas Hoy</div>
+                    <div class="display-6">{{ closed_today }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">Carga de Trabajo</div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Agente</th>
+                            <th>Conversaciones Activas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in agent_stats %}
+                        <tr>
+                            <td>{{ s.agent.get_username }}</td>
+                            <td>{{ s.active_conversations }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center">Sin datos</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

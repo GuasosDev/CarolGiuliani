@@ -1,0 +1,49 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Configuración de Comunicaciones{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">Cuentas de WhatsApp</div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for wa in whatsapp_accounts %}
+                        <div class="list-group-item">
+                            <div class="fw-bold">{{ wa.name }}</div>
+                            <div class="text-muted">{{ wa.phone_number }}</div>
+                            <span class="badge bg-{% if wa.is_active %}success{% else %}secondary{% endif %}">
+                                {% if wa.is_active %}Activa{% else %}Inactiva{% endif %}
+                            </span>
+                        </div>
+                        {% empty %}
+                        <div class="text-muted">Sin cuentas configuradas</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">Cuentas de Email</div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for ea in email_accounts %}
+                        <div class="list-group-item">
+                            <div class="fw-bold">{{ ea.name }}</div>
+                            <div class="text-muted">{{ ea.email_address }}</div>
+                            <span class="badge bg-primary">{{ ea.get_provider_display }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="text-muted">Sin cuentas configuradas</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

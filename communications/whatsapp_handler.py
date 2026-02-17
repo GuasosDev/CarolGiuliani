@@ -17,6 +17,13 @@ from .assignment_system import assign_conversation_to_agent
 logger = logging.getLogger(__name__)
 
 
+def normalize_phone_number(number):
+    if not number:
+        return number
+    digits = ''.join(ch for ch in str(number) if ch.isdigit())
+    return digits
+
+
 class WhatsAppHandler:
     """Handler for WhatsApp Business API operations"""
     
@@ -30,6 +37,7 @@ class WhatsAppHandler:
     
     def send_text_message(self, to_number, message_text, conversation=None):
         """Send a text message via WhatsApp"""
+        to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
         
         payload = {
@@ -50,7 +58,6 @@ class WhatsAppHandler:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id')
             
-            # Create message record
             if conversation:
                 message = Message.objects.create(
                     conversation=conversation,
@@ -71,12 +78,21 @@ class WhatsAppHandler:
             logger.info(f"WhatsApp message sent: {message_id}")
             return True, message_id
             
+        except requests.exceptions.HTTPError as e:
+            error_body = None
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+            logger.error(f"Error sending WhatsApp message: {error_body}")
+            return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False, str(e)
     
     def send_media_message(self, to_number, media_type, media_id, caption=None, conversation=None):
         """Send a media message (image, document, audio, video)"""
+        to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
         
         payload = {
@@ -99,7 +115,6 @@ class WhatsAppHandler:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id')
             
-            # Create message record
             if conversation:
                 message = Message.objects.create(
                     conversation=conversation,
@@ -122,12 +137,21 @@ class WhatsAppHandler:
             logger.info(f"WhatsApp media message sent: {message_id}")
             return True, message_id
             
+        except requests.exceptions.HTTPError as e:
+            error_body = None
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+            logger.error(f"Error sending WhatsApp media message: {error_body}")
+            return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp media message: {str(e)}")
             return False, str(e)
     
     def send_template_message(self, to_number, template_name, language_code, components=None):
         """Send a template message"""
+        to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
         
         payload = {
@@ -155,6 +179,14 @@ class WhatsAppHandler:
             logger.info(f"WhatsApp template message sent: {message_id}")
             return True, message_id
             
+        except requests.exceptions.HTTPError as e:
+            error_body = None
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+            logger.error(f"Error sending WhatsApp template message: {error_body}")
+            return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp template message: {str(e)}")
             return False, str(e)

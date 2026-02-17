@@ -13,8 +13,8 @@
         <div class="col-md-12">
             <h2>Dashboard de Comunicaciones</h2>
             
-            <!-- Stats Cards -->
-            <div class="row mb-4">
+            <!-- Stats Cards + Actions -->
+            <div class="row mb-4 align-items-center">
                 <div class="col-md-4">
                     <div class="card">
                         <div class="card-body">
@@ -31,72 +31,59 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 d-flex justify-content-between align-items-center">
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title">Total</h5>
                             <h2>{{ conversations.count }}</h2>
                         </div>
                     </div>
+                    <button class="btn btn-primary ms-3"
+                            hx-get="{% url 'communications:contact_create' %}"
+                            hx-target="#modal-body"
+                            onclick="openModal()">
+                        <i class="fas fa-user-plus"></i> Nuevo contacto
+                    </button>
                 </div>
             </div>
             
-            <!-- Conversations List -->
+            <!-- Clients List -->
             <div class="card">
                 <div class="card-header">
-                    <h5>Mis Conversaciones</h5>
+                    <h5>Contactos</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Contacto</th>
-                                    <th>Canal</th>
-                                    <th>Estado</th>
-                                    <th>Prioridad</th>
-                                    <th>Último Mensaje</th>
+                                    <th>Cliente</th>
+                                    <th>Email</th>
+                                    <th>Teléfono</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody id="conversations-list">
-                                {% for conversation in conversations %}
-                                <tr data-conversation-id="{{ conversation.id }}">
+                            <tbody>
+                                {% for client in clients %}
+                                <tr>
                                     <td>
-                                        {% if conversation.contact.client %}
-                                            {{ conversation.contact.client.name }}
-                                        {% else %}
-                                            Contacto Desconocido
-                                        {% endif %}
+                                        {{ client.name }}
                                     </td>
                                     <td>
-                                        <span class="badge bg-{% if conversation.channel == 'whatsapp' %}success{% else %}primary{% endif %}">
-                                            {{ conversation.get_channel_display }}
-                                        </span>
+                                        {{ client.email }}
                                     </td>
                                     <td>
-                                        <span class="badge bg-{% if conversation.status == 'open' %}warning{% elif conversation.status == 'assigned' %}info{% else %}secondary{% endif %}">
-                                            {{ conversation.get_status_display }}
-                                        </span>
+                                        {{ client.phone }}
                                     </td>
                                     <td>
-                                        <span class="badge bg-{% if conversation.priority == 'urgent' %}danger{% elif conversation.priority == 'high' %}warning{% else %}secondary{% endif %}">
-                                            {{ conversation.get_priority_display }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <small>{{ conversation.last_message_at|timesince }} ago</small><br>
-                                        <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10 }}</small>
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'communications:conversation_detail' conversation.id %}" class="btn btn-sm btn-primary">
-                                            Ver
+                                        <a href="{% url 'communications:open_client_whatsapp' client.id %}" class="btn btn-sm btn-primary">
+                                            Abrir chat
                                         </a>
                                     </td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="6" class="text-center">No hay conversaciones asignadas</td>
+                                    <td colspan="4" class="text-center">No hay clientes cargados</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

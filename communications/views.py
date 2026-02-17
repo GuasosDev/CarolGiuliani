@@ -7,11 +7,14 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.urls import reverse_lazy
 import json
 import logging
-from .models import Conversation, Contact, Message
+from .models import Conversation, Contact, Message, WhatsAppAccount
 from .whatsapp_handler import process_whatsapp_webhook
-from .assignment_system import get_agent_conversations
+from .assignment_system import get_agent_conversations, assign_conversation_to_agent
+from clients.models import Client
+from core.views import GenericCreateView
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +23,53 @@ logger = logging.getLogger(__name__)
 def dashboard(request):
     """Main communication dashboard"""
     # Get user's conversations
-    conversations = get_agent_conversations(request.user).filter(
+    base_qs = get_agent_conversations(request.user).filter(
         status__in=['open', 'assigned', 'pending']
-    )[:50]
+    )
+    conversations = base_qs[:50]
+    clients = Client.objects.all().order_by('name')[:200]
     
     context = {
         'conversations': conversations,
-        'active_count': conversations.filter(status='assigned').count(),
-        'pending_count': conversations.filter(status='pending').count(),
+        'active_count': base_qs.filter(status='assigned').count(),
+        'pending_count': base_qs.filter(status='pending').count(),
+        'clients': clients,
     }
     
     return render(request, 'communications/dashboard.html', context)
+
+
+@login_required
+def open_client_whatsapp(request, client_id):
+    client = get_object_or_404(Client, pk=client_id)
+    contact, _ = Contact.objects.get_or_create(
+        client=client,
+        defaults={'preferred_channel': 'whatsapp'}
+    )
+    
+    conversation = Conversation.objects.filter(
+        contact=contact,
+        channel='whatsapp',
+        status__in=['open', 'assigned', 'pending']
+    ).first()
+    
+    if not conversation:
+        conversation = Conversation.objects.create(
+            contact=contact,
+            channel='whatsapp',
+            status='open',
+            priority='normal'
+        )
+        assign_conversation_to_agent(conversation, agent=request.user, assigned_by=request.user)
+    
+    return redirect('communications:conversation_detail', pk=conversation.pk)
+
+
+class ContactCreateView(GenericCreateView):
+    model = Contact
+    fields = ['client', 'whatsapp_number', 'preferred_channel', 'notes']
+    title = "Nuevo Contacto de Comunicación"
+    success_url = reverse_lazy('communications:dashboard')
 
 
 @login_required
@@ -46,11 +85,19 @@ def conversation_detail(request, pk):
     
     messages = conversation.messages.all().order_by('created_at')
     notes = conversation.internal_notes.all()
+    sidebar_conversations = get_agent_conversations(request.user).filter(
+        status__in=['open', 'assigned', 'pending'],
+        channel='whatsapp'
+    )[:50]
+    whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
     
     context = {
         'conversation': conversation,
         'messages': messages,
         'notes': notes,
+        'clients': Client.objects.all().order_by('name')[:100],
+        'sidebar_conversations': sidebar_conversations,
+        'whatsapp_account': whatsapp_account,
     }
     
     return render(request, 'communications/conversation_detail.html', context)
