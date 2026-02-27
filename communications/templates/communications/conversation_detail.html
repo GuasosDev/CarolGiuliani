@@ -1,141 +1,307 @@
-{% extends "core/base.html" %}
+{% extends "communications/communications_base.html" %}
 {% load static %}
 
-{% block title %}WhatsApp - {{ conversation.contact.client.name }}{% endblock %}
+{% block title %}Mensajes - OmniFlow{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
-{% endblock %}
+{% block comm_content %}
+<div class="omni-chat-wrapper">
 
-{% block content %}
-<div class="container-fluid mt-3">
-    <div class="row">
-        <div class="col-lg-3 border-end">
-            <h5 class="mb-3">Contacts</h5>
-            <div class="mb-3">
-                <input type="text" class="form-control" placeholder="Search contacts...">
+    <!-- Left Chat List Sidebar -->
+    <div class="omni-chat-sidebar">
+        <div class="p-4 border-bottom">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0 text-dark">Mensajes</h4>
+                <button class="btn btn-sm btn-light text-primary rounded-circle"><i class="fas fa-edit"></i></button>
             </div>
-            <div class="list-group">
-                {% for conv in sidebar_conversations %}
-                <a href="{% url 'communications:conversation_detail' conv.id %}"
-                   class="list-group-item list-group-item-action {% if conv.id == conversation.id %}active{% endif %}">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            {% if conv.contact.client %}
-                                <div class="fw-semibold">{{ conv.contact.client.name }}</div>
-                                <div class="small text-muted">{{ conv.contact.client.email }}</div>
-                            {% else %}
-                                <div class="fw-semibold">Contacto sin nombre</div>
-                            {% endif %}
-                        </div>
-                        <div class="small text-muted text-end">
-                            {% if conv.last_message_at %}
-                                {{ conv.last_message_at|timesince }} ago
-                            {% endif %}
-                        </div>
-                    </div>
-                </a>
-                {% empty %}
-                <div class="text-muted">Sin conversaciones</div>
-                {% endfor %}
+
+            <div class="omni-search-bar mb-0">
+                <i class="fas fa-search"></i>
+                <input type="text" class="omni-search-input" placeholder="Buscar conversaciones...">
+            </div>
+
+            <div class="chat-filters">
+                <button class="chat-filter-btn active">Todos</button>
+                <button class="chat-filter-btn">Sin leer</button>
+                <button class="chat-filter-btn">Míos</button>
+                <button class="chat-filter-btn">Pendientes</button>
             </div>
         </div>
 
-        <div class="col-lg-6">
-            <div class="d-flex align-items-center mb-3">
-                <div class="me-3">
-                    <div class="rounded-circle bg-secondary" style="width:48px;height:48px;"></div>
+        <div class="omni-conversation-list">
+            {% for conv in sidebar_conversations %}
+            <a href="{% url 'communications:conversation_detail' conv.id %}"
+                class="omni-conv-item {% if conv.id == conversation.id %}active{% endif %}">
+                <div class="omni-avatar bg-primary conv-avatar">
+                    {{ conv.contact.client.name|make_list|first|upper|default:"?" }}
+                </div>
+                <div class="conv-info">
+                    <div class="conv-info-top">
+                        <span class="conv-name text-dark">{{ conv.contact.client.name|default:"Desconocido" }}</span>
+                        <span class="conv-time">
+                            {% if conv.last_message_at %}{{ conv.last_message_at|time:"H:i" }}{% else %}Hoy{% endif %}
+                        </span>
+                    </div>
+                    <div class="conv-preview fw-bold text-dark">
+                        {% if conv.messages.last %}
+                        {{ conv.messages.last.content|truncatechars:30 }}
+                        {% else %}
+                        Inicia la conversación...
+                        {% endif %}
+                    </div>
+                    <div class="conv-badges">
+                        {% if conv.channel == 'whatsapp' %}
+                        <span class="omni-badge badge-whatsapp" style="font-size: 0.6rem; padding: 2px 6px;"><i
+                                class="fab fa-whatsapp"></i> WhatsApp</span>
+                        {% else %}
+                        <span class="omni-badge badge-email" style="font-size: 0.6rem; padding: 2px 6px;"><i
+                                class="fas fa-envelope"></i> Email</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="text-center p-4 text-muted">Sin conversaciones activas</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Main Chat Workspace -->
+    <div class="omni-chat-main">
+        <div class="omni-chat-header bg-white">
+            <div class="d-flex align-items-center">
+                <div class="omni-avatar bg-secondary me-3" style="width: 45px; height: 45px; font-size: 1.2rem;">
+                    {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
                 </div>
                 <div>
-                    <h5 class="mb-0">{{ conversation.contact.client.name }}</h5>
-                    <div class="small text-muted">
-                        {{ conversation.contact.client.email }} • {{ conversation.contact.client.phone }}
+                    <h5 class="mb-0 fw-bold text-dark">{{ conversation.contact.client.name|default:"Desconocido" }}
+                        <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span></h5>
+                    <div class="small text-muted mt-1">
+                        <i class="fas fa-envelope me-1"></i> {{ conversation.contact.client.email|default:"Sin email" }}
+                        •
+                        <i class="fas fa-phone me-1"></i> {{
+                        conversation.contact.whatsapp_number|default:conversation.contact.client.phone }}
                     </div>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">Multichannel History</h6>
-                <div class="btn-group btn-group-sm" role="group">
-                    <button type="button" class="btn btn-outline-secondary active">All Activity</button>
-                    <button type="button" class="btn btn-outline-secondary">WhatsApp</button>
-                </div>
-            </div>
-
-            <div class="mb-3" style="height:55vh; overflow-y:auto;">
-                {% for m in messages %}
-                    {% if m.message_type == 'whatsapp' %}
-                    <div class="mb-3">
-                        <div class="small text-muted">
-                            WhatsApp Message • {{ m.created_at }}
-                        </div>
-                        <div class="p-3 rounded border {% if m.direction == 'outbound' %}bg-primary text-white border-primary{% else %}bg-white{% endif %}">
-                            {{ m.content }}
-                        </div>
-                    </div>
-                    {% endif %}
-                {% empty %}
-                <div class="text-muted">Sin mensajes aún.</div>
-                {% endfor %}
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-                    {% if whatsapp_account %}
-                    <form method="post" action="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/">
-                        {% csrf_token %}
-                        <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
-                        <input type="hidden" name="to_number" value="{{ conversation.contact.whatsapp_number|default:conversation.contact.client.phone }}">
-                        <div class="mb-2">
-                            <textarea class="form-control" name="message" rows="3" placeholder="Escribe un mensaje de WhatsApp"></textarea>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <div></div>
-                            <button type="submit" class="btn btn-primary">
-                                Enviar WhatsApp
-                            </button>
-                        </div>
-                    </form>
-                    {% else %}
-                    <div class="alert alert-warning mb-0">
-                        Configura una cuenta de WhatsApp activa en <a href="{% url 'communications:settings' %}">Settings</a>.
-                    </div>
-                    {% endif %}
-                </div>
+            <div class="chat-header-actions d-flex">
+                <button class="btn btn-outline-secondary d-flex align-items-center bg-light border-0 fw-bold">
+                    <i class="fas fa-exchange-alt me-2"></i> Transferir
+                </button>
+                <form method="post" action="{% url 'communications:dashboard' %}" class="mb-0 ms-2">
+                    {% csrf_token %}
+                    <!-- Logic to close conv usually has an endpoint, using dashboard redirect loosely -->
+                    <button type="button" class="btn btn-success fw-bold px-4"
+                        style="background-color: var(--omni-success); border-color: var(--omni-success);">
+                        Cerrar Conversación
+                    </button>
+                </form>
             </div>
         </div>
 
-        <div class="col-lg-3 border-start">
-            <h6>Internal Notes</h6>
-            <div class="mb-3" style="max-height:30vh; overflow-y:auto;">
-                {% for n in notes %}
-                <div class="mb-2">
-                    <div class="small text-muted">{{ n.author.username }} • {{ n.created_at }}</div>
-                    <div class="p-2 rounded bg-warning-subtle">
-                        {{ n.content }}
+        <div class="omni-messages-area bg-light" id="chatMessagesArea">
+            <div class="date-divider">
+                <span>HOY</span>
+            </div>
+
+            {% for m in messages %}
+            <div class="omni-msg-row {% if m.direction == 'outbound' %}outbound{% else %}inbound{% endif %}">
+                <div
+                    class="omni-avatar {% if m.direction == 'inbound' %}bg-secondary{% else %}bg-primary{% endif %} msg-avatar">
+                    {% if m.direction == 'inbound' %}
+                    {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+                    {% else %}
+                    {{ request.user.username|make_list|first|upper }}
+                    {% endif %}
+                </div>
+
+                <div class="msg-content-wrapper">
+                    <div class="msg-header">
+                        <span class="fw-bold text-dark">
+                            {% if m.direction == 'inbound' %}
+                            {{ conversation.contact.client.name|default:m.sender }}
+                            {% else %}
+                            Tú
+                            {% endif %}
+                        </span>
+                        {% if m.message_type == 'whatsapp' %}
+                        <span class="ms-1 text-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
+                        {% else %}
+                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="msg-bubble">
+                        {{ m.content|linebreaksbr }}
+                    </div>
+
+                    <div class="message-meta d-flex justify-content-between">
+                        <span>{{ m.created_at|time:"h:i A" }}</span>
+                        {% if m.direction == 'outbound' %}
+                        <span class="text-primary ms-2"><i class="fas fa-check-double"></i> Entregado</span>
+                        {% endif %}
                     </div>
                 </div>
-                {% empty %}
-                <div class="text-muted">Sin notas.</div>
-                {% endfor %}
             </div>
-            <form method="post" action="/communications/api/notes/">
-                {% csrf_token %}
-                <input type="hidden" name="conversation" value="{{ conversation.id }}">
-                <div class="mb-2">
-                    <textarea class="form-control" name="content" rows="3" placeholder="Agregar nota interna"></textarea>
+            {% empty %}
+            <div class="text-center text-muted my-auto w-100">No hay mensajes en esta conversación. Comienza a chatear.
+            </div>
+            {% endfor %}
+
+            <!-- System notification mock for Multichannel detect (Image 1 reference in modern OmniFlow look) -->
+            {% if conversation.channel == 'multichannel' %}
+            <div class="d-flex justify-content-center w-100 my-3">
+                <div class="multichannel-detect shadow-sm">
+                    <i class="fas fa-sync-alt"></i> Conversación multicanal detectada - WhatsApp + Email vinculados
                 </div>
-                <button type="submit" class="btn btn-secondary btn-sm">Guardar nota</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="omni-chat-input-area">
+            {% if whatsapp_account %}
+            <form method="post" action="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/"
+                id="messageForm">
+                {% csrf_token %}
+                <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+                <input type="hidden" name="to_number"
+                    value="{{ conversation.contact.whatsapp_number|default:conversation.contact.client.phone }}">
+
+                <div class="chat-input-tools d-flex justify-content-between align-items-center">
+                    <div class="d-flex gap-1 bg-light rounded-pill p-1">
+                        <button type="button"
+                            class="btn btn-sm btn-white rounded-pill px-3 active text-success shadow-sm"><i
+                                class="fab fa-whatsapp me-1"></i> WhatsApp</button>
+                        <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-muted"><i
+                                class="fas fa-envelope me-1"></i> Email</button>
+                        <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-muted"><i
+                                class="fas fa-sticky-note me-1"></i> Nota Interna</button>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="button" class="tool-btn"><i class="fas fa-bolt"></i></button>
+                        <button type="button" class="tool-btn"><i class="fas fa-paperclip"></i></button>
+                        <button type="button" class="tool-btn"><i class="fas fa-file-alt"></i></button>
+                    </div>
+                </div>
+
+                <div class="chat-input-box mt-3 bg-white p-2 rounded border focus-ring-primary"
+                    style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                    <textarea class="form-control border-0 shadow-none" name="message" rows="1"
+                        placeholder="Escribe un mensaje a {{ conversation.contact.client.name|default:" el contacto"
+                        }}..."></textarea>
+
+                    <button type="submit" class="btn-send ms-2">
+                        <i class="fas fa-paper-plane"></i> Responder
+                    </button>
+                </div>
+                <div class="d-flex justify-content-between px-2 mt-2">
+                    <div class="small text-muted" style="font-size: 0.7rem;">Presiona <strong>Enter</strong> para
+                        enviar, <strong>Shift+Enter</strong> para nueva línea.</div>
+                    <div class="small fw-bold" style="font-size: 0.7rem; color: var(--omni-whatsapp);"><span
+                            class="status-dot online"></span> CLIENTE EN LÍNEA VÍA WHATSAPP</div>
+                </div>
             </form>
+            {% else %}
+            <div class="alert alert-warning mb-0 text-center rounded-3">
+                <i class="fas fa-exclamation-triangle me-2"></i> Configura una cuenta de WhatsApp activa en <a
+                    href="{% url 'communications:settings' %}" class="fw-bold text-dark">Configuración</a> para enviar
+                mensajes.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right side Details Sidebar -->
+    <div class="omni-chat-details">
+        <div class="p-4 text-center border-bottom bg-white">
+            <div class="omni-avatar bg-warning mx-auto mb-3"
+                style="width: 80px; height: 80px; font-size: 2rem; box-shadow: 0 5px 15px rgba(255,184,34,0.3);">
+                {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+            </div>
+
+            <h5 class="fw-bold text-dark mb-1">{{ conversation.contact.client.name|default:"Desconocido" }}</h5>
+            <div class="text-muted small mb-3">Cliente • <span class="omni-badge status-active">ACTIVO</span></div>
+        </div>
+
+        <div class="flex-grow-1 overflow-auto">
+            <div class="details-section">
+                <h6 class="details-title">Datos del Cliente</h6>
+
+                <div class="detail-item text-dark">
+                    <i class="fas fa-building text-center"></i>
+                    <div>{{ conversation.contact.client.company|default:"Sin Empresa" }}</div>
+                </div>
+                <div class="detail-item text-dark">
+                    <i class="fas fa-map-marker-alt text-center"></i>
+                    <div>{{ conversation.contact.client.address|default:"Sin Ubicación" }}</div>
+                </div>
+                <div class="detail-item text-dark">
+                    <i class="far fa-clock text-center"></i>
+                    <div>Hora Local: {% now "H:i A" %}</div>
+                </div>
+            </div>
+
+            <div class="details-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="details-title mb-0">Etiquetas</h6>
+                    <button class="btn btn-sm btn-light text-primary py-0 px-2"
+                        style="font-size: 0.7rem; font-weight: 700;">+ Añadir</button>
+                </div>
+
+                <div class="tag-list">
+                    <span class="omni-tag">Valor Alto <i class="fas fa-times"></i></span>
+                    <span class="omni-tag">Potencial <i class="fas fa-times"></i></span>
+                </div>
+            </div>
+
+            <!-- Internal Notes re-purposed as Interacciones or Notes section -->
+            <div class="details-section border-0">
+                <h6 class="details-title">Notas Internas (<span id="notesCount">{{ notes.count }}</span>)</h6>
+                <div class="mb-3" style="max-height: 200px; overflow-y: auto;" id="notesContainer">
+                    {% for n in notes %}
+                    <div class="bg-warning-subtle p-2 rounded mb-2 border border-warning">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small fw-bold text-dark"><i class="fas fa-user-circle me-1"></i> {{
+                                n.author.username }}</span>
+                            <span class="text-muted" style="font-size: 0.65rem;">{{ n.created_at|date:"d/m H:i"
+                                }}</span>
+                        </div>
+                        <div class="small text-dark">{{ n.content }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="text-muted small text-center my-3">Sin notas internas.</div>
+                    {% endfor %}
+                </div>
+
+                <form method="post" action="/communications/api/notes/" class="mt-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="conversation" value="{{ conversation.id }}">
+                    <div class="input-group input-group-sm mb-2 shadow-sm rounded">
+                        <input type="text" class="form-control border-0" name="content" placeholder="Escribir nota..."
+                            style="background: #fff;">
+                        <button type="submit" class="btn btn-white text-warning border-0" style="background: #fff;"><i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script src="{% static 'communications/js/websocket.js' %}"></script>
+{% block comm_js %}
 <script>
+    // Scroll chat to bottom
+    document.addEventListener("DOMContentLoaded", function () {
+        var chatArea = document.getElementById("chatMessagesArea");
+        chatArea.scrollTop = chatArea.scrollHeight;
+    });
+
     const ws = new CommunicationWebSocket('{{ request.user.id }}');
-    ws.onNewMessage = function(data) {};
+    ws.onNewMessage = function (data) {
+        // Handle new incoming messages visually
+        console.log('New message received via WS');
+    };
 </script>
 {% endblock %}

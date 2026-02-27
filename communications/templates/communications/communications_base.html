@@ -1,0 +1,94 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Comunicaciones{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
+{% block comm_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="comm-layout">
+    <div class="comm-sidebar-nav bg-white border-end shadow-sm">
+        <div class="px-4 py-3 mb-2 border-bottom">
+            <div class="d-flex align-items-center">
+                <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center"
+                    style="width: 40px; height: 40px;">
+                    <i class="fas fa-comment-dots fs-4 text-primary"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0 fw-bold text-dark" style="font-size: 0.95rem;">Sistema Multicanal</h6>
+                    <small class="text-muted" style="font-size: 0.7rem;">WhatsApp Business + Email</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="comm-nav-section mt-3">
+            <h6 class="comm-nav-title text-muted fw-bold small text-uppercase mb-2 px-2"
+                style="font-size:0.7rem; letter-spacing:0.5px;">CONVERSACIONES</h6>
+            <a href="{% url 'communications:dashboard' %}"
+                class="comm-nav-link text-dark {% if request.resolver_match.url_name == 'dashboard' %}active-link{% endif %} d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-inbox text-primary me-2"></i> Bandeja de entrada</span>
+                <span class="badge rounded-pill bg-danger">12</span>
+            </a>
+            <a href="#" class="comm-nav-link text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-comment-alt text-secondary me-2"></i> Mis conversaciones</span>
+                <span class="badge rounded-pill bg-danger">8</span>
+            </a>
+            <a href="#" class="comm-nav-link text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-hourglass-half text-warning me-2"></i> Pendientes</span>
+                <span class="badge rounded-pill bg-danger">4</span>
+            </a>
+            <a href="#" class="comm-nav-link text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-check-square text-success me-2"></i> Cerradas</span>
+            </a>
+        </div>
+
+        <div class="comm-nav-section mt-4">
+            <h6 class="comm-nav-title text-muted fw-bold small text-uppercase mb-2 px-2"
+                style="font-size:0.7rem; letter-spacing:0.5px;">CANALES</h6>
+            <a href="#" class="comm-nav-link text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fab fa-whatsapp text-success me-2" style="font-size: 1.2rem;"></i> WhatsApp</span>
+                <span class="badge rounded-pill bg-danger">6</span>
+            </a>
+            <a href="#" class="comm-nav-link text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-envelope-open-text text-primary me-2"></i> Email</span>
+                <span class="badge rounded-pill bg-danger">6</span>
+            </a>
+            <a href="#" class="comm-nav-link text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-sync-alt text-info me-2"></i> Multicanal</span>
+                <span class="badge rounded-pill bg-danger">3</span>
+            </a>
+        </div>
+
+        <div class="comm-nav-section mt-4">
+            <h6 class="comm-nav-title text-muted fw-bold small text-uppercase mb-2 px-2"
+                style="font-size:0.7rem; letter-spacing:0.5px;">HERRAMIENTAS</h6>
+            <a href="#" class="comm-nav-link text-dark">
+                <i class="fas fa-bolt text-warning me-2"></i> Respuestas rápidas
+            </a>
+            <a href="#" class="comm-nav-link text-dark">
+                <i class="fas fa-file-alt text-secondary me-2"></i> Plantillas
+            </a>
+            <a href="#" class="comm-nav-link text-dark">
+                <i class="fas fa-chart-bar text-success me-2"></i> Reportes
+            </a>
+            <a href="{% url 'communications:settings' %}"
+                class="comm-nav-link text-dark {% if request.resolver_match.url_name == 'settings' %}active-link{% endif %}">
+                <i class="fas fa-cog text-secondary me-2"></i> Configuración
+            </a>
+        </div>
+
+    </div>
+
+    <div class="comm-main-panel bg-light">
+        {% block comm_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'communications/js/websocket.js' %}"></script>
+{% block comm_js %}{% endblock %}
+{% endblock %}

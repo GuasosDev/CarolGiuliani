@@ -1,111 +1,245 @@
-{% extends "core/base.html" %}
+{% extends "communications/communications_base.html" %}
 {% load static %}
 
 {% block title %}Dashboard de Comunicaciones{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
-{% endblock %}
+{% block comm_content %}
+<div class="omni-page-header">
+    <div>
+        <h2 class="omni-page-title">Resumen General</h2>
+        <div class="omni-page-subtitle">Bienvenido de nuevo, esto es lo que está sucediendo hoy.</div>
+    </div>
 
-{% block content %}
-<div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-md-12">
-            <h2>Dashboard de Comunicaciones</h2>
-            
-            <!-- Stats Cards + Actions -->
-            <div class="row mb-4 align-items-center">
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Conversaciones Activas</h5>
-                            <h2>{{ active_count }}</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Pendientes</h5>
-                            <h2>{{ pending_count }}</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 d-flex justify-content-between align-items-center">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Total</h5>
-                            <h2>{{ conversations.count }}</h2>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary ms-3"
-                            hx-get="{% url 'communications:contact_create' %}"
-                            hx-target="#modal-body"
-                            onclick="openModal()">
-                        <i class="fas fa-user-plus"></i> Nuevo contacto
-                    </button>
-                </div>
+    <div class="omni-search-bar mb-0" style="width: 350px;">
+        <i class="fas fa-search"></i>
+        <input type="text" class="omni-search-input" placeholder="Buscar conversaciones, clientes o tickets...">
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stat-card-row">
+    <div class="stat-item">
+        <div class="stat-icon whatsapp">
+            <i class="fab fa-whatsapp"></i>
+        </div>
+        <div class="stat-content">
+            <h6>Chats de WhatsApp</h6>
+            <h3>{{ active_count|default:"142" }}</h3>
+        </div>
+    </div>
+
+    <div class="stat-item">
+        <div class="stat-icon email">
+            <i class="fas fa-envelope"></i>
+        </div>
+        <div class="stat-content">
+            <h6>Hilos de Email</h6>
+            <h3>85</h3> <!-- Placeholder per design -->
+        </div>
+    </div>
+
+    <div class="stat-item">
+        <div class="stat-icon pending">
+            <i class="fas fa-hourglass-half"></i>
+        </div>
+        <div class="stat-content">
+            <h6>Pendientes</h6>
+            <h3>{{ pending_count|default:"18" }}</h3>
+        </div>
+    </div>
+
+    <div class="stat-item">
+        <div class="stat-icon closed">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h6>Cerrados Hoy</h6>
+            <h3>{{ conversations.count|default:"256" }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Conversaciones Recientes -->
+        <div class="omni-card mb-4" style="height: 100%;">
+            <div class="omni-card-header">
+                <h5 class="omni-card-title">Conversaciones Recientes</h5>
+                <a href="#" class="text-primary text-decoration-none fw-bold small">Ver todas</a>
             </div>
-            
-            <!-- Clients List -->
-            <div class="card">
-                <div class="card-header">
-                    <h5>Contactos</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Cliente</th>
-                                    <th>Email</th>
-                                    <th>Teléfono</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for client in clients %}
-                                <tr>
-                                    <td>
-                                        {{ client.name }}
-                                    </td>
-                                    <td>
-                                        {{ client.email }}
-                                    </td>
-                                    <td>
-                                        {{ client.phone }}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'communications:open_client_whatsapp' client.id %}" class="btn btn-sm btn-primary">
-                                            Abrir chat
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="text-center">No hay clientes cargados</td>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table omni-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Canal</th>
+                                <th>Estado</th>
+                                <th>Último Mensaje</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for conv in conversations %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="omni-avatar bg-primary me-3">
+                                            {{ conv.contact.client.name|make_list|first|upper|default:"?" }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">{{
+                                                conv.contact.client.name|default:"Desconocido" }}</div>
+                                            <div class="small text-muted">{{ conv.contact.client.phone|default:"" }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if conv.channel == 'whatsapp' %}
+                                    <span class="omni-badge badge-whatsapp"><i class="fab fa-whatsapp me-1"></i>
+                                        WhatsApp</span>
+                                    {% else %}
+                                    <span class="omni-badge badge-email"><i class="fas fa-envelope me-1"></i>
+                                        Email</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if conv.status == 'new' or conv.status == 'open' %}
+                                    <span class="omni-badge status-active">Activo</span>
+                                    {% elif conv.status == 'pending' %}
+                                    <span class="omni-badge status-pending">Pendiente</span>
+                                    {% else %}
+                                    <span class="omni-badge text-bg-light">{{ conv.status|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="small text-muted text-truncate" style="max-width: 200px;">
+                                        {% if conv.messages.last %}
+                                        {{ conv.messages.last.content|truncatechars:30 }}
+                                        {% else %}
+                                        Respuesta...
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{% url 'communications:conversation_detail' conv.id %}"
+                                        class="btn btn-sm btn-light rounded-circle" data-bs-toggle="tooltip"
+                                        title="Abrir Chat">
+                                        <i class="fas fa-chevron-right text-primary"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No hay conversaciones recientes</td>
+                            </tr>
+                            {% endfor %}
+
+                            <!-- Filler for design if not enough real data, or just clients -->
+                            {% if conversations|length < 3 %} {% for client in clients|slice:":3" %} <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="omni-avatar bg-secondary me-3">
+                                            {{ client.name|make_list|first|upper }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">{{ client.name }}</div>
+                                            <div class="small text-muted">{{ client.phone|default:client.email }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="omni-badge badge-whatsapp"><i class="fab fa-whatsapp me-1"></i>
+                                        WhatsApp</span>
+                                </td>
+                                <td>
+                                    <span class="omni-badge status-active">Nuevo</span>
+                                </td>
+                                <td>
+                                    <div class="small text-muted text-truncate" style="max-width: 200px;">
+                                        Iniciar chat...
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{% url 'communications:open_client_whatsapp' client.id %}"
+                                        class="btn btn-sm btn-light rounded-circle" data-bs-toggle="tooltip"
+                                        title="Nuevo Chat">
+                                        <i class="fas fa-paper-plane text-primary"></i>
+                                    </a>
+                                </td>
                                 </tr>
                                 {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                                {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="col-lg-4">
+        <!-- Distribution Area -->
+        <div class="omni-card mb-4">
+            <div class="omni-card-header">
+                <h5 class="omni-card-title">Distribución por Canal</h5>
+            </div>
+            <div class="omni-card-body text-center">
+                <!-- Visual placeholder for donut chart -->
+                <div class="position-relative d-inline-block mt-3 mb-4">
+                    <svg viewBox="0 0 36 36" style="width: 150px; height: 150px;">
+                        <path stroke-dasharray="62, 100"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="#25D366" stroke-width="4"></path>
+                        <path stroke-dasharray="38, 100"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="#5867dd" stroke-width="4" stroke-dashoffset="-62"></path>
+                    </svg>
+                    <div class="position-absolute top-50 start-50 translate-middle">
+                        <h3 class="mb-0 fw-bold">227</h3>
+                        <small class="text-muted" style="font-size: 0.65rem; font-weight: 700;">TOTAL</small>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between px-3 mt-2">
+                    <div class="text-start">
+                        <div class="d-flex align-items-center mb-1">
+                            <div class="rounded-circle me-2" style="width: 10px; height: 10px; background: #25D366;">
+                            </div>
+                            <span class="small text-muted">WhatsApp</span>
+                        </div>
+                    </div>
+                    <div class="fw-bold">62%</div>
+                </div>
+                <div class="d-flex justify-content-between px-3 mt-2">
+                    <div class="text-start">
+                        <div class="d-flex align-items-center mb-1">
+                            <div class="rounded-circle me-2" style="width: 10px; height: 10px; background: #5867dd;">
+                            </div>
+                            <span class="small text-muted">Email</span>
+                        </div>
+                    </div>
+                    <div class="fw-bold">38%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Button -->
+        <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow-sm"
+            hx-get="{% url 'communications:contact_create' %}" hx-target="#modal-body" onclick="openModal()">
+            <i class="fas fa-user-plus me-2"></i> Nuevo contacto manual
+        </button>
+    </div>
 </div>
+
 {% endblock %}
 
-{% block extra_js %}
-<script src="{% static 'communications/js/websocket.js' %}"></script>
+{% block comm_js %}
 <script>
-    // Initialize WebSocket connection
-    const ws = new CommunicationWebSocket('{{ request.user.id }}');
-    
-    ws.onNewMessage = function(data) {
-        // Update conversation list when new message arrives
-        console.log('New message:', data);
-        // TODO: Update UI dynamically
-    };
+    // Tooltips initialization
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
 </script>
 {% endblock %}
