@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from .models import (
     Contact, Conversation, Message, InternalNote, QuickReply,
     WhatsAppAccount, WhatsAppMessage, ConversationAssignment,

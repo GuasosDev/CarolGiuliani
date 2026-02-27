@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.urls import reverse_lazy
 import json
 import logging
-from .models import Conversation, Contact, Message, WhatsAppAccount
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
@@ -23,16 +23,29 @@ logger = logging.getLogger(__name__)
 def dashboard(request):
     """Main communication dashboard"""
     # Get user's conversations
-    base_qs = get_agent_conversations(request.user).filter(
-        status__in=['open', 'assigned', 'pending']
-    )
-    conversations = base_qs[:50]
+    status_filter = request.GET.get('status', 'normal')
+    
+    base_qs = get_agent_conversations(request.user)
+    
+    if status_filter == 'all':
+        conversations = base_qs.all()
+    else:
+        conversations = base_qs.filter(status=status_filter)
+        
+    conversations = conversations.order_by('-updated_at')[:50]
     clients = Client.objects.all().order_by('name')[:200]
+    
+    # Counts for tabs
+    normal_count = base_qs.filter(status='normal').count()
+    pending_count = base_qs.filter(status='pending').count()
+    closed_count = base_qs.filter(status='closed').count()
     
     context = {
         'conversations': conversations,
-        'active_count': base_qs.filter(status='assigned').count(),
-        'pending_count': base_qs.filter(status='pending').count(),
+        'normal_count': normal_count,
+        'pending_count': pending_count,
+        'closed_count': closed_count,
+        'current_status': status_filter,
         'clients': clients,
     }
     
@@ -50,18 +63,41 @@ def open_client_whatsapp(request, client_id):
     conversation = Conversation.objects.filter(
         contact=contact,
         channel='whatsapp',
-        status__in=['open', 'assigned', 'pending']
+        status__in=['normal', 'pending']
     ).first()
     
     if not conversation:
         conversation = Conversation.objects.create(
             contact=contact,
             channel='whatsapp',
-            status='open',
+            status='normal',
             priority='normal'
         )
         assign_conversation_to_agent(conversation, agent=request.user, assigned_by=request.user)
     
+    return redirect('communications:conversation_detail', pk=conversation.pk)
+
+
+@login_required
+def change_conversation_status(request, pk):
+    """Change status of a conversation"""
+    conversation = get_object_or_404(Conversation, pk=pk)
+    
+    # Check permission
+    if not (request.user.is_superuser or 
+            request.user.groups.filter(name='Supervisor').exists() or
+            conversation.assigned_to == request.user):
+        return HttpResponse('Unauthorized', status=401)
+        
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status in ['normal', 'pending', 'closed']:
+            if new_status == 'closed':
+                conversation.close()
+            else:
+                conversation.status = new_status
+                conversation.save()
+                
     return redirect('communications:conversation_detail', pk=conversation.pk)
 
 
@@ -85,11 +121,15 @@ def conversation_detail(request, pk):
     
     messages = conversation.messages.all().order_by('created_at')
     notes = conversation.internal_notes.all()
+    
+    # Sidebar conversations (filtered by current conversation's status or default to normal)
+    status_filter = request.GET.get('status', conversation.status)
     sidebar_conversations = get_agent_conversations(request.user).filter(
-        status__in=['open', 'assigned', 'pending'],
-        channel='whatsapp'
-    )[:50]
+        status=status_filter
+    ).order_by('-updated_at')[:50]
+    
     whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
+    email_account = EmailAccount.objects.filter(is_active=True).first()
     
     context = {
         'conversation': conversation,
@@ -97,7 +137,9 @@ def conversation_detail(request, pk):
         'notes': notes,
         'clients': Client.objects.all().order_by('name')[:100],
         'sidebar_conversations': sidebar_conversations,
+        'current_status': status_filter,
         'whatsapp_account': whatsapp_account,
+        'email_account': email_account,
     }
     
     return render(request, 'communications/conversation_detail.html', context)

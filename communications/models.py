@@ -42,10 +42,9 @@ class Conversation(models.Model):
     ]
     
     STATUS_CHOICES = [
-        ('open', 'Abierta'),
-        ('assigned', 'Asignada'),
+        ('normal', 'Normal'),
         ('pending', 'Pendiente'),
-        ('closed', 'Cerrada'),
+        ('closed', 'Cerrados'),
     ]
     
     PRIORITY_CHOICES = [
@@ -57,7 +56,7 @@ class Conversation(models.Model):
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='conversations')
     channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, verbose_name="Canal")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', verbose_name="Estado")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='normal', verbose_name="Estado")
     assigned_to = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
@@ -99,7 +98,7 @@ class Conversation(models.Model):
     def assign_to(self, user):
         """Assign conversation to a user"""
         self.assigned_to = user
-        self.status = 'assigned'
+        self.status = 'normal'
         self.save()
         
         # Create assignment record

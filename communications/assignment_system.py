@@ -28,7 +28,7 @@ def get_agent_workload(agent):
     # Count active conversations assigned to this agent
     active_conversations = Conversation.objects.filter(
         assigned_to=agent,
-        status__in=['open', 'assigned', 'pending']
+        status__in=['normal', 'pending']
     ).count()
     
     return active_conversations

@@ -18,45 +18,35 @@
 
 <!-- Stats Cards -->
 <div class="stat-card-row">
-    <div class="stat-item">
+    <a href="?status=normal" class="stat-item text-decoration-none {% if current_status == 'normal' %}border-primary bg-light{% endif %}">
         <div class="stat-icon whatsapp">
-            <i class="fab fa-whatsapp"></i>
+            <i class="fas fa-comment"></i>
         </div>
         <div class="stat-content">
-            <h6>Chats de WhatsApp</h6>
-            <h3>{{ active_count|default:"142" }}</h3>
+            <h6 class="text-dark">Normal</h6>
+            <h3 class="text-dark">{{ normal_count|default:"0" }}</h3>
         </div>
-    </div>
+    </a>
 
-    <div class="stat-item">
-        <div class="stat-icon email">
-            <i class="fas fa-envelope"></i>
-        </div>
-        <div class="stat-content">
-            <h6>Hilos de Email</h6>
-            <h3>85</h3> <!-- Placeholder per design -->
-        </div>
-    </div>
-
-    <div class="stat-item">
+    <a href="?status=pending" class="stat-item text-decoration-none {% if current_status == 'pending' %}border-warning bg-light{% endif %}">
         <div class="stat-icon pending">
             <i class="fas fa-hourglass-half"></i>
         </div>
         <div class="stat-content">
-            <h6>Pendientes</h6>
-            <h3>{{ pending_count|default:"18" }}</h3>
+            <h6 class="text-dark">Pendientes</h6>
+            <h3 class="text-dark">{{ pending_count|default:"0" }}</h3>
         </div>
-    </div>
+    </a>
 
-    <div class="stat-item">
+    <a href="?status=closed" class="stat-item text-decoration-none {% if current_status == 'closed' %}border-success bg-light{% endif %}">
         <div class="stat-icon closed">
             <i class="fas fa-check-circle"></i>
         </div>
         <div class="stat-content">
-            <h6>Cerrados Hoy</h6>
-            <h3>{{ conversations.count|default:"256" }}</h3>
+            <h6 class="text-dark">Cerrados</h6>
+            <h3 class="text-dark">{{ closed_count|default:"0" }}</h3>
         </div>
-    </div>
+    </a>
 </div>
 
 <div class="row">
@@ -64,8 +54,12 @@
         <!-- Conversaciones Recientes -->
         <div class="omni-card mb-4" style="height: 100%;">
             <div class="omni-card-header">
-                <h5 class="omni-card-title">Conversaciones Recientes</h5>
-                <a href="#" class="text-primary text-decoration-none fw-bold small">Ver todas</a>
+                <h5 class="omni-card-title">
+                    {% if current_status == 'normal' %}Conversaciones Normales
+                    {% elif current_status == 'pending' %}Conversaciones Pendientes
+                    {% elif current_status == 'closed' %}Conversaciones Cerradas
+                    {% else %}Todas las Conversaciones{% endif %}
+                </h5>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -105,10 +99,12 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if conv.status == 'new' or conv.status == 'open' %}
-                                    <span class="omni-badge status-active">Activo</span>
+                                    {% if conv.status == 'normal' %}
+                                    <span class="omni-badge status-active">Normal</span>
                                     {% elif conv.status == 'pending' %}
                                     <span class="omni-badge status-pending">Pendiente</span>
+                                    {% elif conv.status == 'closed' %}
+                                    <span class="omni-badge bg-secondary text-white">Cerrado</span>
                                     {% else %}
                                     <span class="omni-badge text-bg-light">{{ conv.status|title }}</span>
                                     {% endif %}

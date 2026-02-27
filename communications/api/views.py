@@ -87,7 +87,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         """Get conversations assigned to current user"""
         conversations = Conversation.objects.filter(
             assigned_to=request.user,
-            status__in=['open', 'assigned', 'pending']
+            status__in=['normal', 'pending']
         ).order_by('-updated_at')
         
         serializer = self.get_serializer(conversations, many=True)
