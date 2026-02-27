@@ -1,0 +1,179 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <!-- Header -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">
+                        {{ conversation.contact.client.name }}
+                    </h4>
+                    <small class="text-muted">
+                        Canal: {{ conversation.get_channel_display }} |
+                        Estado: {{ conversation.get_status_display }} |
+                        Prioridad: {{ conversation.get_priority_display }}
+                    </small>
+                </div>
+
+                <div>
+                    {% if conversation.assigned_to %}
+                        <span class="badge bg-info">
+                            Asignado a {{ conversation.assigned_to.username }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary">
+                            Sin asignar
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if conversation.subject %}
+                <hr>
+                <strong>Asunto:</strong> {{ conversation.subject }}
+            {% endif %}
+        </div>
+    </div>
+
+
+    <div class="row">
+
+        <!-- Mensajes -->
+        <div class="col-md-8">
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <strong>Mensajes</strong>
+                </div>
+
+                <div class="card-body" style="height:500px; overflow-y:auto;">
+
+                    {% for message in messages %}
+                        <div class="mb-3 
+                            {% if message.direction == 'outbound' %}
+                                text-end
+                            {% endif %}
+                        ">
+
+                            <div class="d-inline-block p-3 rounded shadow-sm
+                                {% if message.direction == 'outbound' %}
+                                    bg-primary text-white
+                                {% else %}
+                                    bg-light
+                                {% endif %}
+                            " style="max-width:75%;">
+
+                                <small class="d-block mb-1">
+                                    <strong>
+                                        {% if message.direction == 'outbound' %}
+                                            {{ message.sender.username }}
+                                        {% else %}
+                                            {{ message.sender_name|default:conversation.contact }} 
+                                        {% endif %}
+                                    </strong>
+                                    • {{ message.created_at|date:"d/m/Y H:i" }}
+                                </small>
+
+                                <div>
+                                    {{ message.content|linebreaks }}
+                                </div>
+
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted">No hay mensajes aún.</p>
+                    {% endfor %}
+
+                </div>
+            </div>
+
+            <!-- Formulario enviar mensaje -->
+            <div class="card shadow-sm mt-3">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="send_message">
+
+                        <div class="input-group">
+                            <textarea name="content" class="form-control"
+                                rows="2"
+                                placeholder="Escribí una respuesta..."></textarea>
+
+                            <button type="submit" class="btn btn-primary">
+                                Enviar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- Notas internas -->
+        <div class="col-md-4">
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning">
+                    <strong>Notas Internas</strong>
+                </div>
+
+                <div class="card-body">
+
+                    {% for note in notes %}
+                        <div class="border rounded p-2 mb-2
+                            {% if note.is_pinned %}
+                                border-danger
+                            {% else %}
+                                border-secondary
+                            {% endif %}
+                        ">
+
+                            <small class="d-block">
+                                <strong>{{ note.author.username }}</strong>
+                                • {{ note.created_at|date:"d/m/Y H:i" }}
+                                {% if note.is_pinned %}
+                                    <span class="badge bg-danger">Fijada</span>
+                                {% endif %}
+                            </small>
+
+                            <div>
+                                {{ note.content|linebreaks }}
+                            </div>
+
+                        </div>
+                    {% empty %}
+                        <p class="text-muted">No hay notas internas.</p>
+                    {% endfor %}
+
+                </div>
+            </div>
+
+            <!-- Formulario agregar nota -->
+            <div class="card shadow-sm mt-3">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add_note">
+
+                        <textarea name="note_content"
+                            class="form-control mb-2"
+                            rows="2"
+                            placeholder="Agregar nota interna..."></textarea>
+
+                        <button type="submit" class="btn btn-warning w-100">
+                            Guardar Nota
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -30,7 +30,7 @@ def sync_all_email_accounts():
 
 @shared_task
 def sync_email_account(account_id):
-    """Sync a single email account"""
+
     try:
         account = EmailAccount.objects.get(id=account_id)
         handler = EmailHandler(account)

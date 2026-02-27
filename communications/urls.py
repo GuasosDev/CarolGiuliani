@@ -20,4 +20,10 @@ urlpatterns = [
     path('contact/<int:pk>/', views.contact_360_view, name='contact_360'),
     path('supervisor/', views.supervisor_dashboard, name='supervisor_dashboard'),
     path('settings/', views.settings_view, name='settings'),
+    path(
+    "start-email/<int:client_id>/",
+    views.start_email_conversation,
+    name="start_email_conversation"
+),
+    
 ]

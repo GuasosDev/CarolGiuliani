@@ -9,51 +9,151 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
 import logging
-from .models import Conversation, Contact, Message
+from .models import Conversation, Contact, Message,InternalNote
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations
-
+from django.utils import timezone
+from communications.models import EmailQueue, EmailAccount
+from communications.tasks import process_email_queue
+from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
 @login_required
 def dashboard(request):
     """Main communication dashboard"""
-    # Get user's conversations
-    conversations = get_agent_conversations(request.user).filter(
+
+    base_qs = get_agent_conversations(request.user).filter(
         status__in=['open', 'assigned', 'pending']
-    )[:50]
-    
+    )
+
+    conversations = base_qs[:50]
+
     context = {
         'conversations': conversations,
-        'active_count': conversations.filter(status='assigned').count(),
-        'pending_count': conversations.filter(status='pending').count(),
+        'active_count': base_qs.filter(status='assigned').count(),
+        'pending_count': base_qs.filter(status='pending').count(),
     }
-    
+
     return render(request, 'communications/dashboard.html', context)
 
 
+
+from django.utils import timezone
+from communications.models import EmailQueue, EmailAccount
+from communications.tasks import process_email_queue
+
 @login_required
 def conversation_detail(request, pk):
-    """Conversation detail view"""
     conversation = get_object_or_404(Conversation, pk=pk)
-    
-    # Check permission (agents can only see their own, supervisors see all)
-    if not (request.user.is_superuser or 
-            request.user.groups.filter(name='Supervisor').exists() or
-            conversation.assigned_to == request.user):
+
+    if not (
+        request.user.is_superuser or 
+        request.user.groups.filter(name='Supervisor').exists() or
+        conversation.assigned_to == request.user
+    ):
         return HttpResponse('Unauthorized', status=401)
-    
-    messages = conversation.messages.all().order_by('created_at')
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        # =========================
+        # ENVIAR MENSAJE
+        # =========================
+        if action == "send_message":
+            content = request.POST.get("content")
+
+            if content:
+                message = Message.objects.create(
+                    conversation=conversation,
+                    message_type=conversation.channel,
+                    direction='outbound',
+                    sender=request.user,
+                    content=content
+                )
+
+                # Actualizar preview
+                conversation.last_message_at = timezone.now()
+                conversation.last_message_preview = content[:100]
+                conversation.save()
+
+                # 🚀 SI ES EMAIL, LO ENVIAMOS
+                if conversation.channel == "email":
+
+                    client = conversation.contact.client
+
+                    if client and client.email:
+                        account = EmailAccount.objects.filter(is_active=True).first()
+
+                        EmailQueue.objects.create(
+                            email_account=account,
+                            to_addresses=[client.email],
+                            subject=conversation.subject or "Respuesta",
+                            plain_body=content,
+                            conversation=conversation,
+                            scheduled_at=timezone.now(),
+                            status="pending"
+                        )
+
+                        process_email_queue.delay()
+
+        # =========================
+        # AGREGAR NOTA INTERNA
+        # =========================
+        elif action == "add_note":
+            content = request.POST.get("note_content")
+
+            if content:
+                InternalNote.objects.create(
+                    conversation=conversation,
+                    author=request.user,
+                    content=content
+                )
+
+        return redirect("communications:conversation_detail", pk=conversation.pk)
+
+    messages = conversation.messages.all()
     notes = conversation.internal_notes.all()
-    
+
     context = {
         'conversation': conversation,
         'messages': messages,
         'notes': notes,
     }
-    
+
     return render(request, 'communications/conversation_detail.html', context)
+from django.shortcuts import get_object_or_404, redirect
+from communications.models import Conversation, Contact
+from clients.models import Client
+
+@login_required
+def start_email_conversation(request, client_id):
+    client = get_object_or_404(Client, pk=client_id)
+
+    # Obtener o crear Contact
+    contact, _ = Contact.objects.get_or_create(
+        client=client,
+        defaults={'preferred_channel': 'email'}
+    )
+
+    # Buscar conversación abierta de email
+    conversation = Conversation.objects.filter(
+        contact=contact,
+        channel='email',
+        status__in=['open', 'assigned', 'pending']
+    ).first()
+
+    # Si no existe, crearla
+    if not conversation:
+        conversation = Conversation.objects.create(
+            contact=contact,
+            channel='email',
+            status='open',
+            priority='normal',
+            subject=f"Conversación con {client.name}"
+        )
+
+    return redirect("communications:conversation_detail", pk=conversation.pk)
 
 
 @login_required
@@ -77,49 +177,70 @@ def contact_360_view(request, pk):
     return render(request, 'communications/contact_360.html', context)
 
 
+from django.utils import timezone
+from django.db.models import Count, Q, Avg, F, ExpressionWrapper, DurationField
+from datetime import timedelta
+
 @login_required
 def supervisor_dashboard(request):
-    """Supervisor dashboard with metrics and team overview"""
-    # Check permission
+
     if not (request.user.is_superuser or 
             request.user.groups.filter(name='Supervisor').exists()):
         return HttpResponse('Unauthorized', status=401)
-    
-    from django.contrib.auth.models import User
-    from django.db.models import Count, Q
-    
-    # Get all agents
-    agents = User.objects.filter(is_staff=True, is_active=True)
-    
-    # Get metrics
-    total_conversations = Conversation.objects.count()
-    open_conversations = Conversation.objects.filter(status__in=['open', 'assigned', 'pending']).count()
-    closed_today = Conversation.objects.filter(
-        status='closed',
-        closed_at__date=timezone.now().date()
+
+    today = timezone.now().date()
+
+    # Conversaciones base
+    conversations = Conversation.objects.all()
+
+    # Métricas principales
+    total_conversations = conversations.count()
+
+    open_conversations = conversations.filter(
+        status__in=['open', 'assigned', 'pending']
     ).count()
-    
-    # Agent workload
-    agent_stats = []
-    for agent in agents:
-        active_count = Conversation.objects.filter(
-            assigned_to=agent,
-            status__in=['open', 'assigned', 'pending']
-        ).count()
-        
-        agent_stats.append({
-            'agent': agent,
-            'active_conversations': active_count
-        })
-    
+
+    closed_today = conversations.filter(
+        status='closed',
+        closed_at__date=today
+    ).count()
+
+    unassigned = conversations.filter(
+        assigned_to__isnull=True,
+        status__in=['open', 'pending']
+    ).count()
+
+    # SLA simple (más de 30 min sin respuesta)
+    thirty_minutes_ago = timezone.now() - timedelta(minutes=30)
+
+    sla_breached = conversations.filter(
+        status__in=['open', 'assigned'],
+        updated_at__lt=thirty_minutes_ago
+    ).count()
+
+    # Estadísticas por agente optimizadas
+    agent_stats = (
+        Conversation.objects
+        .filter(status__in=['open', 'assigned', 'pending'])
+        .values('assigned_to__id',
+                'assigned_to__username',
+                'assigned_to__first_name',
+                'assigned_to__last_name')
+        .annotate(active_conversations=Count('id'))
+        .order_by('-active_conversations')
+    )
+
     context = {
         'total_conversations': total_conversations,
         'open_conversations': open_conversations,
         'closed_today': closed_today,
+        'unassigned': unassigned,
+        'sla_breached': sla_breached,
         'agent_stats': agent_stats,
     }
-    
+
     return render(request, 'communications/supervisor_dashboard.html', context)
+
 
 
 @login_required
@@ -147,7 +268,9 @@ def settings_view(request):
 @require_http_methods(["GET", "POST"])
 def whatsapp_webhook(request):
     """WhatsApp Business API webhook endpoint"""
-    
+    print("ENTRÓ AL WEBHOOK")
+    print("METHOD:", request.method)
+    print("BODY:", request.body)
     if request.method == 'GET':
         # Webhook verification
         mode = request.GET.get('hub.mode')

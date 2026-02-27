@@ -13,7 +13,14 @@ import json
 
 class Contact(models.Model):
     """Extended contact information linked to Client model"""
-    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='communication_contact')
+    client = models.OneToOneField(
+    Client,
+    on_delete=models.CASCADE,
+    related_name='communication_contact',
+    null=True,
+    blank=True
+)
+
     whatsapp_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="WhatsApp")
     preferred_channel = models.CharField(
         max_length=20,
@@ -31,7 +38,9 @@ class Contact(models.Model):
         verbose_name_plural = "Contactos de Comunicación"
 
     def __str__(self):
-        return f"{self.client.name} - {self.preferred_channel}"
+        client_name = self.client.name if self.client else "Sin cliente"
+        return f"{client_name} - {self.preferred_channel}"
+
 
 
 class Conversation(models.Model):
@@ -88,7 +97,13 @@ class Conversation(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.contact.client.name} - {self.get_channel_display()} ({self.get_status_display()})"
+        client_name = (
+          self.contact.client.name
+          if self.contact and self.contact.client
+          else "Sin cliente"
+        )
+        return f"{client_name} - {self.get_channel_display()} ({self.get_status_display()})"
+
 
     def close(self):
         """Close the conversation"""
@@ -362,12 +377,12 @@ class EmailAccount(models.Model):
 
     def set_password(self, raw_password):
         """Encrypt and store password"""
-        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY.encode())
+        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY)
         self.encrypted_password = cipher_suite.encrypt(raw_password.encode())
 
     def get_password(self):
         """Decrypt and return password"""
-        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY.encode())
+        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY)
         return cipher_suite.decrypt(self.encrypted_password).decode()
 
 

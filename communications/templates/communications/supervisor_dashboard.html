@@ -1,0 +1,104 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+
+<h2 class="mb-4">📊 Supervisor Dashboard</h2>
+
+<div class="row mb-4">
+
+    <div class="col-md-3">
+        <div class="card shadow text-center">
+            <div class="card-body">
+                <h6>Total</h6>
+                <h2>{{ total_conversations }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow border-warning text-center">
+            <div class="card-body">
+                <h6>Abiertas</h6>
+                <h2>{{ open_conversations }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow border-success text-center">
+            <div class="card-body">
+                <h6>Cerradas Hoy</h6>
+                <h2>{{ closed_today }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow border-danger text-center">
+            <div class="card-body">
+                <h6>SLA > 30min</h6>
+                <h2>{{ sla_breached }}</h2>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Alertas -->
+{% if unassigned > 0 %}
+<div class="alert alert-danger">
+    ⚠️ Hay {{ unassigned }} conversaciones sin asignar.
+</div>
+{% endif %}
+
+<!-- Tabla de agentes -->
+<div class="card shadow">
+    <div class="card-header">
+        👥 Carga de Trabajo por Agente
+    </div>
+    <div class="card-body">
+
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Agente</th>
+                    <th>Activas</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for agent in agent_stats %}
+                <tr>
+                    <td>
+                        {{ agent.assigned_to__first_name }} 
+                        {{ agent.assigned_to__last_name }}
+                    </td>
+                    <td>
+                        <strong>{{ agent.active_conversations }}</strong>
+                    </td>
+                    <td>
+                        {% if agent.active_conversations > 10 %}
+                            <span class="badge bg-danger">Sobrecargado</span>
+                        {% elif agent.active_conversations > 5 %}
+                            <span class="badge bg-warning text-dark">Alto</span>
+                        {% else %}
+                            <span class="badge bg-success">Normal</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3">No hay agentes activos</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+</div>
+
+</div>
+
+{% endblock %}
+

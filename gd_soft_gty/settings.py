@@ -178,21 +178,26 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ============================================================================
 # CELERY CONFIGURATION
 # ============================================================================
-
+CELERY_BEAT_SCHEDULE = {
+    'sync-emails-every-minute': {
+        'task': 'communications.tasks.sync_all_email_accounts',
+        'schedule': 60.0,
+    },
+}
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
-
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # ============================================================================
 # COMMUNICATIONS APP CONFIGURATION
 # ============================================================================
 
 # Email encryption key (generate with: from cryptography.fernet import Fernet; Fernet.generate_key())
 # IMPORTANT: Change this in production and keep it secret!
-EMAIL_ENCRYPTION_KEY = 'gAAAAABl1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ='
+EMAIL_ENCRYPTION_KEY = b'TxRK15qiP5L8zi9M9a7sn1TpLEgrYAdapFrwAPZ0X50='
 
 # WhatsApp Business API Configuration
 WHATSAPP_API_VERSION = 'v18.0'

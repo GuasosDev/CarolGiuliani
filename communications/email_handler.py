@@ -2,7 +2,14 @@
 Email handler for IMAP/SMTP operations
 Handles email synchronization, sending, and threading
 """
-
+from email.utils import formataddr, parseaddr, make_msgid
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from django.utils import timezone
+from .models import Message, EmailMessage
+import logging
 import imaplib
 import smtplib
 import email
@@ -10,7 +17,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
-from email.utils import parseaddr, formataddr
+from email.utils import parseaddr, formataddr,make_msgid
 import logging
 from django.utils import timezone
 from django.core.files.base import ContentFile
@@ -93,6 +100,7 @@ class EmailHandler:
     
     def fetch_new_emails(self, folder='INBOX'):
         """Fetch new emails from IMAP server"""
+        
         if not self.connect_imap():
             return []
         
@@ -236,25 +244,49 @@ class EmailHandler:
         except Client.DoesNotExist:
             # Create a placeholder contact (can be linked to client later)
             contact, _ = Contact.objects.get_or_create(
-                client=None,
-                defaults={'preferred_channel': 'email'}
+            email=email_address,
+            defaults={
+            'client': client,
+            'preferred_channel': 'email'
+            }
             )
         
         return contact
     
     def get_or_create_conversation(self, contact, subject, in_reply_to, references):
-        """Get or create conversation based on threading"""
-        # Try to find existing conversation by thread
-        if in_reply_to or references:
-            existing_thread = EmailThread.objects.filter(
-                conversation__contact=contact,
-                messages__email_message_id__in=[in_reply_to] if in_reply_to else []
+
+        # 1️⃣ Buscar por In-Reply-To
+        if in_reply_to:
+            parent_email = EmailMessage.objects.filter(
+                email_message_id=in_reply_to.strip()
             ).first()
-            
-            if existing_thread:
-                return existing_thread.conversation
-        
-        # Create new conversation
+
+            if parent_email:
+                return parent_email.conversation
+
+        # 2️⃣ Buscar por References
+        if references:
+            reference_ids = references.split()
+            parent_email = EmailMessage.objects.filter(
+                email_message_id__in=reference_ids
+            ).order_by('-created_at').first()
+
+            if parent_email:
+                return parent_email.conversation
+
+        # 3️⃣ Fallback: mismo contacto + subject similar abierto
+        normalized_subject = subject.replace("Re:", "").strip()
+
+        existing_conversation = Conversation.objects.filter(
+            contact=contact,
+            subject__icontains=normalized_subject,
+            status="open"
+        ).order_by('-created_at').first()
+
+        if existing_conversation:
+            return existing_conversation
+
+        # 4️⃣ Crear nueva conversación
         conversation = Conversation.objects.create(
             contact=contact,
             channel='email',
@@ -262,11 +294,10 @@ class EmailHandler:
             priority='normal',
             subject=subject
         )
-        
-        # Auto-assign
+
         from .assignment_system import assign_conversation_to_agent
         assign_conversation_to_agent(conversation)
-        
+
         return conversation
     
     def get_or_create_thread(self, conversation, subject, in_reply_to, references):
@@ -310,36 +341,44 @@ class EmailHandler:
         except Exception as e:
             logger.error(f"Error saving attachment: {str(e)}")
     
+    
+
+ 
+
     def send_email(self, to_addresses, subject, body, html_body=None, cc_addresses=None, 
-                   bcc_addresses=None, attachments=None, conversation=None, signature=None):
-        """Send an email"""
+                bcc_addresses=None, attachments=None, conversation=None, signature=None):
+        """Send an email and save records in DB"""
         if not self.connect_smtp():
             return False, "Failed to connect to SMTP server"
         
         try:
-            # Create message
+            # Crear mensaje
             msg = MIMEMultipart('alternative')
             msg['From'] = formataddr((self.account.name, self.account.email_address))
             msg['To'] = ', '.join(to_addresses)
             msg['Subject'] = subject
-            
+
             if cc_addresses:
                 msg['Cc'] = ', '.join(cc_addresses)
-            
-            # Add signature if provided
+
+            # Generar Message-ID si no existe
+            msg_id = make_msgid()
+            msg['Message-ID'] = msg_id
+
+            # Agregar firma si existe
             if signature:
                 if html_body:
                     html_body += f"<br><br>{signature.html_signature}"
                 if body:
                     body += f"\n\n{signature.plain_signature}"
-            
-            # Attach bodies
+
+            # Adjuntar cuerpos
             if body:
                 msg.attach(MIMEText(body, 'plain'))
             if html_body:
                 msg.attach(MIMEText(html_body, 'html'))
-            
-            # Attach files
+
+            # Adjuntar archivos
             if attachments:
                 for attachment in attachments:
                     part = MIMEBase('application', 'octet-stream')
@@ -347,39 +386,45 @@ class EmailHandler:
                     encoders.encode_base64(part)
                     part.add_header('Content-Disposition', f'attachment; filename={attachment["filename"]}')
                     msg.attach(part)
-            
-            # Send
-            all_recipients = to_addresses + (cc_addresses or []) + (bcc_addresses or [])
+
+            # Enviar
             self.smtp_connection.send_message(msg)
+
+            # Guardar en la DB si hay conversación
             
-            # Create message record if conversation provided
-            if conversation:
-                message = Message.objects.create(
-                    conversation=conversation,
-                    message_type='email',
-                    direction='outbound',
-                    content=body or html_body or '',
-                    metadata={'sent_at': str(timezone.now())}
-                )
-                
-                EmailMessage.objects.create(
-                    message=message,
-                    email_account=self.account,
-                    subject=subject,
-                    html_body=html_body,
-                    plain_body=body,
-                    email_message_id=msg['Message-ID'],
-                    to_addresses=to_addresses,
-                    cc_addresses=cc_addresses or [],
-                    bcc_addresses=bcc_addresses or [],
-                    from_address=self.account.email_address
-                )
-            
+
             logger.info(f"Email sent: {subject}")
             return True, "Email sent successfully"
-            
+
         except Exception as e:
             logger.error(f"Error sending email: {str(e)}")
             return False, str(e)
         finally:
             self.disconnect()
+
+from django.utils import timezone
+from communications.models import EmailQueue, EmailAccount, Conversation
+from clients.models import Client
+
+def send_email_to_client(client_id):
+    client = Client.objects.get(id=client_id)
+    account = EmailAccount.objects.filter(is_active=True).first()
+
+    conversation, _ = Conversation.objects.get_or_create(
+        contact__client=client,
+        channel='email',
+        defaults={
+            'status': 'open',
+            'priority': 'normal',
+            'subject': 'Consulta'
+        }
+    )
+
+    EmailQueue.objects.create(
+        email_account=account,
+        to_addresses=[client.email],
+        subject="Prueba desde el sistema",
+        plain_body="Hola, este es un mensaje enviado desde el sistema.",
+        conversation=conversation,
+        scheduled_at=timezone.now()
+    )

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <!-- Header del contacto -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2>{{ contact.name }}</h2>
+            <p><strong>Teléfono:</strong> {{ contact.phone }}</p>
+            <p><strong>Email:</strong> {{ contact.email }}</p>
+            <p><strong>Creado:</strong> {{ contact.created_at }}</p>
+        </div>
+    </div>
+
+    <div class="row">
+        
+        <!-- Conversaciones -->
+        <div class="col-md-6">
+            <h4>Conversaciones</h4>
+
+            {% if conversations %}
+                <ul class="list-group">
+                    {% for conversation in conversations %}
+                        <li class="list-group-item">
+                            <a href="{% url 'conversation_detail' conversation.pk %}">
+                                Conversación #{{ conversation.id }}
+                            </a>
+                            <br>
+                            <small>
+                                Estado: {{ conversation.status }} |
+                                Creada: {{ conversation.created_at }}
+                            </small>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No hay conversaciones para este contacto.</p>
+            {% endif %}
+        </div>
+
+        <!-- Mensajes recientes -->
+        <div class="col-md-6">
+            <h4>Últimos 100 mensajes</h4>
+
+            {% if recent_messages %}
+                <ul class="list-group">
+                    {% for message in recent_messages %}
+                        <li class="list-group-item">
+                            <strong>
+                                {{ message.get_direction_display }}
+                            </strong>
+                            <br>
+                            {{ message.content|truncatechars:120 }}
+                            <br>
+                            <small>{{ message.created_at }}</small>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No hay mensajes.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
