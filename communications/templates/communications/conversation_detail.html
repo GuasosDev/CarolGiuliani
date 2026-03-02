@@ -20,15 +20,16 @@
             </div>
 
             <div class="chat-filters">
-                <a href="?status=normal" class="chat-filter-btn text-decoration-none {% if current_status == 'normal' %}active{% endif %}">Normal</a>
-                <a href="?status=pending" class="chat-filter-btn text-decoration-none {% if current_status == 'pending' %}active{% endif %}">Pendientes</a>
-                <a href="?status=closed" class="chat-filter-btn text-decoration-none {% if current_status == 'closed' %}active{% endif %}">Cerrados</a>
+                <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" class="chat-filter-btn text-decoration-none {% if current_status == 'normal' %}active{% endif %}">Normal</a>
+                <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" class="chat-filter-btn text-decoration-none {% if current_status == 'pending' %}active{% endif %}">Pendientes</a>
+                <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" class="chat-filter-btn text-decoration-none {% if current_status == 'closed' %}active{% endif %}">Cerrados</a>
             </div>
+
         </div>
 
-        <div class="omni-conversation-list">
+        <div class="omni-conversation-list" id="sidebar-conversations-list">
             {% for conv in sidebar_conversations %}
-            <a href="{% url 'communications:conversation_detail' conv.id %}"
+            <a href="{% url 'communications:conversation_detail' conv.id %}?status={{ current_status }}{% if current_channel %}&channel={{ current_channel }}{% endif %}"
                 class="omni-conv-item {% if conv.id == conversation.id %}active{% endif %}">
                 <div class="omni-avatar bg-primary conv-avatar">
                     {{ conv.contact.client.name|make_list|first|upper|default:"?" }}
@@ -359,16 +360,52 @@
 
 {% block comm_js %}
 <script>
-    // Scroll chat to bottom
+    // Scroll chat to bottom on load
     document.addEventListener("DOMContentLoaded", function () {
         var chatArea = document.getElementById("chatMessagesArea");
-        chatArea.scrollTop = chatArea.scrollHeight;
+        if(chatArea) {
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
     });
 
-    const ws = new CommunicationWebSocket('{{ request.user.id }}');
-    ws.onNewMessage = function (data) {
-        // Handle new incoming messages visually
-        console.log('New message received via WS');
-    };
+    // Auto-refresh implementation (Polling)
+    $(document).ready(function() {
+        setInterval(function() {
+            // Refresh sidebar list to update last message/time/status
+            $('#sidebar-conversations-list').load(window.location.href + ' #sidebar-conversations-list > *');
+            
+            // Refresh messages area with scroll preservation
+            var $container = $('#chatMessagesArea');
+            if ($container.length) {
+                // Check if user is near bottom (allow 100px threshold)
+                var isAtBottom = $container[0].scrollHeight - $container.scrollTop() <= $container.outerHeight() + 100;
+                var currentScroll = $container.scrollTop();
+
+                $.get(window.location.href, function(data) {
+                    var $newContent = $(data).find('#chatMessagesArea').html();
+                    $container.html($newContent);
+                    
+                    if (isAtBottom) {
+                        $container.scrollTop($container[0].scrollHeight);
+                    } else {
+                        $container.scrollTop(currentScroll);
+                    }
+                });
+            }
+        }, 10000); // Refresh every 10 seconds
+    });
+
+    // WebSocket attempt (if configured)
+    try {
+        const ws = new CommunicationWebSocket('{{ request.user.id }}');
+        ws.onNewMessage = function (data) {
+            // Handle new incoming messages visually if WS works
+            console.log('New message received via WS');
+            // Trigger manual refresh if WS notification comes
+            $('#chatMessagesArea').load(window.location.href + ' #chatMessagesArea > *');
+        };
+    } catch (e) {
+        console.log('WebSocket not initialized or failed:', e);
+    }
 </script>
 {% endblock %}

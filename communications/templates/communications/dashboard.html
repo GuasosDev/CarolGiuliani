@@ -55,13 +55,22 @@
         <div class="omni-card mb-4" style="height: 100%;">
             <div class="omni-card-header">
                 <h5 class="omni-card-title">
-                    {% if current_status == 'normal' %}Conversaciones Normales
+                    {% if current_channel == 'whatsapp' %}Conversaciones de WhatsApp
+                    {% elif current_channel == 'email' %}Conversaciones de Email
+                    {% elif current_channel == 'multichannel' %}Todas las Conversaciones (Multicanal)
+                    {% elif current_status == 'inbox' %}Bandeja de Entrada
+                    {% elif current_status == 'unread' %}Conversaciones No Leídas
+                    {% elif current_status == 'normal' %}Conversaciones Normales
                     {% elif current_status == 'pending' %}Conversaciones Pendientes
                     {% elif current_status == 'closed' %}Conversaciones Cerradas
                     {% else %}Todas las Conversaciones{% endif %}
                 </h5>
             </div>
-            <div class="card-body p-0">
+            <div class="card-body p-0" id="dashboard-conversations-container"
+                 hx-get="{{ request.get_full_path }}"
+                 hx-trigger="every 15s"
+                 hx-select="#dashboard-conversations-container"
+                 hx-swap="outerHTML">
                 <div class="table-responsive">
                     <table class="table omni-table mb-0">
                         <thead>
@@ -74,8 +83,68 @@
                             </tr>
                         </thead>
                         <tbody>
+                            {% if current_status == 'inbox' %}
+                                {% for group in grouped_conversations %}
+                                <tr class="table-light">
+                                    <td colspan="5" class="fw-bold text-dark border-bottom-0 pt-3 pb-2 bg-light">
+                                        <div class="d-flex align-items-center">
+                                            <div class="omni-avatar bg-primary me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                {{ group.client.name|make_list|first|upper|default:"?" }}
+                                            </div>
+                                            {{ group.client.name }}
+                                            <span class="text-muted small ms-2 fw-normal">({{ group.client.phone|default:group.client.email }})</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% for conv in group.conversations %}
+                                <tr class="omni-table-row {{ conv.channel }}">
+                                    <td class="ps-5">
+                                        {% if conv.channel == 'whatsapp' %}
+                                        <span class="omni-badge badge-whatsapp"><i class="fab fa-whatsapp me-1"></i> WhatsApp</span>
+                                        {% else %}
+                                        <span class="omni-badge badge-email"><i class="fas fa-envelope me-1"></i> Email</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ conv.updated_at|date:"d M H:i" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if conv.status == 'normal' %}
+                                        <span class="omni-badge status-active">Normal</span>
+                                        {% elif conv.status == 'pending' %}
+                                        <span class="omni-badge status-pending">Pendiente</span>
+                                        {% elif conv.status == 'closed' %}
+                                        <span class="omni-badge bg-secondary text-white">Cerrado</span>
+                                        {% else %}
+                                        <span class="omni-badge text-bg-light">{{ conv.status|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="small text-muted text-truncate" style="max-width: 200px;">
+                                            {% if conv.messages.last %}
+                                            {{ conv.messages.last.content|truncatechars:30 }}
+                                            {% else %}
+                                            -
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'communications:conversation_detail' conv.id %}?status=inbox"
+                                            class="btn btn-sm btn-light rounded-circle" data-bs-toggle="tooltip"
+                                            title="Abrir Chat">
+                                            <i class="fas fa-chevron-right text-primary"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">No hay conversaciones</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
                             {% for conv in conversations %}
-                            <tr>
+                            <tr class="omni-table-row {{ conv.channel }}">
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="omni-avatar bg-primary me-3">
@@ -119,54 +188,27 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <a href="{% url 'communications:conversation_detail' conv.id %}"
+                                    <a href="{% url 'communications:conversation_detail' conv.id %}?{% if current_channel %}channel={{ current_channel }}&{% endif %}status={{ current_status|default:'normal' }}"
                                         class="btn btn-sm btn-light rounded-circle" data-bs-toggle="tooltip"
                                         title="Abrir Chat">
                                         <i class="fas fa-chevron-right text-primary"></i>
                                     </a>
                                 </td>
                             </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">No hay conversaciones recientes</td>
-                            </tr>
                             {% endfor %}
 
-                            <!-- Filler for design if not enough real data, or just clients -->
-                            {% if conversations|length < 3 %} {% for client in clients|slice:":3" %} <tr>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="omni-avatar bg-secondary me-3">
-                                            {{ client.name|make_list|first|upper }}
-                                        </div>
-                                        <div>
-                                            <div class="fw-bold text-dark">{{ client.name }}</div>
-                                            <div class="small text-muted">{{ client.phone|default:client.email }}</div>
-                                        </div>
+
+                            {% if conversations|length == 0 %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5">
+                                    <div class="text-muted mb-3">
+                                        <i class="fas fa-inbox fa-3x mb-3 text-light"></i>
+                                        <p>No se encontraron conversaciones con los filtros actuales.</p>
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="omni-badge badge-whatsapp"><i class="fab fa-whatsapp me-1"></i>
-                                        WhatsApp</span>
-                                </td>
-                                <td>
-                                    <span class="omni-badge status-active">Nuevo</span>
-                                </td>
-                                <td>
-                                    <div class="small text-muted text-truncate" style="max-width: 200px;">
-                                        Iniciar chat...
-                                    </div>
-                                </td>
-                                <td>
-                                    <a href="{% url 'communications:open_client_whatsapp' client.id %}"
-                                        class="btn btn-sm btn-light rounded-circle" data-bs-toggle="tooltip"
-                                        title="Nuevo Chat">
-                                        <i class="fas fa-paper-plane text-primary"></i>
-                                    </a>
-                                </td>
-                                </tr>
-                                {% endfor %}
-                                {% endif %}
+                            </tr>
+                            {% endif %}
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -184,15 +226,15 @@
                 <!-- Visual placeholder for donut chart -->
                 <div class="position-relative d-inline-block mt-3 mb-4">
                     <svg viewBox="0 0 36 36" style="width: 150px; height: 150px;">
-                        <path stroke-dasharray="62, 100"
+                        <path stroke-dasharray="{{ whatsapp_percent|default:'0' }}, 100"
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                             fill="none" stroke="#25D366" stroke-width="4"></path>
-                        <path stroke-dasharray="38, 100"
+                        <path stroke-dasharray="{{ email_percent|default:'0' }}, 100"
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none" stroke="#5867dd" stroke-width="4" stroke-dashoffset="-62"></path>
+                            fill="none" stroke="#5867dd" stroke-width="4" stroke-dashoffset="-{{ whatsapp_percent|default:'0' }}"></path>
                     </svg>
                     <div class="position-absolute top-50 start-50 translate-middle">
-                        <h3 class="mb-0 fw-bold">227</h3>
+                        <h3 class="mb-0 fw-bold">{{ total_channel_count|default:"0" }}</h3>
                         <small class="text-muted" style="font-size: 0.65rem; font-weight: 700;">TOTAL</small>
                     </div>
                 </div>
@@ -205,7 +247,7 @@
                             <span class="small text-muted">WhatsApp</span>
                         </div>
                     </div>
-                    <div class="fw-bold">62%</div>
+                    <div class="fw-bold">{{ whatsapp_percent|default:"0" }}%</div>
                 </div>
                 <div class="d-flex justify-content-between px-3 mt-2">
                     <div class="text-start">
@@ -215,7 +257,7 @@
                             <span class="small text-muted">Email</span>
                         </div>
                     </div>
-                    <div class="fw-bold">38%</div>
+                    <div class="fw-bold">{{ email_percent|default:"0" }}%</div>
                 </div>
             </div>
         </div>

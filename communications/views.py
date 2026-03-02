@@ -23,33 +23,122 @@ logger = logging.getLogger(__name__)
 def dashboard(request):
     """Main communication dashboard"""
     # Get user's conversations
-    status_filter = request.GET.get('status', 'normal')
+    status_filter = request.GET.get('status')
+    channel_filter = request.GET.get('channel')
     
     base_qs = get_agent_conversations(request.user)
     
-    if status_filter == 'all':
-        conversations = base_qs.all()
-    else:
-        conversations = base_qs.filter(status=status_filter)
+    # Base filtering
+    conversations = base_qs
+    
+    if channel_filter:
+        if channel_filter != 'multichannel':
+            conversations = conversations.filter(channel=channel_filter)
         
-    conversations = conversations.order_by('-updated_at')[:50]
+        # If filtering by channel, we generally want to see all unless specific status is requested
+        if status_filter and status_filter != 'all':
+            conversations = conversations.filter(status=status_filter)
+    else:
+        # Default behavior (no channel filter)
+        if not status_filter:
+            status_filter = 'normal' # Default status
+            
+        if status_filter == 'inbox':
+            # Inbox logic: Group by client
+            # We want to show all conversations grouped by client
+            pass # Filtering handled below/separately
+        elif status_filter == 'pending':
+            # Show all pending conversations
+            conversations = conversations.filter(status='pending')
+        elif status_filter == 'unread':
+            # Show conversations with unread inbound messages
+            conversations = conversations.filter(messages__is_read=False, messages__direction='inbound').distinct()
+        elif status_filter != 'all':
+            conversations = conversations.filter(status=status_filter)
+        
+    if status_filter == 'inbox':
+        # Group conversations by client in Python
+        from collections import defaultdict
+        client_groups = defaultdict(list)
+        
+        # Get recent conversations from all statuses
+        inbox_qs = base_qs.select_related('contact__client').prefetch_related('messages').order_by('-updated_at')[:100]
+        
+        for conv in inbox_qs:
+            if conv.contact and conv.contact.client:
+                client = conv.contact.client
+                client_groups[client].append(conv)
+            
+        grouped_conversations = []
+        for client, convs in client_groups.items():
+            grouped_conversations.append({
+                'client': client,
+                'conversations': convs,
+                'latest_update': convs[0].updated_at if convs else None
+            })
+            
+        # Sort groups by latest activity
+        grouped_conversations.sort(key=lambda x: x['latest_update'] or '', reverse=True)
+        
+        # We don't use the main 'conversations' queryset for the list in this case
+        # But we keep it for other context if needed
+    else:
+        conversations = conversations.order_by('-updated_at')[:50]
+        grouped_conversations = None
+
     clients = Client.objects.all().order_by('name')[:200]
     
-    # Counts for tabs
-    normal_count = base_qs.filter(status='normal').count()
-    pending_count = base_qs.filter(status='pending').count()
-    closed_count = base_qs.filter(status='closed').count()
+    # Get counts using helper
+    counts = _get_conversation_counts(request.user)
+    
+    # Calculate percentages for donut chart
+    whatsapp_count = counts['whatsapp_count']
+    email_count = counts['email_count']
+    total_channel_count = counts['total_channel_count']
+    
+    if total_channel_count > 0:
+        whatsapp_percent = int((whatsapp_count / total_channel_count) * 100)
+        email_percent = int((email_count / total_channel_count) * 100)
+        # Adjust so they sum to 100 if there's rounding error
+        if whatsapp_percent + email_percent < 100:
+            if whatsapp_count >= email_count:
+                whatsapp_percent += (100 - (whatsapp_percent + email_percent))
+            else:
+                email_percent += (100 - (whatsapp_percent + email_percent))
+    else:
+        whatsapp_percent = 0
+        email_percent = 0
     
     context = {
         'conversations': conversations,
-        'normal_count': normal_count,
-        'pending_count': pending_count,
-        'closed_count': closed_count,
+        'grouped_conversations': grouped_conversations,
+        'whatsapp_percent': whatsapp_percent,
+        'email_percent': email_percent,
         'current_status': status_filter,
+        'current_channel': channel_filter,
         'clients': clients,
+        **counts # Unpack counts into context
     }
     
     return render(request, 'communications/dashboard.html', context)
+
+
+def _get_conversation_counts(user):
+    """Helper to get conversation counts for the sidebar"""
+    base_qs = get_agent_conversations(user)
+    
+    whatsapp_count = base_qs.filter(channel='whatsapp').count()
+    email_count = base_qs.filter(channel='email').count()
+    
+    return {
+        'normal_count': base_qs.filter(status='normal').count(),
+        'pending_count': base_qs.filter(status='pending').count(),
+        'closed_count': base_qs.filter(status='closed').count(),
+        'unread_count': base_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
+        'whatsapp_count': whatsapp_count,
+        'email_count': email_count,
+        'total_channel_count': whatsapp_count + email_count,
+    }
 
 
 @login_required
@@ -124,12 +213,22 @@ def conversation_detail(request, pk):
     
     # Sidebar conversations (filtered by current conversation's status or default to normal)
     status_filter = request.GET.get('status', conversation.status)
-    sidebar_conversations = get_agent_conversations(request.user).filter(
+    channel_filter = request.GET.get('channel')
+    
+    sidebar_qs = get_agent_conversations(request.user)
+    
+    if channel_filter:
+        sidebar_qs = sidebar_qs.filter(channel=channel_filter)
+        
+    sidebar_conversations = sidebar_qs.filter(
         status=status_filter
     ).order_by('-updated_at')[:50]
     
     whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
     email_account = EmailAccount.objects.filter(is_active=True).first()
+    
+    # Get counts using helper
+    counts = _get_conversation_counts(request.user)
     
     context = {
         'conversation': conversation,
@@ -138,8 +237,10 @@ def conversation_detail(request, pk):
         'clients': Client.objects.all().order_by('name')[:100],
         'sidebar_conversations': sidebar_conversations,
         'current_status': status_filter,
+        'current_channel': channel_filter,
         'whatsapp_account': whatsapp_account,
         'email_account': email_account,
+        **counts # Unpack counts into context
     }
     
     return render(request, 'communications/conversation_detail.html', context)

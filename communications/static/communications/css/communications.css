@@ -313,6 +313,24 @@
     border-bottom: none;
 }
 
+/* Channel specific backgrounds for table rows and list items */
+.omni-table-row.whatsapp,
+.omni-conv-item.whatsapp {
+    background-color: rgba(37, 211, 102, 0.05);
+    border-left: 3px solid var(--omni-whatsapp);
+}
+
+.omni-table-row.email,
+.omni-conv-item.email {
+    background-color: rgba(0, 123, 255, 0.05);
+    border-left: 3px solid var(--omni-email);
+}
+
+.omni-table-row:hover,
+.omni-conv-item:hover {
+    background-color: rgba(88, 103, 221, 0.08);
+}
+
 /* User Avatar */
 .omni-avatar {
     width: 40px;
