@@ -3,281 +3,281 @@
 
 {% block title %}Dashboard de Comunicaciones{% endblock %}
 
+{% block comm_css %}
+<style>
+    .comm-main-panel {
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+</style>
+{% endblock %}
+
 {% block comm_content %}
-<div class="omni-page-header">
-    <div>
-        <h2 class="omni-page-title">Resumen General</h2>
-        <div class="omni-page-subtitle">Bienvenido de nuevo, esto es lo que está sucediendo hoy.</div>
-    </div>
-
-    <div class="omni-search-bar mb-0" style="width: 350px;">
-        <i class="fas fa-search"></i>
-        <input type="text" class="omni-search-input" placeholder="Buscar conversaciones, clientes o tickets...">
-    </div>
-</div>
-
-<!-- Stats Cards -->
-<div class="stat-card-row">
-    <a href="?status=normal" class="stat-item text-decoration-none {% if current_status == 'normal' %}border-primary bg-light{% endif %}">
-        <div class="stat-icon whatsapp">
-            <i class="fas fa-comment"></i>
-        </div>
-        <div class="stat-content">
-            <h6 class="text-dark">Normal</h6>
-            <h3 class="text-dark">{{ normal_count|default:"0" }}</h3>
-        </div>
-    </a>
-
-    <a href="?status=pending" class="stat-item text-decoration-none {% if current_status == 'pending' %}border-warning bg-light{% endif %}">
-        <div class="stat-icon pending">
-            <i class="fas fa-hourglass-half"></i>
-        </div>
-        <div class="stat-content">
-            <h6 class="text-dark">Pendientes</h6>
-            <h3 class="text-dark">{{ pending_count|default:"0" }}</h3>
-        </div>
-    </a>
-
-    <a href="?status=closed" class="stat-item text-decoration-none {% if current_status == 'closed' %}border-success bg-light{% endif %}">
-        <div class="stat-icon closed">
-            <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="stat-content">
-            <h6 class="text-dark">Cerrados</h6>
-            <h3 class="text-dark">{{ closed_count|default:"0" }}</h3>
-        </div>
-    </a>
-</div>
-
-<div class="row">
-    <div class="col-lg-8">
-        <!-- Conversaciones Recientes -->
-        <div class="omni-card mb-4" style="height: 100%;">
-            <div class="omni-card-header">
-                <h5 class="omni-card-title">
-                    {% if current_channel == 'whatsapp' %}Conversaciones de WhatsApp
-                    {% elif current_channel == 'email' %}Conversaciones de Email
-                    {% elif current_channel == 'multichannel' %}Todas las Conversaciones (Multicanal)
-                    {% elif current_status == 'inbox' %}Bandeja de Entrada
-                    {% elif current_status == 'unread' %}Conversaciones No Leídas
-                    {% elif current_status == 'normal' %}Conversaciones Normales
-                    {% elif current_status == 'pending' %}Conversaciones Pendientes
-                    {% elif current_status == 'closed' %}Conversaciones Cerradas
-                    {% else %}Todas las Conversaciones{% endif %}
-                </h5>
+<div class="d-flex flex-column h-100">
+    <!-- Header -->
+    <div class="omni-page-header py-3 px-4 border-bottom bg-white flex-shrink-0">
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <div>
+                <h2 class="omni-page-title mb-0" id="dashboard-header-title">Resumen General</h2>
+                <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user.first_name|default:"Lautaro" }}</div>
             </div>
-            <div class="card-body p-0" id="dashboard-conversations-container"
+            <!-- Search Bar -->
+            <div class="omni-search-bar mb-0" style="width: 300px;">
+                <i class="fas fa-search"></i>
+                <input type="text" class="omni-search-input" placeholder="Buscar...">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area: 3 Columns -->
+    <div class="row g-0 flex-grow-1 overflow-hidden" style="height: calc(100vh - 80px);"> <!-- Adjust height based on header -->
+        
+        <!-- Column 1: Status Column (Thin) -->
+        <div class="col-auto border-end bg-light d-flex flex-column align-items-center py-4 gap-4" style="width: 70px; min-width: 70px;">
+            <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+               class="status-circle-btn {% if current_status == 'normal' or not current_status %}active{% endif %}"
+               title="Activos (Normal)" data-bs-toggle="tooltip" data-bs-placement="right">
+                <div class="status-circle bg-success shadow-sm">
+                    <i class="fas fa-check text-white"></i>
+                </div>
+                <small class="status-label text-success fw-bold mt-1">Activo</small>
+            </a>
+            
+            <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+               class="status-circle-btn {% if current_status == 'pending' %}active{% endif %}"
+               title="Pendientes" data-bs-toggle="tooltip" data-bs-placement="right">
+                <div class="status-circle bg-warning shadow-sm">
+                    <i class="fas fa-hourglass-half text-white"></i>
+                </div>
+                <small class="status-label text-warning fw-bold mt-1">Pendiente</small>
+            </a>
+            
+            <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+               class="status-circle-btn {% if current_status == 'closed' %}active{% endif %}"
+               title="Cerrados" data-bs-toggle="tooltip" data-bs-placement="right">
+                <div class="status-circle bg-danger shadow-sm">
+                    <i class="fas fa-times text-white"></i>
+                </div>
+                <small class="status-label text-danger fw-bold mt-1">Cerrado</small>
+            </a>
+        </div>
+
+        <!-- Column 2: Conversation List (3 cols) -->
+        <div class="col-md-3 col-lg-3 border-end bg-white d-flex flex-column h-100">
+            <!-- Scrollable List -->
+            <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
                  hx-get="{{ request.get_full_path }}"
                  hx-trigger="every 15s"
                  hx-select="#dashboard-conversations-container"
                  hx-swap="outerHTML">
-                <div class="table-responsive">
-                    <table class="table omni-table mb-0">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Canal</th>
-                                <th>Estado</th>
-                                <th>Último Mensaje</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if current_status == 'inbox' %}
-                                {% for group in grouped_conversations %}
-                                <tr class="table-light">
-                                    <td colspan="5" class="fw-bold text-dark border-bottom-0 pt-3 pb-2 bg-light">
-                                        <div class="d-flex align-items-center">
-                                            <div class="omni-avatar bg-primary me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
-                                                {{ group.client.name|make_list|first|upper|default:"?" }}
-                                            </div>
-                                            {{ group.client.name }}
-                                            <span class="text-muted small ms-2 fw-normal">({{ group.client.phone|default:group.client.email }})</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% for conv in group.conversations %}
-                                <tr class="omni-table-row {{ conv.channel }}">
-                                    <td class="ps-5">
-                                        {% if conv.channel == 'whatsapp' %}
-                                        <span class="omni-badge badge-whatsapp"><i class="fab fa-whatsapp me-1"></i> WhatsApp</span>
-                                        {% else %}
-                                        <span class="omni-badge badge-email"><i class="fas fa-envelope me-1"></i> Email</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">{{ conv.updated_at|date:"d M H:i" }}</small>
-                                    </td>
-                                    <td>
-                                        {% if conv.status == 'normal' %}
-                                        <span class="omni-badge status-active">Normal</span>
-                                        {% elif conv.status == 'pending' %}
-                                        <span class="omni-badge status-pending">Pendiente</span>
-                                        {% elif conv.status == 'closed' %}
-                                        <span class="omni-badge bg-secondary text-white">Cerrado</span>
-                                        {% else %}
-                                        <span class="omni-badge text-bg-light">{{ conv.status|title }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="small text-muted text-truncate" style="max-width: 200px;">
-                                            {% if conv.messages.last %}
-                                            {{ conv.messages.last.content|truncatechars:30 }}
-                                            {% else %}
-                                            -
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'communications:conversation_detail' conv.id %}?status=inbox"
-                                            class="btn btn-sm btn-light rounded-circle" data-bs-toggle="tooltip"
-                                            title="Abrir Chat">
-                                            <i class="fas fa-chevron-right text-primary"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">No hay conversaciones</td>
-                                </tr>
-                                {% endfor %}
-                            {% else %}
-                            {% for conv in conversations %}
-                            <tr class="omni-table-row {{ conv.channel }}">
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="omni-avatar bg-primary me-3">
-                                            {{ conv.contact.client.name|make_list|first|upper|default:"?" }}
-                                        </div>
-                                        <div>
-                                            <div class="fw-bold text-dark">{{
-                                                conv.contact.client.name|default:"Desconocido" }}</div>
-                                            <div class="small text-muted">{{ conv.contact.client.phone|default:"" }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    {% if conv.channel == 'whatsapp' %}
-                                    <span class="omni-badge badge-whatsapp"><i class="fab fa-whatsapp me-1"></i>
-                                        WhatsApp</span>
-                                    {% else %}
-                                    <span class="omni-badge badge-email"><i class="fas fa-envelope me-1"></i>
-                                        Email</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if conv.status == 'normal' %}
-                                    <span class="omni-badge status-active">Normal</span>
-                                    {% elif conv.status == 'pending' %}
-                                    <span class="omni-badge status-pending">Pendiente</span>
-                                    {% elif conv.status == 'closed' %}
-                                    <span class="omni-badge bg-secondary text-white">Cerrado</span>
-                                    {% else %}
-                                    <span class="omni-badge text-bg-light">{{ conv.status|title }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="small text-muted text-truncate" style="max-width: 200px;">
-                                        {% if conv.messages.last %}
-                                        {{ conv.messages.last.content|truncatechars:30 }}
-                                        {% else %}
-                                        Respuesta...
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <a href="{% url 'communications:conversation_detail' conv.id %}?{% if current_channel %}channel={{ current_channel }}&{% endif %}status={{ current_status|default:'normal' }}"
-                                        class="btn btn-sm btn-light rounded-circle" data-bs-toggle="tooltip"
-                                        title="Abrir Chat">
-                                        <i class="fas fa-chevron-right text-primary"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-
-
-                            {% if conversations|length == 0 %}
-                            <tr>
-                                <td colspan="5" class="text-center py-5">
-                                    <div class="text-muted mb-3">
-                                        <i class="fas fa-inbox fa-3x mb-3 text-light"></i>
-                                        <p>No se encontraron conversaciones con los filtros actuales.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endif %}
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <!-- Distribution Area -->
-        <div class="omni-card mb-4">
-            <div class="omni-card-header">
-                <h5 class="omni-card-title">Distribución por Canal</h5>
-            </div>
-            <div class="omni-card-body text-center">
-                <!-- Visual placeholder for donut chart -->
-                <div class="position-relative d-inline-block mt-3 mb-4">
-                    <svg viewBox="0 0 36 36" style="width: 150px; height: 150px;">
-                        <path stroke-dasharray="{{ whatsapp_percent|default:'0' }}, 100"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none" stroke="#25D366" stroke-width="4"></path>
-                        <path stroke-dasharray="{{ email_percent|default:'0' }}, 100"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none" stroke="#5867dd" stroke-width="4" stroke-dashoffset="-{{ whatsapp_percent|default:'0' }}"></path>
-                    </svg>
-                    <div class="position-absolute top-50 start-50 translate-middle">
-                        <h3 class="mb-0 fw-bold">{{ total_channel_count|default:"0" }}</h3>
-                        <small class="text-muted" style="font-size: 0.65rem; font-weight: 700;">TOTAL</small>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-between px-3 mt-2">
-                    <div class="text-start">
-                        <div class="d-flex align-items-center mb-1">
-                            <div class="rounded-circle me-2" style="width: 10px; height: 10px; background: #25D366;">
-                            </div>
-                            <span class="small text-muted">WhatsApp</span>
+                
+                <div class="list-group list-group-flush">
+                {% if current_status == 'inbox' %}
+                    {% for group in grouped_conversations %}
+                        <div class="list-group-item bg-light fw-bold small text-uppercase text-muted py-1 px-3">
+                            {{ group.client.name }}
                         </div>
-                    </div>
-                    <div class="fw-bold">{{ whatsapp_percent|default:"0" }}%</div>
-                </div>
-                <div class="d-flex justify-content-between px-3 mt-2">
-                    <div class="text-start">
-                        <div class="d-flex align-items-center mb-1">
-                            <div class="rounded-circle me-2" style="width: 10px; height: 10px; background: #5867dd;">
-                            </div>
-                            <span class="small text-muted">Email</span>
+                        {% for conv in group.conversations %}
+                            <a href="#" 
+                               class="list-group-item list-group-item-action border-bottom p-3 conversation-item"
+                               data-id="{{ conv.id }}"
+                               hx-get="{% url 'communications:conversation_detail' conv.id %}"
+                               hx-target="#conversation-detail-panel"
+                               hx-swap="innerHTML"
+                               onclick="selectConversation(this, '{{ conv.id }}')">
+                               
+                               <div class="d-flex justify-content-between mb-1">
+                                   <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
+                                       {% if conv.channel == 'whatsapp' %}
+                                           <i class="fab fa-whatsapp text-success me-2"></i>
+                                       {% else %}
+                                           <i class="fas fa-envelope text-primary me-2"></i>
+                                       {% endif %}
+                                       <span class="fw-bold text-dark text-truncate">
+                                           {{ conv.contact.client.name|default:"Desconocido" }}
+                                       </span>
+                                   </div>
+                                   <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
+                               </div>
+                               
+                               <div class="d-flex justify-content-between align-items-center">
+                                   <small class="text-muted text-truncate d-block" style="max-width: 100%;">
+                                       {% if conv.messages.last %}
+                                           {{ conv.messages.last.content|truncatechars:35 }}
+                                       {% else %}
+                                           <span class="fst-italic text-muted">Sin mensajes...</span>
+                                       {% endif %}
+                                   </small>
+                               </div>
+                            </a>
+                        {% endfor %}
+                    {% empty %}
+                        <div class="text-center p-4 text-muted">No hay conversaciones</div>
+                    {% endfor %}
+                {% else %}
+                    {% for conv in conversations %}
+                        <a href="#" 
+                           class="list-group-item list-group-item-action border-bottom p-3 conversation-item"
+                           data-id="{{ conv.id }}"
+                           hx-get="{% url 'communications:conversation_detail' conv.id %}"
+                           hx-target="#conversation-detail-panel"
+                           hx-swap="innerHTML"
+                           onclick="selectConversation(this, '{{ conv.id }}')">
+                           
+                           <div class="d-flex justify-content-between mb-1">
+                               <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
+                                   {% if conv.channel == 'whatsapp' %}
+                                       <i class="fab fa-whatsapp text-success me-2"></i>
+                                   {% else %}
+                                       <i class="fas fa-envelope text-primary me-2"></i>
+                                   {% endif %}
+                                   <span class="fw-bold text-dark text-truncate">
+                                       {{ conv.contact.client.name|default:"Desconocido" }}
+                                   </span>
+                               </div>
+                               <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
+                           </div>
+                           
+                           <div class="d-flex justify-content-between align-items-center">
+                               <small class="text-muted text-truncate d-block" style="max-width: 100%;">
+                                   {% if conv.messages.last %}
+                                       {{ conv.messages.last.content|truncatechars:35 }}
+                                   {% else %}
+                                       <span class="fst-italic text-muted">Sin mensajes...</span>
+                                   {% endif %}
+                               </small>
+                           </div>
+                        </a>
+                    {% empty %}
+                        <div class="text-center p-5 text-muted">
+                            <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
+                            <p>No hay conversaciones en esta vista.</p>
                         </div>
-                    </div>
-                    <div class="fw-bold">{{ email_percent|default:"0" }}%</div>
+                    {% endfor %}
+                {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Action Button -->
-        <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow-sm"
-            hx-get="{% url 'communications:contact_create' %}" hx-target="#modal-body" onclick="openModal()">
-            <i class="fas fa-user-plus me-2"></i> Nuevo contacto manual
-        </button>
+        <!-- Column 3: Conversation Detail (Rest) -->
+        <div class="col bg-light d-flex flex-column h-100 position-relative" id="conversation-detail-panel">
+            <!-- Empty State -->
+            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
+                    <i class="far fa-comments fa-3x text-primary opacity-50"></i>
+                </div>
+                <h5>Selecciona una conversación</h5>
+                <p class="small">Elige un chat de la lista para ver los detalles aquí.</p>
+                <div class="mt-4 text-center">
+                    <p class="small text-muted mb-1">Ejemplo: Conversación con</p>
+                    <div class="fw-bold">Gabriel Scola</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-{% endblock %}
+<style>
+    /* Custom Scrollbar for the list */
+    #dashboard-conversations-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    #dashboard-conversations-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    #dashboard-conversations-container::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 3px;
+    }
+    
+    /* Active State Style for List Items */
+    .conversation-item.active {
+        background-color: #e9ecef !important;
+        border-left: 4px solid #0d6efd;
+    }
 
-{% block comm_js %}
+    /* Status Circle Styles */
+    .status-circle-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-decoration: none;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+    }
+    .status-circle-btn:hover, .status-circle-btn.active {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+    .status-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        border: 2px solid transparent;
+        transition: all 0.2s;
+    }
+    .status-circle-btn.active .status-circle {
+        border-color: #333;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .status-label {
+        font-size: 0.65rem;
+        display: none; /* Hide label by default, show on hover? Or just keep hidden for clean look */
+    }
+    .status-circle-btn:hover .status-label {
+        display: block;
+    }
+
+    /* Active Conversation Style */
+    .conversation-item.active {
+        background-color: #f8f9fa !important;
+        border-left: 4px solid #0d6efd !important;
+    }
+</style>
+
 <script>
-    // Tooltips initialization
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    // Handle conversation selection state
+    function selectConversation(element, id) {
+        // Visual update
+        document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
+        element.classList.add('active', 'bg-light');
+        
+        // URL update (without reloading)
+        const url = new URL(window.location);
+        url.searchParams.set('conversation', id);
+        window.history.pushState({}, '', url);
+    }
+
+    // Restore selection after HTMX swaps (polling)
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'dashboard-conversations-container') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeId = urlParams.get('conversation');
+            
+            if (activeId) {
+                // Find the element by data-id
+                const el = document.querySelector(`.conversation-item[data-id="${activeId}"]`);
+                if (el) {
+                    el.classList.add('active', 'bg-light');
+                }
+            }
+        }
+    });
+
+    // Restore selection on initial load if present in URL
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeId = urlParams.get('conversation');
+        if (activeId) {
+            const el = document.querySelector(`.conversation-item[data-id="${activeId}"]`);
+            if (el) {
+                el.click(); // Simulate click to load the conversation
+            }
+        }
+    });
 </script>
 {% endblock %}

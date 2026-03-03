@@ -8,9 +8,13 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.urls import reverse_lazy
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import models
 import json
 import logging
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply
+from .forms import QuickReplyForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
@@ -230,6 +234,11 @@ def conversation_detail(request, pk):
     # Get counts using helper
     counts = _get_conversation_counts(request.user)
     
+    # Get quick replies
+    quick_replies = QuickReply.objects.filter(
+        models.Q(created_by=request.user) | models.Q(is_global=True)
+    ).order_by('shortcut', 'title')
+    
     context = {
         'conversation': conversation,
         'messages': messages,
@@ -240,6 +249,7 @@ def conversation_detail(request, pk):
         'current_channel': channel_filter,
         'whatsapp_account': whatsapp_account,
         'email_account': email_account,
+        'quick_replies': quick_replies,
         **counts # Unpack counts into context
     }
     
@@ -368,3 +378,55 @@ def whatsapp_webhook(request):
         except Exception as e:
             logger.error(f"Error processing WhatsApp webhook: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============================================================================
+# QUICK REPLY MANAGEMENT
+# ============================================================================
+
+class QuickReplyListView(LoginRequiredMixin, ListView):
+    model = QuickReply
+    template_name = 'communications/quick_replies.html'
+    context_object_name = 'quick_replies'
+
+    def get_queryset(self):
+        # Show user's own replies and global ones
+        return QuickReply.objects.filter(
+            models.Q(created_by=self.request.user) | models.Q(is_global=True)
+        ).order_by('shortcut', 'title')
+
+class QuickReplyCreateView(LoginRequiredMixin, CreateView):
+    model = QuickReply
+    form_class = QuickReplyForm
+    template_name = 'communications/quick_reply_form.html'
+    success_url = reverse_lazy('communications:quick_replies')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        # Only supervisors/admins can create global replies
+        if form.instance.is_global and not (self.request.user.is_superuser or self.request.user.groups.filter(name='Supervisor').exists()):
+            form.instance.is_global = False
+        return super().form_valid(form)
+
+class QuickReplyUpdateView(LoginRequiredMixin, UpdateView):
+    model = QuickReply
+    form_class = QuickReplyForm
+    template_name = 'communications/quick_reply_form.html'
+    success_url = reverse_lazy('communications:quick_replies')
+
+    def get_queryset(self):
+        # Only allow editing own replies unless admin/supervisor
+        if self.request.user.is_superuser or self.request.user.groups.filter(name='Supervisor').exists():
+            return QuickReply.objects.all()
+        return QuickReply.objects.filter(created_by=self.request.user)
+
+class QuickReplyDeleteView(LoginRequiredMixin, DeleteView):
+    model = QuickReply
+    template_name = 'communications/quick_reply_confirm_delete.html'
+    success_url = reverse_lazy('communications:quick_replies')
+
+    def get_queryset(self):
+        # Only allow deleting own replies unless admin/supervisor
+        if self.request.user.is_superuser or self.request.user.groups.filter(name='Supervisor').exists():
+            return QuickReply.objects.all()
+        return QuickReply.objects.filter(created_by=self.request.user)

@@ -1,0 +1,324 @@
+{% load static %}
+<div class="d-flex h-100 w-100" id="conversation-detail-wrapper" data-conversation-url="{% url 'communications:conversation_detail' conversation.id %}">
+    <!-- Main Chat Workspace -->
+    <div class="omni-chat-main flex-grow-1 d-flex flex-column h-100">
+        <div class="omni-chat-header bg-white border-bottom">
+            <div class="d-flex align-items-center p-3">
+                <div class="omni-avatar bg-secondary me-3" style="width: 45px; height: 45px; font-size: 1.2rem;">
+                    {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+                </div>
+                <div>
+                    <h5 class="mb-0 fw-bold text-dark">{{ conversation.contact.client.name|default:"Desconocido" }}
+                        <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span></h5>
+                    <div class="small text-muted mt-1">
+                        <i class="fas fa-envelope me-1"></i> {{ conversation.contact.client.email|default:"Sin email" }}
+                        •
+                        <i class="fas fa-phone me-1"></i> {{ conversation.contact.whatsapp_number|default:conversation.contact.client.phone }}
+                    </div>
+                </div>
+                
+                <div class="ms-auto d-flex align-items-center">
+                    <button class="btn btn-outline-secondary btn-sm me-2 fw-bold d-flex align-items-center bg-white">
+                        <i class="fas fa-exchange-alt me-2"></i> Transferir
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm me-2 fw-bold d-flex align-items-center bg-white">
+                        <i class="fas fa-pause me-2"></i> Pausar
+                    </button>
+                    
+                    <form method="post" action="{% url 'communications:change_conversation_status' conversation.id %}" class="mb-0 d-flex gap-2">
+                        {% csrf_token %}
+                        {% if conversation.status != 'closed' %}
+                        <button type="submit" name="status" value="closed" class="btn btn-success btn-sm fw-bold px-3">
+                            Cerrar
+                        </button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="omni-messages-area bg-light flex-grow-1 overflow-auto p-3" id="chatMessagesArea">
+            <div class="date-divider text-center my-3">
+                <span class="bg-white px-2 py-1 rounded small text-muted border">HOY</span>
+            </div>
+
+            {% for m in messages %}
+            <div class="omni-msg-row d-flex mb-3 {% if m.direction == 'outbound' %}justify-content-end{% endif %}">
+                {% if m.direction == 'inbound' %}
+                <div class="omni-avatar bg-secondary me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                    {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+                </div>
+                {% endif %}
+
+                <div class="msg-content-wrapper" style="max-width: 70%;">
+                    <div class="msg-bubble p-3 rounded-3 shadow-sm {% if m.direction == 'outbound' %}bg-primary text-white{% else %}bg-white text-dark border{% endif %}">
+                        {{ m.content|linebreaksbr }}
+                    </div>
+                    <div class="message-meta small text-muted mt-1 {% if m.direction == 'outbound' %}text-end{% endif %}">
+                        {{ m.created_at|time:"h:i A" }}
+                        {% if m.direction == 'outbound' %}
+                        <i class="fas fa-check-double text-primary ms-1"></i>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if m.direction == 'outbound' %}
+                <div class="omni-avatar bg-primary ms-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                    {{ request.user.username|make_list|first|upper }}
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="text-center text-muted my-auto w-100 py-5">No hay mensajes en esta conversación. Comienza a chatear.</div>
+            {% endfor %}
+            
+            {% if conversation.channel == 'multichannel' %}
+            <div class="d-flex justify-content-center w-100 my-3">
+                <div class="multichannel-detect shadow-sm bg-white p-2 rounded small text-info border border-info">
+                    <i class="fas fa-sync-alt me-2"></i> Conversación multicanal detectada - WhatsApp + Email vinculados
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="omni-chat-input-area bg-white p-3 border-top">
+            <!-- Channel Selection Tabs -->
+            <div class="chat-input-tools d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex gap-1 bg-light rounded-pill p-1">
+                    <button type="button" id="btn-whatsapp" onclick="switchChannel('whatsapp')"
+                        class="btn btn-sm btn-white rounded-pill px-3 active text-success shadow-sm">
+                        <i class="fab fa-whatsapp me-1"></i> WhatsApp
+                    </button>
+                    <button type="button" id="btn-email" onclick="switchChannel('email')"
+                        class="btn btn-sm btn-light rounded-pill px-3 text-muted">
+                        <i class="fas fa-envelope me-1"></i> Email
+                    </button>
+                </div>
+            </div>
+
+            <!-- WhatsApp Form -->
+            <div id="channel-whatsapp" class="channel-content">
+                {% if whatsapp_account %}
+                <form method="post" action="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/" id="whatsappForm" 
+                      hx-post="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/" 
+                      hx-target="#chatMessagesArea" 
+                      hx-swap="beforeend scroll:bottom">
+                    {% csrf_token %}
+                    <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+                    <input type="hidden" name="to_number" value="{{ conversation.contact.whatsapp_number|default:conversation.contact.client.phone }}">
+
+                    <div class="chat-input-box bg-light p-2 rounded-3 border focus-ring-primary">
+                        <textarea class="form-control border-0 bg-transparent shadow-none" name="message" rows="1"
+                            placeholder="Escribe un mensaje de WhatsApp..."></textarea>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm text-muted"><i class="fas fa-paperclip"></i></button>
+                                <button type="button" class="btn btn-sm text-muted"><i class="far fa-smile"></i></button>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm px-4 rounded-pill">
+                                <i class="fas fa-paper-plane me-2"></i> Enviar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                {% else %}
+                <div class="alert alert-warning mb-0 text-center rounded-3 p-2 small">
+                    <i class="fab fa-whatsapp me-2"></i> Configura una cuenta de WhatsApp activa.
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Email Form -->
+            <div id="channel-email" class="channel-content d-none">
+                {% if email_account %}
+                <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/" id="emailForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+                    
+                    <div class="bg-white p-2 rounded border mb-2">
+                        <div class="mb-2 border-bottom pb-2">
+                            <input type="email" name="to_addresses" class="form-control form-control-sm border-0 px-0 mb-1" 
+                                placeholder="Para" value="{{ conversation.contact.client.email|default:'' }}" required>
+                            <input type="text" name="subject" class="form-control form-control-sm border-0 px-0 fw-bold" 
+                                placeholder="Asunto" value="{% if conversation.subject %}Re: {{ conversation.subject }}{% endif %}" required>
+                        </div>
+                        <textarea class="form-control border-0 shadow-none px-0" name="body" rows="3"
+                            placeholder="Escribe el contenido del correo..." required></textarea>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary btn-sm px-4">
+                            <i class="fas fa-paper-plane me-2"></i> Enviar Email
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="alert alert-warning mb-0 text-center rounded-3 p-2 small">
+                    <i class="fas fa-envelope me-2"></i> Configura una cuenta de Email activa.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Details Sidebar -->
+    <div class="omni-chat-details border-start bg-white" style="width: 300px; min-width: 300px; overflow-y: auto;">
+        <div class="p-4 text-center border-bottom">
+            <div class="omni-avatar bg-warning mx-auto mb-3 text-white fw-bold shadow-sm"
+                style="width: 80px; height: 80px; font-size: 2rem;">
+                {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+            </div>
+
+            <h5 class="fw-bold text-dark mb-1">{{ conversation.contact.client.name|default:"Desconocido" }}</h5>
+            <div class="text-muted small mb-3">Cliente • <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">ACTIVO</span></div>
+            
+            <div class="d-flex justify-content-center gap-2 mb-2">
+                 <button class="btn btn-sm btn-light border rounded-circle" title="Llamar"><i class="fas fa-phone text-muted"></i></button>
+                 <button class="btn btn-sm btn-light border rounded-circle" title="Video"><i class="fas fa-video text-muted"></i></button>
+                 <button class="btn btn-sm btn-light border rounded-circle" title="Email"><i class="fas fa-envelope text-muted"></i></button>
+            </div>
+        </div>
+
+        <div class="p-3">
+            <h6 class="text-uppercase text-muted fw-bold small mb-3" style="font-size: 0.7rem; letter-spacing: 0.5px;">DATOS DEL CLIENTE</h6>
+            
+            <div class="mb-3">
+                <label class="small text-muted d-block mb-1">Empresa</label>
+                <div class="d-flex align-items-center text-dark">
+                    <i class="fas fa-building text-secondary me-2" style="width: 16px;"></i>
+                    {{ conversation.contact.client.company|default:"Sin Empresa" }}
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="small text-muted d-block mb-1">Ubicación</label>
+                <div class="d-flex align-items-center text-dark">
+                    <i class="fas fa-map-marker-alt text-secondary me-2" style="width: 16px;"></i>
+                    {{ conversation.contact.client.address|default:"Sin Ubicación" }}
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="small text-muted d-block mb-1">Email</label>
+                <div class="d-flex align-items-center text-dark text-truncate">
+                    <i class="fas fa-at text-secondary me-2" style="width: 16px;"></i>
+                    {{ conversation.contact.client.email|default:"-" }}
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-uppercase text-muted fw-bold small mb-0" style="font-size: 0.7rem; letter-spacing: 0.5px;">ETIQUETAS</h6>
+                <button class="btn btn-link btn-sm p-0 text-decoration-none fw-bold" style="font-size: 0.75rem;">+ AÑADIR</button>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <span class="badge bg-light text-dark border fw-normal px-2 py-1">Valor Alto <i class="fas fa-times ms-1 text-muted" style="cursor: pointer;"></i></span>
+                <span class="badge bg-light text-dark border fw-normal px-2 py-1">Potencial <i class="fas fa-times ms-1 text-muted" style="cursor: pointer;"></i></span>
+            </div>
+            
+            <hr class="my-4">
+            
+            <h6 class="text-uppercase text-muted fw-bold small mb-3" style="font-size: 0.7rem; letter-spacing: 0.5px;">NOTAS INTERNAS</h6>
+            
+            <div class="bg-light p-2 rounded mb-3 border" style="max-height: 150px; overflow-y: auto;">
+                {% for n in notes %}
+                <div class="mb-2 pb-2 border-bottom last-no-border">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="fw-bold">{{ n.author.username }}</span>
+                        <span class="text-muted" style="font-size: 0.65rem;">{{ n.created_at|date:"d/m" }}</span>
+                    </div>
+                    <div class="small text-dark">{{ n.content }}</div>
+                </div>
+                {% empty %}
+                <div class="text-muted small text-center py-2">Sin notas</div>
+                {% endfor %}
+            </div>
+            
+            <form method="post" action="/communications/api/notes/">
+                {% csrf_token %}
+                <input type="hidden" name="conversation" value="{{ conversation.id }}">
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" name="content" placeholder="Nota...">
+                    <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<h2 id="dashboard-header-title" hx-swap-oob="true" class="omni-page-title mb-0">
+    {{ conversation.contact.client.name|default:"Desconocido" }}
+</h2>
+<div id="dashboard-header-subtitle" hx-swap-oob="true" class="omni-page-subtitle">
+    Conversación activa • {{ conversation.contact.client.company|default:'Cliente' }}
+</div>
+
+<script>
+    // Scroll to bottom
+    var chatArea = document.getElementById("chatMessagesArea");
+    if(chatArea) {
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    // Channel Switcher
+    function switchChannel(channel) {
+        document.getElementById('btn-whatsapp').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
+        document.getElementById('btn-email').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
+        
+        document.getElementById('channel-whatsapp').classList.add('d-none');
+        document.getElementById('channel-email').classList.add('d-none');
+        
+        const btn = document.getElementById('btn-' + channel);
+        btn.className = 'btn btn-sm btn-white rounded-pill px-3 active shadow-sm';
+        
+        if (channel === 'whatsapp') {
+            btn.classList.add('text-success');
+            document.getElementById('channel-whatsapp').classList.remove('d-none');
+        } else {
+            btn.classList.add('text-primary');
+            document.getElementById('channel-email').classList.remove('d-none');
+        }
+    }
+    
+    // Polling Logic (Scoped to this conversation)
+    if (window.conversationPollingInterval) {
+        clearInterval(window.conversationPollingInterval);
+    }
+    
+    window.conversationPollingInterval = setInterval(function() {
+        var wrapper = document.getElementById('conversation-detail-wrapper');
+        if (!wrapper) {
+            clearInterval(window.conversationPollingInterval);
+            return;
+        }
+        
+        var url = wrapper.getAttribute('data-conversation-url');
+        var $container = $('#chatMessagesArea');
+        
+        if ($container.length && url) {
+            var isAtBottom = $container[0].scrollHeight - $container.scrollTop() <= $container.outerHeight() + 100;
+            var currentScroll = $container.scrollTop();
+
+            // We need to fetch the PARTIAL content, so add header
+            $.ajax({
+                url: url,
+                headers: {'HX-Request': 'true'},
+                success: function(data) {
+                    // Extract just the messages area from the returned partial
+                    var $newContent = $(data).find('#chatMessagesArea').html();
+                    if ($newContent) {
+                        $container.html($newContent);
+                        if (isAtBottom) {
+                            $container.scrollTop($container[0].scrollHeight);
+                        } else {
+                            $container.scrollTop(currentScroll);
+                        }
+                    }
+                }
+            });
+        }
+    }, 10000);
+</script>

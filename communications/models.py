@@ -184,6 +184,7 @@ class QuickReply(models.Model):
     ]
 
     title = models.CharField(max_length=100, verbose_name="Título")
+    shortcut = models.CharField(max_length=50, blank=True, null=True, verbose_name="Atajo / Código")
     content = models.TextField(verbose_name="Contenido")
     channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='both', verbose_name="Canal")
     category = models.CharField(max_length=50, blank=True, null=True, verbose_name="Categoría")

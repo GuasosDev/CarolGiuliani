@@ -24,4 +24,10 @@ urlpatterns = [
     path('contacts/create/', ContactCreateView.as_view(), name='contact_create'),
     path('supervisor/', views.supervisor_dashboard, name='supervisor_dashboard'),
     path('settings/', views.settings_view, name='settings'),
+    
+    # Quick Replies
+    path('quick-replies/', views.QuickReplyListView.as_view(), name='quick_replies'),
+    path('quick-replies/create/', views.QuickReplyCreateView.as_view(), name='quick_reply_create'),
+    path('quick-replies/<int:pk>/update/', views.QuickReplyUpdateView.as_view(), name='quick_reply_update'),
+    path('quick-replies/<int:pk>/delete/', views.QuickReplyDeleteView.as_view(), name='quick_reply_delete'),
 ]

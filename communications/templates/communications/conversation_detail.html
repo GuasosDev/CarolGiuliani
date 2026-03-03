@@ -188,7 +188,44 @@
                 </div>
                 
                 <div class="d-flex gap-2">
-                    <button type="button" class="tool-btn"><i class="fas fa-bolt"></i></button>
+                    <div class="dropdown">
+                        <button type="button" class="tool-btn" data-bs-toggle="dropdown" title="Respuestas Rápidas">
+                            <i class="fas fa-bolt"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-0 shadow-lg" style="width: 300px; max-height: 400px; overflow-y: auto;">
+                            <div class="p-2 border-bottom sticky-top bg-white">
+                                <input type="text" class="form-control form-control-sm" placeholder="Buscar respuesta..." onkeyup="filterQuickReplies(this)">
+                            </div>
+                            <div id="quick-replies-list">
+                                {% for reply in quick_replies %}
+                                <a href="#" class="dropdown-item p-2 border-bottom quick-reply-item" 
+                                   data-channel="{{ reply.channel }}"
+                                   onclick="insertQuickReply(this.dataset.content); return false;"
+                                   data-content="{{ reply.content }}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title }}</strong>
+                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{ reply.shortcut }}</small>{% endif %}
+                                    </div>
+                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{ reply.content }}</small>
+                                    <div class="d-flex gap-1 mt-1">
+                                        {% if reply.channel == 'whatsapp' %}
+                                        <i class="fab fa-whatsapp text-success" style="font-size: 0.7rem;"></i>
+                                        {% elif reply.channel == 'email' %}
+                                        <i class="fas fa-envelope text-primary" style="font-size: 0.7rem;"></i>
+                                        {% endif %}
+                                    </div>
+                                </a>
+                                {% empty %}
+                                <div class="p-3 text-center text-muted small">No hay respuestas rápidas configuradas</div>
+                                {% endfor %}
+                            </div>
+                            <div class="p-2 border-top sticky-bottom bg-white text-center">
+                                <a href="{% url 'communications:quick_replies' %}" class="small text-primary text-decoration-none">
+                                    <i class="fas fa-cog me-1"></i> Administrar respuestas
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                     <button type="button" class="tool-btn"><i class="fas fa-paperclip"></i></button>
                 </div>
             </div>
@@ -276,6 +313,44 @@
                 btn.classList.add('text-primary');
                 document.getElementById('channel-email').classList.remove('d-none');
             }
+        }
+
+        function insertQuickReply(content) {
+            // Determine active channel
+            const whatsappContainer = document.getElementById('channel-whatsapp');
+            const emailContainer = document.getElementById('channel-email');
+            
+            let activeTextarea = null;
+            
+            if (!whatsappContainer.classList.contains('d-none')) {
+                activeTextarea = whatsappContainer.querySelector('textarea[name="message"]');
+            } else if (!emailContainer.classList.contains('d-none')) {
+                activeTextarea = emailContainer.querySelector('textarea[name="body"]');
+            }
+            
+            if (activeTextarea) {
+                const start = activeTextarea.selectionStart;
+                const end = activeTextarea.selectionEnd;
+                const text = activeTextarea.value;
+                
+                activeTextarea.value = text.substring(0, start) + content + text.substring(end);
+                activeTextarea.selectionStart = activeTextarea.selectionEnd = start + content.length;
+                activeTextarea.focus();
+            }
+        }
+
+        function filterQuickReplies(input) {
+            const filter = input.value.toLowerCase();
+            const items = document.querySelectorAll('#quick-replies-list .dropdown-item');
+            
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                if (text.includes(filter)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         }
         </script>
     </div>

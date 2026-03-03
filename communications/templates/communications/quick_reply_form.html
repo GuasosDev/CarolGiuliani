@@ -1,0 +1,79 @@
+{% extends "communications/communications_base.html" %}
+
+{% block comm_content %}
+<div class="d-flex flex-column h-100">
+    <div class="p-4 border-bottom bg-white d-flex align-items-center">
+        <a href="{% url 'communications:quick_replies' %}" class="btn btn-light me-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <h4 class="mb-0">{% if object %}Editar{% else %}Crear{% endif %} Respuesta Rápida</h4>
+    </div>
+
+    <div class="p-4 flex-grow-1 overflow-auto bg-light">
+        <div class="card border-0 shadow-sm mx-auto" style="max-width: 800px;">
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Título</label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                            <div class="text-danger small">{{ form.title.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Atajo / Código</label>
+                            {{ form.shortcut }}
+                            <div class="form-text">Opcional. Texto corto para identificar rápidamente.</div>
+                            {% if form.shortcut.errors %}
+                            <div class="text-danger small">{{ form.shortcut.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Contenido del Mensaje</label>
+                            {{ form.content }}
+                            {% if form.content.errors %}
+                            <div class="text-danger small">{{ form.content.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Canal</label>
+                            {{ form.channel }}
+                            {% if form.channel.errors %}
+                            <div class="text-danger small">{{ form.channel.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Categoría</label>
+                            {{ form.category }}
+                            {% if form.category.errors %}
+                            <div class="text-danger small">{{ form.category.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        {% if user.is_superuser or 'Supervisor' in user.groups.all|stringformat:'s' %}
+                        <!-- Hacky check, but better to rely on view logic for saving. View resets is_global if not allowed. -->
+                        <div class="col-md-4 d-flex align-items-center pt-4">
+                            <div class="form-check form-switch">
+                                {{ form.is_global }}
+                                <label class="form-check-label" for="id_is_global">Hacer Global (para todos)</label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="col-12 mt-4 pt-3 border-top d-flex justify-content-end gap-2">
+                            <a href="{% url 'communications:quick_replies' %}" class="btn btn-light">Cancelar</a>
+                            <button type="submit" class="btn btn-primary px-4">Guardar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
