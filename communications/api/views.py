@@ -157,7 +157,7 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
     """API endpoint for WhatsApp accounts"""
     queryset = WhatsAppAccount.objects.all()
     serializer_class = WhatsAppAccountSerializer
-    permission_classes = [IsAuthenticated, IsSupervisorOrAdmin]
+    permission_classes = [IsAuthenticated, IsAgentOrSupervisor]
     
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
@@ -185,7 +185,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
     """API endpoint for email accounts"""
     queryset = EmailAccount.objects.all()
     serializer_class = EmailAccountSerializer
-    permission_classes = [IsAuthenticated, IsSupervisorOrAdmin]
+    permission_classes = [IsAuthenticated, IsAgentOrSupervisor]
     
     @action(detail=True, methods=['post'])
     def sync_now(self, request, pk=None):
@@ -204,6 +204,9 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         handler = EmailHandler(account)
         
         to_addresses = request.data.get('to_addresses', [])
+        if isinstance(to_addresses, str):
+            to_addresses = [addr.strip() for addr in to_addresses.split(',') if addr.strip()]
+        
         subject = request.data.get('subject')
         body = request.data.get('body')
         html_body = request.data.get('html_body')

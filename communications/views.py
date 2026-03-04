@@ -11,6 +11,7 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
+from django.utils import timezone
 import json
 import logging
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply
@@ -204,56 +205,74 @@ class ContactCreateView(GenericCreateView):
 @login_required
 def conversation_detail(request, pk):
     """Conversation detail view"""
-    conversation = get_object_or_404(Conversation, pk=pk)
-    
-    # Check permission (agents can only see their own, supervisors see all)
-    if not (request.user.is_superuser or 
-            request.user.groups.filter(name='Supervisor').exists() or
-            conversation.assigned_to == request.user):
-        return HttpResponse('Unauthorized', status=401)
-    
-    messages = conversation.messages.all().order_by('created_at')
-    notes = conversation.internal_notes.all()
-    
-    # Sidebar conversations (filtered by current conversation's status or default to normal)
-    status_filter = request.GET.get('status', conversation.status)
-    channel_filter = request.GET.get('channel')
-    
-    sidebar_qs = get_agent_conversations(request.user)
-    
-    if channel_filter:
-        sidebar_qs = sidebar_qs.filter(channel=channel_filter)
+    try:
+        conversation = get_object_or_404(Conversation, pk=pk)
         
-    sidebar_conversations = sidebar_qs.filter(
-        status=status_filter
-    ).order_by('-updated_at')[:50]
+        # Check permission (agents can only see their own, supervisors see all)
+        # Relaxed check for debugging: if it's in the allowed list for the user, show it.
+        # This prevents 401s on valid but unassigned conversations visible in dashboard
+        if not (request.user.is_superuser or 
+                request.user.groups.filter(name='Supervisor').exists() or
+                conversation.assigned_to == request.user):
+            # Check if user can see it via get_agent_conversations (e.g. unassigned pool)
+            if not get_agent_conversations(request.user).filter(pk=pk).exists():
+                 return HttpResponse('<div class="alert alert-danger m-3">No tienes permiso para ver esta conversación.</div>', status=403)
+        
+        # Mark inbound unread messages as read
+        conversation.messages.filter(direction='inbound', is_read=False).update(is_read=True, read_at=timezone.now())
     
-    whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
-    email_account = EmailAccount.objects.filter(is_active=True).first()
-    
-    # Get counts using helper
-    counts = _get_conversation_counts(request.user)
-    
-    # Get quick replies
-    quick_replies = QuickReply.objects.filter(
-        models.Q(created_by=request.user) | models.Q(is_global=True)
-    ).order_by('shortcut', 'title')
-    
-    context = {
-        'conversation': conversation,
-        'messages': messages,
-        'notes': notes,
-        'clients': Client.objects.all().order_by('name')[:100],
-        'sidebar_conversations': sidebar_conversations,
-        'current_status': status_filter,
-        'current_channel': channel_filter,
-        'whatsapp_account': whatsapp_account,
-        'email_account': email_account,
-        'quick_replies': quick_replies,
-        **counts # Unpack counts into context
-    }
-    
-    return render(request, 'communications/conversation_detail.html', context)
+        messages = conversation.messages.all().order_by('created_at')
+        notes = conversation.internal_notes.all()
+        
+        # Sidebar conversations (filtered by current conversation's status or default to normal)
+        status_filter = request.GET.get('status', conversation.status)
+        channel_filter = request.GET.get('channel')
+        
+        sidebar_qs = get_agent_conversations(request.user)
+        
+        if channel_filter:
+            sidebar_qs = sidebar_qs.filter(channel=channel_filter)
+            
+        sidebar_conversations = sidebar_qs.filter(
+            status=status_filter
+        ).order_by('-updated_at')[:50]
+        
+        whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
+        email_account = EmailAccount.objects.filter(is_active=True).first()
+        
+        # Get counts using helper
+        counts = _get_conversation_counts(request.user)
+        
+        # Get quick replies
+        quick_replies = QuickReply.objects.filter(
+            models.Q(created_by=request.user) | models.Q(is_global=True)
+        ).order_by('shortcut', 'title')
+        
+        context = {
+            'conversation': conversation,
+            'messages': messages,
+            'notes': notes,
+            'clients': Client.objects.all().order_by('name')[:100],
+            'sidebar_conversations': sidebar_conversations,
+            'current_status': status_filter,
+            'current_channel': channel_filter,
+            'whatsapp_account': whatsapp_account,
+            'email_account': email_account,
+            'quick_replies': quick_replies,
+            **counts # Unpack counts into context
+        }
+        
+        # Check if it's an HTMX request (using both standard header and META for robustness)
+        # Also check for explicit partial parameter to force partial rendering
+        if request.headers.get('HX-Request') or request.META.get('HTTP_HX_REQUEST') or 'partial' in request.GET:
+            return render(request, 'communications/partials/conversation_content.html', context)
+        
+        return render(request, 'communications/conversation_detail.html', context)
+    except Exception as e:
+        logger.exception("Error in conversation_detail")
+        if request.headers.get('HX-Request') or request.META.get('HTTP_HX_REQUEST') or 'partial' in request.GET:
+            return HttpResponse(f'<div class="alert alert-danger m-3">Error al cargar la conversación: {str(e)}</div>', status=500)
+        raise
 
 
 @login_required

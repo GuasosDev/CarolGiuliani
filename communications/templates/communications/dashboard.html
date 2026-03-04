@@ -22,7 +22,7 @@
                 <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user.first_name|default:"Lautaro" }}</div>
             </div>
             <!-- Search Bar -->
-            <div class="omni-search-bar mb-0" style="width: 300px;">
+            <div class="omni-search-bar mb-0 ms-auto" style="width: 300px;">
                 <i class="fas fa-search"></i>
                 <input type="text" class="omni-search-input" placeholder="Buscar...">
             </div>
@@ -78,10 +78,10 @@
                             {{ group.client.name }}
                         </div>
                         {% for conv in group.conversations %}
-                            <a href="#" 
-                               class="list-group-item list-group-item-action border-bottom p-3 conversation-item"
+                            <button type="button" 
+                               class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
                                data-id="{{ conv.id }}"
-                               hx-get="{% url 'communications:conversation_detail' conv.id %}"
+                               hx-get="{% url 'communications:conversation_detail' conv.id %}?partial=true"
                                hx-target="#conversation-detail-panel"
                                hx-swap="innerHTML"
                                onclick="selectConversation(this, '{{ conv.id }}')">
@@ -109,17 +109,17 @@
                                        {% endif %}
                                    </small>
                                </div>
-                            </a>
+                            </button>
                         {% endfor %}
                     {% empty %}
                         <div class="text-center p-4 text-muted">No hay conversaciones</div>
                     {% endfor %}
                 {% else %}
                     {% for conv in conversations %}
-                        <a href="#" 
-                           class="list-group-item list-group-item-action border-bottom p-3 conversation-item"
+                        <button type="button" 
+                           class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
                            data-id="{{ conv.id }}"
-                           hx-get="{% url 'communications:conversation_detail' conv.id %}"
+                           hx-get="{% url 'communications:conversation_detail' conv.id %}?partial=true"
                            hx-target="#conversation-detail-panel"
                            hx-swap="innerHTML"
                            onclick="selectConversation(this, '{{ conv.id }}')">
@@ -147,7 +147,7 @@
                                    {% endif %}
                                </small>
                            </div>
-                        </a>
+                        </button>
                     {% empty %}
                         <div class="text-center p-5 text-muted">
                             <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
@@ -160,7 +160,7 @@
         </div>
 
         <!-- Column 3: Conversation Detail (Rest) -->
-        <div class="col bg-light d-flex flex-column h-100 position-relative" id="conversation-detail-panel">
+        <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel" style="min-height: 100%;">
             <!-- Empty State -->
             <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
                 <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
@@ -242,18 +242,35 @@
 <script>
     // Handle conversation selection state
     function selectConversation(element, id) {
-        // Visual update
-        document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
-        element.classList.add('active', 'bg-light');
-        
-        // URL update (without reloading)
-        const url = new URL(window.location);
-        url.searchParams.set('conversation', id);
-        window.history.pushState({}, '', url);
+        try {
+            // Visual update
+            document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
+            if (element) {
+                element.classList.add('active', 'bg-light');
+                
+                // Update Header Title with Client Name
+                const clientNameEl = element.querySelector('.fw-bold.text-dark');
+                if (clientNameEl) {
+                    const clientName = clientNameEl.textContent.trim();
+                    const headerTitle = document.getElementById('dashboard-header-title');
+                    if (headerTitle) {
+                        headerTitle.textContent = clientName;
+                    }
+                }
+            }
+            
+            // URL update (without reloading)
+            const url = new URL(window.location);
+            url.searchParams.set('conversation', id);
+            window.history.pushState({}, '', url);
+        } catch (e) {
+            console.error('Error in selectConversation:', e);
+        }
     }
 
     // Restore selection after HTMX swaps (polling)
     document.body.addEventListener('htmx:afterSwap', function(evt) {
+        // If the conversation list was refreshed
         if (evt.detail.target.id === 'dashboard-conversations-container') {
             const urlParams = new URLSearchParams(window.location.search);
             const activeId = urlParams.get('conversation');
@@ -263,6 +280,10 @@
                 const el = document.querySelector(`.conversation-item[data-id="${activeId}"]`);
                 if (el) {
                     el.classList.add('active', 'bg-light');
+                    // We don't necessarily need to update the header here if it's already set,
+                    // but if we wanted to be sure:
+                    // const clientNameEl = el.querySelector('.fw-bold.text-dark');
+                    // if (clientNameEl) document.getElementById('dashboard-header-title').textContent = clientNameEl.textContent.trim();
                 }
             }
         }
@@ -275,7 +296,7 @@
         if (activeId) {
             const el = document.querySelector(`.conversation-item[data-id="${activeId}"]`);
             if (el) {
-                el.click(); // Simulate click to load the conversation
+                el.click(); // Simulate click to load the conversation and update header
             }
         }
     });
