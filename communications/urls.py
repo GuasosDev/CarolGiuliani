@@ -25,5 +25,10 @@ urlpatterns = [
     views.start_email_conversation,
     name="start_email_conversation"
 ),
+    path(
+    "conversation/<int:pk>/take/",
+    views.take_conversation,
+    name="take_conversation"
+),
     
 ]

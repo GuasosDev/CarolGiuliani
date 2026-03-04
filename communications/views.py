@@ -21,18 +21,29 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def dashboard(request):
-    """Main communication dashboard"""
+    """Professional helpdesk-style dashboard"""
 
-    base_qs = get_agent_conversations(request.user).filter(
+    # Inbox general (no asignadas)
+    unassigned_qs = Conversation.objects.filter(
+        assigned_to__isnull=True,
+        status__in=['open', 'pending']
+    ).order_by('-last_message_at')
+
+    # Mis conversaciones
+    my_qs = Conversation.objects.filter(
+        assigned_to=request.user,
         status__in=['open', 'assigned', 'pending']
-    )
-
-    conversations = base_qs[:50]
+    ).order_by('-last_message_at')
 
     context = {
-        'conversations': conversations,
-        'active_count': base_qs.filter(status='assigned').count(),
-        'pending_count': base_qs.filter(status='pending').count(),
+        # Listas (limitadas visualmente)
+        'unassigned_conversations': unassigned_qs[:20],
+        'my_conversations': my_qs[:50],
+
+        # Contadores reales
+        'unassigned_count': unassigned_qs.count(),
+        'my_active_count': my_qs.filter(status='assigned').count(),
+        'my_pending_count': my_qs.filter(status='pending').count(),
     }
 
     return render(request, 'communications/dashboard.html', context)
@@ -50,7 +61,8 @@ def conversation_detail(request, pk):
     if not (
         request.user.is_superuser or 
         request.user.groups.filter(name='Supervisor').exists() or
-        conversation.assigned_to == request.user
+        conversation.assigned_to == request.user or
+        conversation.assigned_to is None
     ):
         return HttpResponse('Unauthorized', status=401)
 
@@ -301,3 +313,26 @@ def whatsapp_webhook(request):
         except Exception as e:
             logger.error(f"Error processing WhatsApp webhook: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
+
+from django.db import transaction
+
+@login_required
+def take_conversation(request, pk):
+    conversation = get_object_or_404(Conversation, pk=pk)
+
+    # Solo agentes pueden tomar
+    if not request.user.is_staff:
+        return HttpResponse("Unauthorized", status=401)
+
+    if request.method == "POST":
+        with transaction.atomic():
+            conversation = Conversation.objects.select_for_update().get(pk=pk)
+
+            if conversation.assigned_to is None:
+                conversation.assign_to(request.user)
+                conversation.status = "assigned"
+                conversation.save()
+
+        return redirect("communications:conversation_detail", pk=pk)
+
+    return HttpResponse(status=400)

@@ -90,7 +90,7 @@ class Conversation(models.Model):
     class Meta:
         verbose_name = "Conversación"
         verbose_name_plural = "Conversaciones"
-        ordering = ['-updated_at']
+        ordering = ['-last_message_at']
         indexes = [
             models.Index(fields=['status', 'assigned_to']),
             models.Index(fields=['channel', 'status']),
@@ -170,7 +170,28 @@ class Message(models.Model):
             self.is_read = True
             self.read_at = timezone.now()
             self.save()
+    
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
 
+        if is_new:
+            conversation = self.conversation
+
+            conversation.last_message_at = self.created_at
+            conversation.last_message_preview = self.content[:200]
+
+            if self.direction == 'inbound' and conversation.status == 'closed':
+              conversation.status = 'open'
+              conversation.closed_at = None
+
+            conversation.save(update_fields=[
+            'last_message_at',
+            'last_message_preview',
+            'status',
+            'closed_at',
+            'updated_at'
+        ])
 
 class InternalNote(models.Model):
     """Agent notes on conversations"""

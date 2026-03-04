@@ -13,34 +13,65 @@
         <div class="col-md-12">
             <h2>Dashboard de Comunicaciones</h2>
             
-            <!-- Stats Cards -->
             <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Conversaciones Activas</h5>
-                            <h2>{{ active_count }}</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Pendientes</h5>
-                            <h2>{{ pending_count }}</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Total</h5>
-                            <h2>{{ conversations.count }}</h2>
-                        </div>
-                    </div>
-                </div>
+    <div class="col-md-4">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h5>No Asignadas</h5>
+                <h2>{{ unassigned_count }}</h2>
             </div>
-            
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-success">
+            <div class="card-body">
+                <h5>Mis Activas</h5>
+                <h2>{{ my_active_count }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-info">
+            <div class="card-body">
+                <h5>Mis Pendientes</h5>
+                <h2>{{ my_pending_count }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+    <div class="card mb-4">
+    <div class="card-header bg-warning">
+        <h5>Inbox General (No asignadas)</h5>
+    </div>
+    <div class="card-body">
+        {% if unassigned_conversations %}
+            {% for conversation in unassigned_conversations %}
+                <div class="mb-2">
+                    <strong>
+                        {{ conversation.contact.client.name|default:"Contacto Desconocido" }}
+                    </strong>
+                    <br>
+                    <small class="text-muted">
+                        {{ conversation.last_message_preview|truncatewords:10 }}
+                    </small>
+                    <small class="text-muted">
+                       {{ conversation.get_channel_display }}
+                    </small>
+                    <br>
+                    <a href="{% url 'communications:conversation_detail' conversation.id %}"
+                       class="btn btn-sm btn-outline-dark mt-1">
+                        Tomar conversación
+                    </a>
+                </div>
+                <hr>
+            {% endfor %}
+        {% else %}
+            <p>No hay conversaciones sin asignar</p>
+        {% endif %}
+    </div>
+</div>        
             <!-- Conversations List -->
             <div class="card">
                 <div class="card-header">
@@ -60,7 +91,7 @@
                                 </tr>
                             </thead>
                             <tbody id="conversations-list">
-                                {% for conversation in conversations %}
+                                {% for conversation in my_conversations %}
                                 <tr data-conversation-id="{{ conversation.id }}">
                                     <td>
                                         {% if conversation.contact.client %}
@@ -85,7 +116,7 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <small>{{ conversation.last_message_at|timesince }} ago</small><br>
+                                        <small>{{ conversation.last_message_at }} ago</small><br>
                                         <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10 }}</small>
                                     </td>
                                     <td>
@@ -115,9 +146,8 @@
     // Initialize WebSocket connection
     const ws = new CommunicationWebSocket('{{ request.user.id }}');
     
-    ws.onNewMessage = function(data) {
-        // Update conversation list when new message arrives
-        console.log('New message:', data);
+   ws.onNewMessage = function(data) {
+         location.reload();
         // TODO: Update UI dynamically
     };
 </script>

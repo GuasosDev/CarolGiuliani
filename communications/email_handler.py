@@ -23,7 +23,7 @@ from django.utils import timezone
 from django.core.files.base import ContentFile
 from .models import (
     EmailAccount, EmailMessage, EmailThread, Message,
-    Conversation, Contact, EmailAttachment
+    Conversation, Contact, EmailAttachment,User
 )
 
 logger = logging.getLogger(__name__)
@@ -262,7 +262,7 @@ class EmailHandler:
             ).first()
 
             if parent_email:
-                return parent_email.conversation
+                return parent_email.thread.conversation
 
         # 2️⃣ Buscar por References
         if references:
@@ -271,8 +271,8 @@ class EmailHandler:
                 email_message_id__in=reference_ids
             ).order_by('-created_at').first()
 
-            if parent_email:
-                return parent_email.conversation
+            if parent_email and parent_email.thread:
+               return parent_email.thread.conversation
 
         # 3️⃣ Fallback: mismo contacto + subject similar abierto
         normalized_subject = subject.replace("Re:", "").strip()
@@ -280,7 +280,7 @@ class EmailHandler:
         existing_conversation = Conversation.objects.filter(
             contact=contact,
             subject__icontains=normalized_subject,
-            status="open"
+            status__in=["open", "assigned", "pending"]
         ).order_by('-created_at').first()
 
         if existing_conversation:
@@ -292,7 +292,9 @@ class EmailHandler:
             channel='email',
             status='open',
             priority='normal',
-            subject=subject
+            subject=subject,
+            
+ 
         )
 
         from .assignment_system import assign_conversation_to_agent

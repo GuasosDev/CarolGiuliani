@@ -3,7 +3,11 @@
 
 {% block content %}
 <div class="container-fluid mt-4">
-
+{% if conversation.assigned_to %}
+    <p>Asignada a: {{ conversation.assigned_to.username }}</p>
+{% else %}
+    <p>Sin asignar</p>
+{% endif %}
     <!-- Header -->
     <div class="card shadow-sm mb-3">
         <div class="card-body">
@@ -20,15 +24,24 @@
                 </div>
 
                 <div>
-                    {% if conversation.assigned_to %}
-                        <span class="badge bg-info">
-                            Asignado a {{ conversation.assigned_to.username }}
-                        </span>
-                    {% else %}
-                        <span class="badge bg-secondary">
-                            Sin asignar
-                        </span>
-                    {% endif %}
+                     {% if conversation.assigned_to %}
+        <span class="badge bg-info">
+            Asignado a {{ conversation.assigned_to.username }}
+        </span>
+    {% else %}
+        <span class="badge bg-secondary">
+            Sin asignar
+        </span>
+
+        <form method="post"
+              action="{% url 'communications:take_conversation' conversation.pk %}"
+              class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-primary ms-2">
+                Tomar conversación
+            </button>
+        </form>
+    {% endif %}
                 </div>
             </div>
 
