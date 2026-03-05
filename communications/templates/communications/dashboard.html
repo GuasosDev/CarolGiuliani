@@ -81,10 +81,7 @@
                             <button type="button" 
                                class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
                                data-id="{{ conv.id }}"
-                               hx-get="{% url 'communications:conversation_detail' conv.id %}?partial=true"
-                               hx-target="#conversation-detail-panel"
-                               hx-swap="innerHTML"
-                               onclick="selectConversation(this, '{{ conv.id }}')">
+                               onclick="loadConversation(this, '{{ conv.id }}')">
                                
                                <div class="d-flex justify-content-between mb-1">
                                    <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
@@ -119,10 +116,7 @@
                         <button type="button" 
                            class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
                            data-id="{{ conv.id }}"
-                           hx-get="{% url 'communications:conversation_detail' conv.id %}?partial=true"
-                           hx-target="#conversation-detail-panel"
-                           hx-swap="innerHTML"
-                           onclick="selectConversation(this, '{{ conv.id }}')">
+                           onclick="loadConversation(this, '{{ conv.id }}')">
                            
                            <div class="d-flex justify-content-between mb-1">
                                <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
@@ -160,7 +154,7 @@
         </div>
 
         <!-- Column 3: Conversation Detail (Rest) -->
-        <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel" style="min-height: 100%;">
+        <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel" style="background-color: #f8f9fa;">
             <!-- Empty State -->
             <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
                 <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
@@ -240,11 +234,77 @@
 </style>
 
 <script>
-    // Handle conversation selection state
+    // Handle conversation selection state and loading
+    function loadConversation(element, id) {
+        // 1. Visual Selection
+        selectConversation(element, id);
+
+        // 2. Show Loading State
+        const panel = document.getElementById('conversation-detail-panel');
+        panel.innerHTML = `
+            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <p>Cargando conversación...</p>
+            </div>
+        `;
+
+        // 3. Fetch Content via HTMX API manually to ensure scripts run
+        const url = `/communications/conversation/${id}/?partial=true`;
+        
+        if (typeof htmx !== 'undefined') {
+            htmx.ajax('GET', url, {
+                target: '#conversation-detail-panel',
+                swap: 'innerHTML'
+            }).then(() => {
+                // Success callback (optional, HTMX handles swap)
+                console.log('Chat loaded via HTMX');
+            }).catch(err => {
+                console.error('HTMX Error:', err);
+                panel.innerHTML = `
+                    <div class="alert alert-danger m-4">
+                        <h4>Error al cargar el chat</h4>
+                        <p>No se pudo cargar la conversación. Por favor intenta nuevamente.</p>
+                        <small class="text-muted">${err.message || 'Error desconocido'}</small>
+                        <br>
+                        <button class="btn btn-sm btn-outline-danger mt-3" onclick="loadConversation(null, '${id}')">Reintentar</button>
+                    </div>
+                `;
+            });
+        } else {
+            // Fallback if HTMX is missing
+            console.warn('HTMX not found, using fetch');
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'HX-Request': 'true'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.text();
+            })
+            .then(html => {
+                panel.innerHTML = html;
+                // Note: Scripts in html won't run with innerHTML. 
+                // We might need to manually execute them or rely on HTMX being present.
+                // Since base.html has HTMX, this path is unlikely.
+            })
+            .catch(err => {
+                panel.innerHTML = `<div class="alert alert-danger m-3">Error fetch: ${err.message}</div>`;
+            });
+        }
+    }
+
     function selectConversation(element, id) {
         try {
             // Visual update
             document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
+            
+            // If element is null (retry), try to find it
+            if (!element && id) {
+                element = document.querySelector(`.conversation-item[data-id="${id}"]`);
+            }
+
             if (element) {
                 element.classList.add('active', 'bg-light');
                 

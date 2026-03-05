@@ -215,10 +215,11 @@ def conversation_detail(request, pk):
                 request.user.groups.filter(name='Supervisor').exists() or
                 conversation.assigned_to == request.user):
             # Check if user can see it via get_agent_conversations (e.g. unassigned pool)
-            if not get_agent_conversations(request.user).filter(pk=pk).exists():
-                 return HttpResponse('<div class="alert alert-danger m-3">No tienes permiso para ver esta conversación.</div>', status=403)
-        
-        # Mark inbound unread messages as read
+                    if not get_agent_conversations(request.user).filter(pk=pk).exists():
+                         # Return 200 even for error so HTMX displays the message
+                         return HttpResponse('<div class="alert alert-danger m-3">No tienes permiso para ver esta conversación.</div>', status=200)
+                
+                # Mark inbound unread messages as read
         conversation.messages.filter(direction='inbound', is_read=False).update(is_read=True, read_at=timezone.now())
     
         messages = conversation.messages.all().order_by('created_at')
@@ -269,10 +270,11 @@ def conversation_detail(request, pk):
         
         return render(request, 'communications/conversation_detail.html', context)
     except Exception as e:
-        logger.exception("Error in conversation_detail")
-        if request.headers.get('HX-Request') or request.META.get('HTTP_HX_REQUEST') or 'partial' in request.GET:
-            return HttpResponse(f'<div class="alert alert-danger m-3">Error al cargar la conversación: {str(e)}</div>', status=500)
-        raise
+                logger.exception("Error in conversation_detail")
+                if request.headers.get('HX-Request') or request.META.get('HTTP_HX_REQUEST') or 'partial' in request.GET:
+                    # Return 200 even for error so HTMX displays the message
+                    return HttpResponse(f'<div class="alert alert-danger m-3">Error al cargar la conversación: {str(e)}</div>', status=200)
+                raise
 
 
 @login_required
