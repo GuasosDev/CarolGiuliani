@@ -231,26 +231,23 @@ class EmailHandler:
             return None
     
     def get_or_create_contact_from_email(self, email_address):
-        """Get or create contact from email address"""
-        # Try to find existing client by email
         from clients.models import Client
-        
-        try:
-            client = Client.objects.get(email=email_address)
-            contact, _ = Contact.objects.get_or_create(
-                client=client,
-                defaults={'preferred_channel': 'email'}
-            )
-        except Client.DoesNotExist:
-            # Create a placeholder contact (can be linked to client later)
-            contact, _ = Contact.objects.get_or_create(
+
+        # 1️⃣ Obtener o crear cliente
+        client, _ = Client.objects.get_or_create(
             email=email_address,
+            defaults={'name': email_address}
+        )
+
+        # 2️⃣ Obtener o crear contacto vinculado al cliente
+        contact, _ = Contact.objects.get_or_create(
+            client=client,
             defaults={
-            'client': client,
-            'preferred_channel': 'email'
+                
+                'preferred_channel': 'email'
             }
-            )
-        
+        )
+
         return contact
     
     def get_or_create_conversation(self, contact, subject, in_reply_to, references):
