@@ -236,6 +236,12 @@
 <script>
     // Handle conversation selection state and loading
     function loadConversation(element, id) {
+        // Clear any existing polling interval from the previous conversation
+        if (window.conversationPollInterval) {
+            clearInterval(window.conversationPollInterval);
+            window.conversationPollInterval = null;
+        }
+
         // 1. Visual Selection
         selectConversation(element, id);
 

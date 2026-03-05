@@ -326,7 +326,14 @@
                     return response.json();
                 }
                 return response.json().then(data => {
-                    throw new Error(data.error || 'Error al enviar mensaje');
+                    const errorMsg = data.error && typeof data.error === 'object' 
+                        ? (data.error.message || JSON.stringify(data.error)) 
+                        : (data.error || 'Error al enviar mensaje');
+                    throw new Error(errorMsg);
+                }).catch(e => {
+                    // Fallback if json() fails or data.error is missing
+                    if (e.message) throw e;
+                    throw new Error('Error en la solicitud: ' + response.statusText);
                 });
             })
             .then(data => {
@@ -461,8 +468,12 @@
 </div>
 
 <script>
+    // Clear any existing polling interval to prevent duplicates
+    if (window.conversationPollInterval) {
+        clearInterval(window.conversationPollInterval);
+    }
+
     // Scroll chat to bottom on load
-    // We use a slight delay or requestAnimationFrame to ensure DOM is ready in HTMX context
     setTimeout(function() {
         var chatArea = document.getElementById("chatMessagesArea");
         if(chatArea) {
@@ -470,61 +481,49 @@
         }
     }, 100);
 
-    // Auto-refresh implementation (Polling) - scoped to this view
-    // Note: In HTMX we need to be careful not to create multiple intervals if we reload
-    // Ideally we should clear previous interval if exists, but we don't have a handle to it easily unless we store it globally.
-    // For now, let's assume the user doesn't switch too fast or we accept some overhead.
-    
-    // Actually, we can check if there is an existing interval for this conversation?
-    // Let's attach it to the element
-    var chatContainer = document.getElementById("chatMessagesArea");
-    if (chatContainer && !chatContainer.dataset.pollingInitialized) {
-        chatContainer.dataset.pollingInitialized = "true";
-        
-        // We use a named function to be cleaner
-        function initPolling() {
-            var pollInterval = setInterval(function() {
-                // Check if element still exists (if user navigated away)
-                if (!document.getElementById("chatMessagesArea")) {
-                    clearInterval(pollInterval);
-                    return;
-                }
+    // Auto-refresh implementation (Polling)
+    function initPolling() {
+        window.conversationPollInterval = setInterval(function() {
+            // Check if element still exists (if user navigated away)
+            var chatArea = document.getElementById("chatMessagesArea");
+            if (!chatArea) {
+                clearInterval(window.conversationPollInterval);
+                return;
+            }
+            
+            // Refresh sidebar list (optional)
+            if (document.getElementById('sidebar-conversations-list')) {
+                // Use a safer approach than .load which might duplicate scripts
+                // Ideally sidebar should be separate, but for now we leave it or comment it out if it causes issues
+                // $('#sidebar-conversations-list').load(window.location.href + ' #sidebar-conversations-list > *');
+            }
+            
+            // Refresh messages area
+            // Use fetch instead of jQuery for consistency and better error handling
+            const url = "{% url 'communications:conversation_detail' conversation.id %}?partial=true";
+            
+            fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newContent = doc.getElementById('chatMessagesArea');
                 
-                // Refresh sidebar list (optional, but good for status updates)
-                if (document.getElementById('sidebar-conversations-list')) {
-                    $('#sidebar-conversations-list').load(window.location.href + ' #sidebar-conversations-list > *');
+                if (newContent && chatArea) {
+                    const isAtBottom = chatArea.scrollHeight - chatArea.scrollTop <= chatArea.clientHeight + 100;
+                    chatArea.innerHTML = newContent.innerHTML;
+                    
+                    if (isAtBottom) {
+                        chatArea.scrollTop = chatArea.scrollHeight;
+                    }
                 }
-                
-                // Refresh messages area
-                var $container = $('#chatMessagesArea');
-                if ($container.length) {
-                    var isAtBottom = $container[0].scrollHeight - $container.scrollTop() <= $container.outerHeight() + 100;
-                    var currentScroll = $container.scrollTop();
-                    var url = "{% url 'communications:conversation_detail' conversation.id %}?partial=true";
+            })
+            .catch(err => console.error('Polling error:', err));
 
-                    $.get(url, function(data) {
-                        // If data is the partial, it might be the wrapper or just the content
-                        // We try to find the messages area inside
-                        var $temp = $('<div>').html(data);
-                        var $newContent = $temp.find('#chatMessagesArea').html();
-                        
-                        // Fallback if data IS the messages area (unlikely with current template but safe)
-                        if (!$newContent && $(data).attr('id') === 'chatMessagesArea') {
-                             $newContent = $(data).html();
-                        }
-
-                        if ($newContent) {
-                            $container.html($newContent);
-                            if (isAtBottom) {
-                                $container.scrollTop($container[0].scrollHeight);
-                            } else {
-                                $container.scrollTop(currentScroll);
-                            }
-                        }
-                    });
-                }
-            }, 10000);
-        }
-        initPolling();
+        }, 10000); // 10 seconds interval
     }
+    
+    initPolling();
 </script>
