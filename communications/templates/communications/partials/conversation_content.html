@@ -311,6 +311,15 @@
             const btn = form.querySelector('button[type="submit"]');
             const originalText = btn.innerHTML;
             
+            // Validate to_number for WhatsApp
+            if (channel === 'whatsapp') {
+                const toNumber = formData.get('to_number');
+                if (!toNumber || toNumber.trim() === '') {
+                    alert('Error: El contacto no tiene un número de teléfono válido para WhatsApp. Por favor edite el contacto y agregue un número de teléfono.');
+                    return;
+                }
+            }
+            
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
             
@@ -326,9 +335,27 @@
                     return response.json();
                 }
                 return response.json().then(data => {
-                    const errorMsg = data.error && typeof data.error === 'object' 
-                        ? (data.error.message || JSON.stringify(data.error)) 
-                        : (data.error || 'Error al enviar mensaje');
+                    let errorMsg = 'Error al enviar mensaje';
+                    if (data.error) {
+                        if (typeof data.error === 'string') {
+                            errorMsg = data.error;
+                        } else if (typeof data.error === 'object') {
+                            // Handle nested error objects (common in WhatsApp API)
+                            if (data.error.message) {
+                                errorMsg = data.error.message;
+                            } else if (data.error.error && data.error.error.message) {
+                                errorMsg = data.error.error.message;
+                            } else {
+                                try {
+                                    errorMsg = JSON.stringify(data.error);
+                                } catch (e) {
+                                    errorMsg = 'Error desconocido en la respuesta';
+                                }
+                            }
+                        }
+                    } else if (data.detail) {
+                        errorMsg = data.detail;
+                    }
                     throw new Error(errorMsg);
                 }).catch(e => {
                     // Fallback if json() fails or data.error is missing

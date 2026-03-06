@@ -38,6 +38,11 @@ class WhatsAppHandler:
     def send_text_message(self, to_number, message_text, conversation=None):
         """Send a text message via WhatsApp"""
         to_number = normalize_phone_number(to_number)
+        
+        if not to_number:
+            logger.error("Error sending WhatsApp message: No phone number provided")
+            return False, "El destinatario no tiene un número de teléfono válido configurado."
+
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
         
         payload = {
