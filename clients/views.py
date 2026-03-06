@@ -10,6 +10,7 @@ class ClientListView(GenericListView):
     create_url_name = 'client_create'
     update_url_name = 'client_update'
     delete_url_name = 'client_delete'
+    action_template_name = 'clients/client_list_actions.html'
 
 class ClientCreateView(GenericCreateView):
     model = Client
