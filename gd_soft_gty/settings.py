@@ -42,9 +42,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'core',
     'clients',
-    'invoices',
-    'inventory',
-    'tpv',
     'communications',
 ]
 
