@@ -8,7 +8,15 @@
                 </div>
                 <div>
                     <h5 class="mb-0 fw-bold text-dark">{{ conversation.contact.client.name|default:"Desconocido" }}
-                        <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span></h5>
+                        <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span>
+                        {% if conversation.status == 'normal' %}
+                            <span class="badge bg-success ms-2">Activo</span>
+                        {% elif conversation.status == 'pending' %}
+                            <span class="badge bg-warning text-dark ms-2">Pendiente</span>
+                        {% elif conversation.status == 'closed' %}
+                            <span class="badge bg-danger ms-2">Cerrado</span>
+                        {% endif %}
+                    </h5>
                     <div class="small text-muted mt-1">
                         <i class="fas fa-envelope me-1"></i> {{ conversation.contact.client.email|default:"Sin email" }}
                         •
@@ -26,8 +34,8 @@
                     {% csrf_token %}
                     
                     {% if conversation.status != 'normal' %}
-                    <button type="submit" name="status" value="normal" class="btn btn-outline-primary fw-bold">
-                        <i class="fas fa-play me-1"></i> Normal
+                    <button type="submit" name="status" value="normal" class="btn btn-outline-success fw-bold">
+                        <i class="fas fa-check me-1"></i> Activo
                     </button>
                     {% endif %}
                     
@@ -38,9 +46,8 @@
                     {% endif %}
                     
                     {% if conversation.status != 'closed' %}
-                    <button type="submit" name="status" value="closed" class="btn btn-success fw-bold px-4"
-                        style="background-color: var(--omni-success); border-color: var(--omni-success);">
-                        Cerrar
+                    <button type="submit" name="status" value="closed" class="btn btn-outline-danger fw-bold">
+                        <i class="fas fa-times me-1"></i> Cerrar
                     </button>
                     {% endif %}
                 </form>

@@ -42,9 +42,9 @@ class Conversation(models.Model):
     ]
     
     STATUS_CHOICES = [
-        ('normal', 'Normal'),
+        ('normal', 'Activo'),
         ('pending', 'Pendiente'),
-        ('closed', 'Cerrados'),
+        ('closed', 'Cerrado'),
     ]
     
     PRIORITY_CHOICES = [

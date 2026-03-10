@@ -42,35 +42,35 @@
     <!-- Main Content Area: 3 Columns -->
     <div class="row g-0 flex-grow-1 overflow-hidden" style="height: calc(100vh - 80px);"> <!-- Adjust height based on header -->
         
-        <!-- Column 1: Status Column (Thin) -->
-        <div class="col-auto border-end bg-light d-flex flex-column align-items-center py-4 gap-4" style="width: 70px; min-width: 70px;">
-            <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-               class="status-circle-btn {% if current_status == 'normal' or not current_status %}active{% endif %}"
-               title="Activos (Normal)" data-bs-toggle="tooltip" data-bs-placement="right">
-                <div class="status-circle bg-success shadow-sm">
-                    <i class="fas fa-check text-white"></i>
-                </div>
-                <small class="status-label text-success fw-bold mt-1">Activo</small>
-            </a>
-            
-            <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-               class="status-circle-btn {% if current_status == 'pending' %}active{% endif %}"
-               title="Pendientes" data-bs-toggle="tooltip" data-bs-placement="right">
-                <div class="status-circle bg-warning shadow-sm">
-                    <i class="fas fa-hourglass-half text-white"></i>
-                </div>
-                <small class="status-label text-warning fw-bold mt-1">Pendiente</small>
-            </a>
-            
-            <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-               class="status-circle-btn {% if current_status == 'closed' %}active{% endif %}"
-               title="Cerrados" data-bs-toggle="tooltip" data-bs-placement="right">
-                <div class="status-circle bg-danger shadow-sm">
-                    <i class="fas fa-times text-white"></i>
-                </div>
-                <small class="status-label text-danger fw-bold mt-1">Cerrado</small>
-            </a>
-        </div>
+    <!-- Column 1: Status Column (Thin) -->
+    <div class="col-auto border-end bg-light d-flex flex-column align-items-center py-4 gap-4" style="width: 80px; min-width: 80px;">
+        <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+           class="status-circle-btn {% if current_status == 'normal' or not current_status %}active{% endif %} text-decoration-none text-center"
+           title="Activos" data-bs-toggle="tooltip" data-bs-placement="right">
+            <div class="status-circle bg-success shadow-sm mx-auto mb-1" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-check text-white"></i>
+            </div>
+            <small class="status-label text-success fw-bold d-block" style="font-size: 0.7rem;">Activo</small>
+        </a>
+        
+        <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+           class="status-circle-btn {% if current_status == 'pending' %}active{% endif %} text-decoration-none text-center"
+           title="Pendientes" data-bs-toggle="tooltip" data-bs-placement="right">
+            <div class="status-circle bg-warning shadow-sm mx-auto mb-1" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-hourglass-half text-white"></i>
+            </div>
+            <small class="status-label text-warning fw-bold d-block" style="font-size: 0.7rem;">Pendiente</small>
+        </a>
+        
+        <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+           class="status-circle-btn {% if current_status == 'closed' %}active{% endif %} text-decoration-none text-center"
+           title="Cerrados" data-bs-toggle="tooltip" data-bs-placement="right">
+            <div class="status-circle bg-danger shadow-sm mx-auto mb-1" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-times text-white"></i>
+            </div>
+            <small class="status-label text-danger fw-bold d-block" style="font-size: 0.7rem;">Cerrado</small>
+        </a>
+    </div>
 
         <!-- Column 2: Conversation List (3 cols) -->
         <div class="col-md-3 col-lg-3 border-end bg-white d-flex flex-column h-100">
@@ -94,18 +94,27 @@
                                onclick="loadConversation(this, '{{ conv.id }}')">
                                
                                <div class="d-flex justify-content-between mb-1">
-                                   <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
-                                       {% if conv.channel == 'whatsapp' %}
-                                           <i class="fab fa-whatsapp text-success me-2"></i>
-                                       {% else %}
-                                           <i class="fas fa-envelope text-primary me-2"></i>
-                                       {% endif %}
-                                       <span class="fw-bold text-dark text-truncate">
-                                           {{ conv.contact.client.name|default:"Desconocido" }}
-                                       </span>
-                                   </div>
-                                   <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
-                               </div>
+                           <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
+                               <!-- Status Indicator -->
+                               {% if conv.status == 'normal' %}
+                                   <span class="status-indicator bg-success rounded-circle me-2" style="width: 10px; height: 10px; min-width: 10px;" title="Activo"></span>
+                               {% elif conv.status == 'pending' %}
+                                   <span class="status-indicator bg-warning rounded-circle me-2" style="width: 10px; height: 10px; min-width: 10px;" title="Pendiente"></span>
+                               {% elif conv.status == 'closed' %}
+                                   <span class="status-indicator bg-danger rounded-circle me-2" style="width: 10px; height: 10px; min-width: 10px;" title="Cerrado"></span>
+                               {% endif %}
+                               
+                               {% if conv.channel == 'whatsapp' %}
+                                   <i class="fab fa-whatsapp text-success me-2"></i>
+                               {% else %}
+                                   <i class="fas fa-envelope text-primary me-2"></i>
+                               {% endif %}
+                               <span class="fw-bold text-dark text-truncate">
+                                   {{ conv.contact.client.name|default:"Desconocido" }}
+                               </span>
+                           </div>
+                           <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
+                       </div>
                                
                                <div class="d-flex justify-content-between align-items-center">
                                    <small class="text-muted text-truncate d-block" style="max-width: 100%;">
