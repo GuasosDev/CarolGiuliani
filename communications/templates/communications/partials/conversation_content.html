@@ -457,13 +457,37 @@
             <div class="details-section">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="details-title mb-0">Etiquetas</h6>
+                    {% if conversation.contact.client %}
                     <button class="btn btn-sm btn-light text-primary py-0 px-2"
+                        hx-get="{% url 'client_tag_list_for_client' conversation.contact.client.pk %}"
+                        hx-target="#modal-body"
+                        onclick="openModal()"
                         style="font-size: 0.7rem; font-weight: 700;">+ Añadir</button>
+                    {% endif %}
                 </div>
 
-                <div class="tag-list">
-                    <span class="omni-tag">Valor Alto <i class="fas fa-times"></i></span>
-                    <span class="omni-tag">Potencial <i class="fas fa-times"></i></span>
+                <div class="tag-list" id="client-tags-container"
+                     hx-get="{% url 'communications:conversation_detail' conversation.id %}"
+                     hx-select="#client-tags-container"
+                     hx-trigger="tagsChanged from:body"
+                     hx-swap="outerHTML">
+                    {% if conversation.contact.client %}
+                        {% for tag in conversation.contact.client.tags.all %}
+                        <span class="badge rounded-pill me-1 mb-1 border" 
+                              style="background-color: {{ tag.color }}20; color: {{ tag.color }}; border-color: {{ tag.color }} !important; font-weight: 500;">
+                            {{ tag.name }} 
+                            <i class="fas fa-times ms-1" style="cursor: pointer;"
+                               hx-post="{% url 'client_manage_tags' conversation.contact.client.pk %}"
+                               hx-vals='{"tag_id": "{{ tag.id }}", "action": "remove"}'
+                               hx-confirm="¿Quitar etiqueta?"
+                               hx-swap="none"></i>
+                        </span>
+                        {% empty %}
+                        <small class="text-muted fst-italic">Sin etiquetas asignadas</small>
+                        {% endfor %}
+                    {% else %}
+                        <small class="text-muted">Asocie un cliente para gestionar etiquetas</small>
+                    {% endif %}
                 </div>
             </div>
 
