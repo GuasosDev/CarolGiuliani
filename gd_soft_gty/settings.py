@@ -25,7 +25,9 @@ SECRET_KEY = 'django-insecure-liamf%qvkc0xkxxx@odrfq8g&(2yy6@ux_uxeob5v(=m!=$k@d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['carolgiuliani.online', 'localhost', '127.0.0.1']
+
+CSRF_TRUSTED_ORIGINS = ['https://carolgiuliani.online']
 
 
 # Application definition

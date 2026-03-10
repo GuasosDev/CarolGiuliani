@@ -375,15 +375,17 @@ def whatsapp_webhook(request):
         token = request.GET.get('hub.verify_token')
         challenge = request.GET.get('hub.challenge')
         
+        logger.info(f"Webhook verification attempt: mode={mode}, token={token}, challenge={challenge}")
+        
         # Verify token (you should check against your configured token)
         from .models import WhatsAppAccount
         
         # Check if token matches any account
         if mode == 'subscribe' and WhatsAppAccount.objects.filter(webhook_verify_token=token).exists():
-            logger.info("WhatsApp webhook verified")
-            return HttpResponse(challenge)
+            logger.info("WhatsApp webhook verified successfully")
+            return HttpResponse(challenge, content_type="text/plain")
         else:
-            logger.warning("WhatsApp webhook verification failed")
+            logger.warning(f"WhatsApp webhook verification failed. Token match: {WhatsAppAccount.objects.filter(webhook_verify_token=token).exists()}")
             return HttpResponse('Forbidden', status=403)
     
     elif request.method == 'POST':
