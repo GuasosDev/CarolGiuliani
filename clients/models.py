@@ -13,6 +13,14 @@ class Client(models.Model):
     email = models.EmailField(verbose_name="Email")
     phone = models.CharField(max_length=20, verbose_name="Teléfono", blank=True, null=True)
     address = models.CharField(max_length=255, verbose_name="Dirección", blank=True, null=True)
+    
+    # New fields
+    cuit = models.CharField(max_length=20, verbose_name="CUIT", blank=True, null=True)
+    business_name = models.CharField(max_length=100, verbose_name="Razón Social", blank=True, null=True)
+    fiscal_address = models.CharField(max_length=255, verbose_name="Dirección Fiscal", blank=True, null=True)
+    job_title = models.CharField(max_length=100, verbose_name="Cargo en Empresa", blank=True, null=True)
+    additional_info = models.TextField(verbose_name="Dato Adicional", blank=True, null=True)
+    
     tags = models.ManyToManyField(ClientTag, blank=True, verbose_name="Etiquetas")
 
     @property

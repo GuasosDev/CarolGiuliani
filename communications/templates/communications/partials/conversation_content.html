@@ -441,17 +441,49 @@
                 <h6 class="details-title">Datos del Cliente</h6>
 
                 <div class="detail-item text-dark">
-                    <i class="fas fa-building text-center"></i>
-                    <div>{{ conversation.contact.client.company|default:"Sin Empresa" }}</div>
+                    <i class="fas fa-building text-center" title="Razón Social / Empresa"></i>
+                    <div>{{ conversation.contact.client.business_name|default:conversation.contact.client.name|default:"Sin Empresa" }}</div>
                 </div>
+                
+                {% if conversation.contact.client.cuit %}
                 <div class="detail-item text-dark">
-                    <i class="fas fa-map-marker-alt text-center"></i>
-                    <div>{{ conversation.contact.client.address|default:"Sin Ubicación" }}</div>
+                    <i class="fas fa-id-card text-center" title="CUIT"></i>
+                    <div>{{ conversation.contact.client.cuit }}</div>
                 </div>
+                {% endif %}
+                
+                {% if conversation.contact.client.address %}
                 <div class="detail-item text-dark">
-                    <i class="far fa-clock text-center"></i>
+                    <i class="fas fa-map-marker-alt text-center" title="Dirección Física"></i>
+                    <div>{{ conversation.contact.client.address }}</div>
+                </div>
+                {% endif %}
+
+                {% if conversation.contact.client.fiscal_address %}
+                <div class="detail-item text-dark">
+                    <i class="fas fa-file-invoice-dollar text-center" title="Dirección Fiscal"></i>
+                    <div>{{ conversation.contact.client.fiscal_address }}</div>
+                </div>
+                {% endif %}
+                
+                {% if conversation.contact.client.job_title %}
+                <div class="detail-item text-dark">
+                    <i class="fas fa-briefcase text-center" title="Cargo"></i>
+                    <div>{{ conversation.contact.client.job_title }}</div>
+                </div>
+                {% endif %}
+                
+                <div class="detail-item text-dark">
+                    <i class="far fa-clock text-center" title="Hora Local"></i>
                     <div>Hora Local: {% now "H:i A" %}</div>
                 </div>
+                
+                {% if conversation.contact.client.additional_info %}
+                <div class="mt-2 p-2 bg-light rounded small border">
+                    <strong class="d-block mb-1 text-muted" style="font-size: 0.7rem;">INFO ADICIONAL</strong>
+                    {{ conversation.contact.client.additional_info|linebreaksbr }}
+                </div>
+                {% endif %}
             </div>
 
             <div class="details-section">

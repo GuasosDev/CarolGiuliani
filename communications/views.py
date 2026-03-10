@@ -8,14 +8,16 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.utils import timezone
+from django.template.loader import get_template
+from xhtml2pdf import pisa
 import json
 import logging
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply
-from .forms import QuickReplyForm
+from .forms import QuickReplyForm, ConversationReportForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
@@ -442,6 +444,50 @@ class QuickReplyUpdateView(LoginRequiredMixin, UpdateView):
         if self.request.user.is_superuser or self.request.user.groups.filter(name='Supervisor').exists():
             return QuickReply.objects.all()
         return QuickReply.objects.filter(created_by=self.request.user)
+
+# ============================================================================
+# REPORTS
+# ============================================================================
+
+def render_pdf_view(template_src, context_dict={}):
+    template = get_template(template_src)
+    html  = template.render(context_dict)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="conversation_report.pdf"'
+    pisa_status = pisa.CreatePDF(
+       html, dest=response)
+    if pisa_status.err:
+       return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    return response
+
+class ConversationReportView(LoginRequiredMixin, View):
+    def get(self, request):
+        form = ConversationReportForm()
+        return render(request, 'communications/report_modal.html', {'form': form})
+    
+    def post(self, request):
+        form = ConversationReportForm(request.POST)
+        if form.is_valid():
+            client = form.cleaned_data['client']
+            start_date = form.cleaned_data['start_date']
+            end_date = form.cleaned_data['end_date']
+            
+            conversations = Conversation.objects.filter(
+                contact__client=client,
+                created_at__date__range=[start_date, end_date]
+            ).prefetch_related('messages').order_by('created_at')
+            
+            context = {
+                'client': client,
+                'start_date': start_date,
+                'end_date': end_date,
+                'conversations': conversations,
+                'generated_at': timezone.now()
+            }
+            
+            return render_pdf_view('communications/reports/conversation_pdf.html', context)
+        
+        return render(request, 'communications/report_modal.html', {'form': form})
 
 class QuickReplyDeleteView(LoginRequiredMixin, DeleteView):
     model = QuickReply

@@ -30,4 +30,7 @@ urlpatterns = [
     path('quick-replies/create/', views.QuickReplyCreateView.as_view(), name='quick_reply_create'),
     path('quick-replies/<int:pk>/update/', views.QuickReplyUpdateView.as_view(), name='quick_reply_update'),
     path('quick-replies/<int:pk>/delete/', views.QuickReplyDeleteView.as_view(), name='quick_reply_delete'),
+
+    # Reports
+    path('reports/conversation/', views.ConversationReportView.as_view(), name='conversation_report'),
 ]

@@ -9,8 +9,8 @@ from django import forms
 
 class ClientListView(GenericListView):
     model = Client
-    list_fields = ['name', 'email', 'phone', 'tags_display']
-    list_headers = ['Nombre', 'Email', 'Teléfono', 'Etiquetas']
+    list_fields = ['name', 'business_name', 'email', 'phone', 'tags_display']
+    list_headers = ['Nombre', 'Razón Social', 'Email', 'Teléfono', 'Etiquetas']
     title = "Listado de Contactos"
     create_url_name = 'client_create'
     update_url_name = 'client_update'
@@ -19,8 +19,9 @@ class ClientListView(GenericListView):
 
 class ClientCreateView(GenericCreateView):
     model = Client
-    fields = ['name', 'email', 'phone', 'address', 'tags']
+    fields = ['name', 'business_name', 'cuit', 'email', 'phone', 'job_title', 'address', 'fiscal_address', 'additional_info', 'tags']
     title = "Crear Contacto"
+    template_name = 'clients/client_form.html'
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -29,8 +30,9 @@ class ClientCreateView(GenericCreateView):
 
 class ClientUpdateView(GenericUpdateView):
     model = Client
-    fields = ['name', 'email', 'phone', 'address', 'tags']
+    fields = ['name', 'business_name', 'cuit', 'email', 'phone', 'job_title', 'address', 'fiscal_address', 'additional_info', 'tags']
     title = "Editar Contacto"
+    template_name = 'clients/client_form.html'
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)

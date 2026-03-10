@@ -30,6 +30,14 @@
                     <i class="fas fa-plus me-2"></i>
                     <span>Nuevo Contacto</span>
                 </button>
+                <button hx-get="{% url 'communications:conversation_report' %}" 
+                        hx-target="#modal-body" 
+                        hx-trigger="click" 
+                        onclick="openModal()" 
+                        class="btn btn-outline-secondary rounded-pill shadow-sm d-flex align-items-center ms-2">
+                    <i class="fas fa-file-pdf me-2"></i>
+                    <span>Listado Conversación</span>
+                </button>
             </div>
             <!-- Search Bar -->
             <div class="omni-search-bar mb-0 ms-auto" style="width: 300px;">
