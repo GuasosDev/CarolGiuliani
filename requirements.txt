@@ -1,13 +1,32 @@
-Django==5.2.9
-xhtml2pdf==0.2.17
-# Dependencies for the above packages (e.g. reportlab, pillow, etc.) will be installed automatically.
+# Frameworks
+Django==5.2.4
+djangorestframework==3.16.1
+channels==4.3.2
+daphne==4.2.1
 
-# Multichannel Communication System
-channels==4.0.0
+# Database & Async Tasks
+celery==5.6.2
+psycopg2-binary==2.9.11
+# Note: redis and channels-redis are required by settings but not found in current pip list
 channels-redis==4.1.0
-djangorestframework==3.14.0
-celery==5.3.4
 redis==5.0.1
-requests==2.31.0
-cryptography==41.0.7
-daphne==4.0.0
+
+# HTTP & Networking
+requests==2.32.5
+Twisted==25.5.0
+
+# Security
+cryptography==46.0.5
+
+# PDF & Documents
+xhtml2pdf==0.2.17
+reportlab==4.4.2
+pypdf==6.0.0
+pyHanko==0.29.1
+openpyxl==3.1.5
+pillow==11.3.0
+PyYAML==6.0.2
+
+# UI & Forms
+django-crispy-forms==2.4
+crispy-bootstrap5==2025.6

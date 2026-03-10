@@ -1,0 +1,33 @@
+<div id="tag-manager-content" hx-get="{{ request.get_full_path }}" hx-trigger="tagsChanged from:body" hx-target="this">
+    <div class="modal-header">
+        <h5 class="modal-title">Gestión de Etiquetas</h5>
+    </div>
+    <div class="modal-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">Etiquetas Disponibles</h6>
+            {% if client %}
+            <button hx-get="{% url 'client_tag_create_for_client' client.pk %}"
+                    hx-target="#tag-form-container" 
+                    class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-plus"></i> Nueva Etiqueta
+            </button>
+            {% else %}
+            <button hx-get="{% url 'client_tag_create' %}"
+                    hx-target="#tag-form-container" 
+                    class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-plus"></i> Nueva Etiqueta
+            </button>
+            {% endif %}
+        </div>
+    
+        <!-- Container for the create/edit form -->
+        <div id="tag-form-container" class="mb-3"></div>
+    
+        <div class="list-group" id="tag-list">
+            {% include "clients/tag_list_items.html" %}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
+    </div>
+</div>

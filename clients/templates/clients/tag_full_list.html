@@ -1,0 +1,43 @@
+{% extends "communications/communications_base.html" %}
+
+{% block comm_content %}
+<div class="container-fluid py-4" id="tag-manager-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-0">Gestión de Etiquetas</h4>
+            <p class="text-muted small mb-0">Administra las etiquetas para clasificar tus contactos</p>
+        </div>
+        <button hx-get="{% url 'client_tag_create' %}"
+                hx-target="#tag-form-container" 
+                class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Etiqueta
+        </button>
+    </div>
+
+    <div class="row">
+        <div class="col-md-5">
+             <div id="tag-form-container" class="mb-3"></div>
+        </div>
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="mb-0 fw-bold">Etiquetas Existentes</h6>
+                </div>
+                <!-- 
+                   Using hx-select="#tag-list" ensures we only swap the list part from the response 
+                   when refreshing via hx-get="{{ request.path }}".
+                   The response will be the FULL page, but HTMX will extract #tag-list.
+                -->
+                <div class="list-group list-group-flush" id="tag-list" 
+                     hx-get="{{ request.path }}" 
+                     hx-trigger="tagsChanged from:body"
+                     hx-select="#tag-list"
+                     hx-target="#tag-list"
+                     hx-swap="outerHTML">
+                    {% include "clients/tag_list_items.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

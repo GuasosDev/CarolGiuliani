@@ -1,0 +1,45 @@
+{% for tag in tags %}
+<div class="list-group-item d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center">
+        <span class="badge rounded-pill me-2" style="background-color: {{ tag.color }};">{{ tag.name }}</span>
+    </div>
+    <div>
+        {% if client %}
+            <!-- If client context exists, show add/remove buttons -->
+            {% if tag in client.tags.all %}
+            <button hx-post="{% url 'client_manage_tags' client.pk %}"
+                    hx-vals='{"tag_id": "{{ tag.id }}", "action": "remove"}'
+                    hx-target="#tag-manager-content" 
+                    class="btn btn-sm btn-outline-danger"
+                    title="Quitar del cliente">
+                <i class="fas fa-minus"></i>
+            </button>
+            {% else %}
+            <button hx-post="{% url 'client_manage_tags' client.pk %}"
+                    hx-vals='{"tag_id": "{{ tag.id }}", "action": "add"}'
+                    hx-target="#tag-manager-content"
+                    class="btn btn-sm btn-outline-success"
+                    title="Asignar al cliente">
+                <i class="fas fa-plus"></i>
+            </button>
+            {% endif %}
+        {% endif %}
+
+        <!-- Edit/Delete Actions -->
+        <button hx-get="{% url 'client_tag_update' tag.pk %}"
+                hx-target="#tag-form-container"
+                class="btn btn-sm btn-link text-secondary">
+            <i class="fas fa-edit"></i>
+        </button>
+        <button hx-post="{% url 'client_tag_delete' tag.pk %}"
+                hx-confirm="¿Estás seguro de eliminar esta etiqueta?"
+                class="btn btn-sm btn-link text-danger">
+            <i class="fas fa-trash"></i>
+        </button>
+    </div>
+</div>
+{% empty %}
+<div class="text-center text-muted py-3">
+    No hay etiquetas creadas.
+</div>
+{% endfor %}
