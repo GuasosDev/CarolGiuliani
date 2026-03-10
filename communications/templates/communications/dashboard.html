@@ -42,7 +42,15 @@
             <!-- Search Bar -->
             <div class="omni-search-bar mb-0 ms-auto" style="width: 300px;">
                 <i class="fas fa-search"></i>
-                <input type="text" class="omni-search-input" placeholder="Buscar...">
+                <input type="search" 
+                       name="q"
+                       class="omni-search-input" 
+                       placeholder="Buscar en todo el sistema..."
+                       hx-get="{% url 'global_search' %}"
+                       hx-trigger="keyup changed delay:800ms, search"
+                       hx-target="#modal-body"
+                       hx-on:htmx:after-request="if(event.detail.successful) openModal()"
+                       autocomplete="off">
             </div>
         </div>
     </div>
