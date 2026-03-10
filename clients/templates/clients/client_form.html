@@ -69,6 +69,13 @@
         </div>
 
         <div class="mb-3">
+            <label for="{{ form.internal_notes.id_for_label }}" class="form-label">{{ form.internal_notes.label }}</label>
+            {{ form.internal_notes }}
+            <div class="form-text text-muted">{{ form.internal_notes.help_text }}</div>
+            {% if form.internal_notes.errors %}<div class="text-danger small">{{ form.internal_notes.errors }}</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
             <label class="form-label">{{ form.tags.label }}</label>
             <div class="border rounded p-2 bg-light" style="max-height: 150px; overflow-y: auto;">
                 {{ form.tags }}

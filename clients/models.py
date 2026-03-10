@@ -20,6 +20,7 @@ class Client(models.Model):
     fiscal_address = models.CharField(max_length=255, verbose_name="Dirección Fiscal", blank=True, null=True)
     job_title = models.CharField(max_length=100, verbose_name="Cargo en Empresa", blank=True, null=True)
     additional_info = models.TextField(verbose_name="Dato Adicional", blank=True, null=True)
+    internal_notes = models.TextField(verbose_name="Notas Internas", blank=True, null=True, help_text="Notas privadas visibles solo para usuarios del sistema")
     
     tags = models.ManyToManyField(ClientTag, blank=True, verbose_name="Etiquetas")
 

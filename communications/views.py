@@ -171,7 +171,9 @@ def open_client_whatsapp(request, client_id):
         )
         assign_conversation_to_agent(conversation, agent=request.user, assigned_by=request.user)
     
-    return redirect('communications:conversation_detail', pk=conversation.pk)
+    from django.urls import reverse
+    url = reverse('communications:dashboard')
+    return redirect(f'{url}?channel=whatsapp&conversation={conversation.pk}')
 
 
 @login_required

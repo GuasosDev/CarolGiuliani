@@ -19,7 +19,7 @@ class ClientListView(GenericListView):
 
 class ClientCreateView(GenericCreateView):
     model = Client
-    fields = ['name', 'business_name', 'cuit', 'email', 'phone', 'job_title', 'address', 'fiscal_address', 'additional_info', 'tags']
+    fields = ['name', 'business_name', 'cuit', 'email', 'phone', 'job_title', 'address', 'fiscal_address', 'additional_info', 'internal_notes', 'tags']
     title = "Crear Contacto"
     template_name = 'clients/client_form.html'
     
@@ -30,7 +30,7 @@ class ClientCreateView(GenericCreateView):
 
 class ClientUpdateView(GenericUpdateView):
     model = Client
-    fields = ['name', 'business_name', 'cuit', 'email', 'phone', 'job_title', 'address', 'fiscal_address', 'additional_info', 'tags']
+    fields = ['name', 'business_name', 'cuit', 'email', 'phone', 'job_title', 'address', 'fiscal_address', 'additional_info', 'internal_notes', 'tags']
     title = "Editar Contacto"
     template_name = 'clients/client_form.html'
     
@@ -121,3 +121,16 @@ class ClientManageTagsView(LoginRequiredMixin, View):
                 
         # Return 204 to signal success and trigger updates
         return HttpResponse(status=204, headers={'HX-Trigger': 'tagsChanged, clientTagsChanged'})
+
+class ClientUpdateNoteView(LoginRequiredMixin, View):
+    """View to update client internal notes via HTMX"""
+    
+    def post(self, request, pk):
+        client = get_object_or_404(Client, pk=pk)
+        internal_notes = request.POST.get('internal_notes')
+        
+        if internal_notes is not None:
+            client.internal_notes = internal_notes
+            client.save()
+            
+        return HttpResponse(status=200)

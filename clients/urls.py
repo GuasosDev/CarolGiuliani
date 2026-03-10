@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     ClientListView, ClientCreateView, ClientUpdateView, ClientDeleteView,
     ClientTagListView, ClientTagCreateView, ClientTagUpdateView, ClientTagDeleteView,
-    ClientManageTagsView
+    ClientManageTagsView, ClientUpdateNoteView
 )
 
 urlpatterns = [
@@ -20,6 +20,7 @@ urlpatterns = [
     
     # Client Tag Assignment
     path('manage-tags/<int:pk>/', ClientManageTagsView.as_view(), name='client_manage_tags'),
+    path('update-note/<int:pk>/', ClientUpdateNoteView.as_view(), name='client_update_note'),
     # For when accessing tag manager from a specific client context
     path('tags/client/<int:client_id>/', ClientTagListView.as_view(), name='client_tag_list_for_client'),
     path('tags/create/client/<int:client_id>/', ClientTagCreateView.as_view(), name='client_tag_create_for_client'),
