@@ -13,7 +13,7 @@ import json
 
 class Contact(models.Model):
     """Extended contact information linked to Client model"""
-    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='communication_contact')
+    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='communication_contact', null=True, blank=True)
     whatsapp_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="WhatsApp")
     preferred_channel = models.CharField(
         max_length=20,
