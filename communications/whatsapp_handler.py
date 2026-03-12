@@ -300,27 +300,38 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         elif message_type == 'contacts':
             content = "[CONTACT CARD]"
         
-        # Get or create contact
-        contact, _ = Contact.objects.get_or_create(
-            whatsapp_number=from_number,
-            defaults={
-                'client_id': None,  # Will need to be linked manually or via matching
-                'preferred_channel': 'whatsapp'
-            }
-        )
+        # Try to find existing contact by matching the last 10 digits (common for AR numbers)
+        normalized_from = normalize_phone_number(from_number)
+        contact = Contact.objects.filter(whatsapp_number=from_number).first()
+        
+        if not contact and normalized_from:
+            # Try matching normalized exact
+            contact = Contact.objects.filter(whatsapp_number=normalized_from).first()
+            
+        if not contact and normalized_from and len(normalized_from) >= 10:
+            # Try matching suffix (useful for AR +54 9 vs +54)
+            suffix = normalized_from[-10:]
+            contact = Contact.objects.filter(whatsapp_number__endswith=suffix).first()
+            
+        if not contact:
+            contact = Contact.objects.create(
+                whatsapp_number=from_number,
+                client_id=None,
+                preferred_channel='whatsapp'
+            )
         
         # Get or create conversation
         conversation = Conversation.objects.filter(
             contact=contact,
             channel='whatsapp',
-            status__in=['open', 'assigned', 'pending']
+            status__in=['normal', 'open', 'assigned', 'pending']
         ).first()
         
         if not conversation:
             conversation = Conversation.objects.create(
                 contact=contact,
                 channel='whatsapp',
-                status='open',
+                status='normal',
                 priority='normal'
             )
             

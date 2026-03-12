@@ -258,7 +258,7 @@ class EmailHandler:
         conversation = Conversation.objects.create(
             contact=contact,
             channel='email',
-            status='open',
+            status='normal',
             priority='normal',
             subject=subject
         )

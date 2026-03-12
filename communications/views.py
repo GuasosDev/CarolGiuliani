@@ -318,7 +318,7 @@ def supervisor_dashboard(request):
     
     # Get metrics
     total_conversations = Conversation.objects.count()
-    open_conversations = Conversation.objects.filter(status__in=['open', 'assigned', 'pending']).count()
+    open_conversations = Conversation.objects.filter(status__in=['normal', 'pending']).count()
     closed_today = Conversation.objects.filter(
         status='closed',
         closed_at__date=timezone.now().date()
@@ -329,7 +329,7 @@ def supervisor_dashboard(request):
     for agent in agents:
         active_count = Conversation.objects.filter(
             assigned_to=agent,
-            status__in=['open', 'assigned', 'pending']
+            status__in=['normal', 'pending']
         ).count()
         
         agent_stats.append({
