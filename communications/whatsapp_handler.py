@@ -312,7 +312,19 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             # Try matching suffix (useful for AR +54 9 vs +54)
             suffix = normalized_from[-10:]
             contact = Contact.objects.filter(whatsapp_number__endswith=suffix).first()
-            
+
+        if not contact and normalized_from and len(normalized_from) >= 10:
+            # Try matching via the linked client's phone number (when whatsapp_number is not set on Contact)
+            from clients.models import Client
+            suffix = normalized_from[-10:]
+            client_match = Client.objects.filter(phone__endswith=suffix).first()
+            if client_match:
+                contact = Contact.objects.filter(client=client_match).first()
+                if contact and not contact.whatsapp_number:
+                    # Save the WA number so future lookups are fast
+                    contact.whatsapp_number = from_number
+                    contact.save(update_fields=['whatsapp_number'])
+
         if not contact:
             contact = Contact.objects.create(
                 whatsapp_number=from_number,
