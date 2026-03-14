@@ -1,0 +1,119 @@
+{% extends "communications/communications_base.html" %}
+{% load static %}
+
+{% block title %}Menú de Bienvenida{% endblock %}
+
+{% block comm_content %}
+<div class="p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1 fw-bold"><i class="fas fa-list-ul text-warning me-2"></i>Menú de Bienvenida</h4>
+            <small class="text-muted">Configure los menús automáticos para mensajes de WhatsApp entrantes.</small>
+        </div>
+        <a href="{% url 'communications:welcome_menu_create' %}" class="btn btn-success btn-sm px-3">
+            <i class="fas fa-plus me-1"></i> Nuevo Menú
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if menus %}
+    <div class="row g-3">
+        {% for menu in menus %}
+        <div class="col-12">
+            <div
+                class="card shadow-sm border-0 {% if menu.is_active %}border-start border-success border-3{% else %}border-start border-secondary border-3{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h6 class="mb-0 fw-bold">{{ menu.name }}</h6>
+                                {% if menu.is_active %}
+                                <span
+                                    class="badge bg-success-subtle text-success border border-success-subtle">Activo</span>
+                                {% else %}
+                                <span
+                                    class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Inactivo</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-muted small mb-1">
+                                <i class="fas fa-key me-1"></i>
+                                <strong>Palabras clave:</strong>
+                                {% if menu.trigger_keywords %}
+                                {% for kw in menu.trigger_keywords %}<span
+                                    class="badge bg-light text-dark border me-1">{{ kw }}</span>{% endfor %}
+                                {% else %}
+                                <em>Sin palabras clave</em>
+                                {% endif %}
+                            </p>
+                            <p class="text-muted small mb-2">
+                                <i class="fas fa-comment me-1"></i>
+                                <strong>Saludo:</strong> {{ menu.greeting_text|truncatechars:80 }}
+                            </p>
+                            {% if menu.items.all %}
+                            <div class="mt-2">
+                                <small class="text-muted fw-semibold d-block mb-1"><i
+                                        class="fas fa-sitemap me-1"></i>Opciones del menú:</small>
+                                <table class="table table-sm table-bordered mb-0" style="max-width:500px;">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:50px;">#</th>
+                                            <th>Opción</th>
+                                            <th>Usuario asignado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in menu.items.all %}
+                                        <tr>
+                                            <td class="text-center fw-bold">{{ item.number }}</td>
+                                            <td>{{ item.label }}</td>
+                                            <td>
+                                                {% if item.assigned_user %}
+                                                <i class="fas fa-user-circle text-primary me-1"></i>
+                                                {{ item.assigned_user.get_full_name|default:item.assigned_user.username
+                                                }}
+                                                {% else %}
+                                                <span class="text-muted fst-italic">Sin asignar</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="ms-3 d-flex gap-2">
+                            <a href="{% url 'communications:welcome_menu_edit' menu.pk %}"
+                                class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="{% url 'communications:welcome_menu_delete' menu.pk %}"
+                                class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-list-ul fa-3x text-muted mb-3"></i>
+        <h6 class="text-muted">No hay menús configurados todavía.</h6>
+        <a href="{% url 'communications:welcome_menu_create' %}" class="btn btn-success mt-2">
+            <i class="fas fa-plus me-1"></i> Crear primer menú
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

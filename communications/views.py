@@ -16,7 +16,7 @@ from django.template.loader import get_template
 from xhtml2pdf import pisa
 import json
 import logging
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem
 from .forms import QuickReplyForm, ConversationReportForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
@@ -252,7 +252,13 @@ def conversation_detail(request, pk):
         quick_replies = QuickReply.objects.filter(
             models.Q(created_by=request.user) | models.Q(is_global=True)
         ).order_by('shortcut', 'title')
-        
+
+        # Get users available for conversation transfer
+        from django.contrib.auth.models import User as AuthUser
+        transfer_users = AuthUser.objects.filter(is_active=True).exclude(
+            pk=request.user.pk
+        ).order_by('first_name', 'username')
+
         context = {
             'conversation': conversation,
             'messages': messages,
@@ -264,6 +270,7 @@ def conversation_detail(request, pk):
             'whatsapp_account': whatsapp_account,
             'email_account': email_account,
             'quick_replies': quick_replies,
+            'transfer_users': transfer_users,
             **counts # Unpack counts into context
         }
         
@@ -501,3 +508,192 @@ class QuickReplyDeleteView(LoginRequiredMixin, DeleteView):
         if self.request.user.is_superuser or self.request.user.groups.filter(name='Supervisor').exists():
             return QuickReply.objects.all()
         return QuickReply.objects.filter(created_by=self.request.user)
+
+
+# ============================================================================
+# WELCOME MENU MANAGEMENT
+# ============================================================================
+
+class WelcomeMenuListView(LoginRequiredMixin, ListView):
+    model = WelcomeMenu
+    template_name = 'communications/welcome_menus/list.html'
+    context_object_name = 'menus'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            from django.contrib import messages
+            messages.error(request, 'No tenés permiso para acceder a esta sección.')
+            return redirect('communications:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return WelcomeMenu.objects.prefetch_related('items__assigned_user').order_by('-is_active', 'name')
+
+
+class WelcomeMenuCreateView(LoginRequiredMixin, View):
+    template_name = 'communications/welcome_menus/form.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            from django.contrib import messages
+            messages.error(request, 'No tenés permiso para acceder a esta sección.')
+            return redirect('communications:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request):
+        from django.contrib.auth.models import User
+        users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+        empty_data = {'name': '', 'trigger_keywords': '', 'greeting_text': '', 'footer_text': ''}
+        return render(request, self.template_name, {'action': 'Crear', 'users': users, 'post_data': empty_data})
+
+    def post(self, request):
+        name = request.POST.get('name', '').strip()
+        is_active = request.POST.get('is_active') == 'on'
+        greeting_text = request.POST.get('greeting_text', '').strip()
+        footer_text = request.POST.get('footer_text', '').strip()
+        keywords_raw = request.POST.get('trigger_keywords', '').strip()
+        trigger_keywords = [k.strip().lower() for k in keywords_raw.split(',') if k.strip()]
+
+        if not name or not greeting_text:
+            return render(request, self.template_name, {
+                'action': 'Crear',
+                'error': 'El nombre y el texto de bienvenida son obligatorios.',
+                'post_data': request.POST,
+            })
+
+        menu = WelcomeMenu.objects.create(
+            name=name,
+            is_active=is_active,
+            greeting_text=greeting_text,
+            footer_text=footer_text,
+            trigger_keywords=trigger_keywords,
+        )
+
+        # Save items
+        numbers = request.POST.getlist('item_number')
+        labels = request.POST.getlist('item_label')
+        users = request.POST.getlist('item_user')
+        for i, num in enumerate(numbers):
+            try:
+                n = int(num)
+                label = labels[i].strip() if i < len(labels) else ''
+                uid = users[i] if i < len(users) else None
+                if label:
+                    WelcomeMenuItem.objects.create(
+                        menu=menu,
+                        number=n,
+                        label=label,
+                        assigned_user_id=uid if uid else None,
+                    )
+            except (ValueError, TypeError):
+                continue
+
+        from django.contrib import messages
+        messages.success(request, f'Menú "{menu.name}" creado correctamente.')
+        return redirect('communications:welcome_menus')
+
+
+class WelcomeMenuUpdateView(LoginRequiredMixin, View):
+    template_name = 'communications/welcome_menus/form.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            from django.contrib import messages
+            messages.error(request, 'No tenés permiso para acceder a esta sección.')
+            return redirect('communications:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, pk):
+        menu = get_object_or_404(WelcomeMenu, pk=pk)
+        items = menu.items.all().order_by('number')
+        from django.contrib.auth.models import User
+        users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+        post_data = {
+            'name': menu.name,
+            'is_active': 'on' if menu.is_active else '',
+            'greeting_text': menu.greeting_text,
+            'footer_text': menu.footer_text,
+            'trigger_keywords': ', '.join(menu.trigger_keywords),
+        }
+        return render(request, self.template_name, {
+            'action': 'Editar', 'menu': menu, 'items': items, 'users': users, 'post_data': post_data
+        })
+
+    def post(self, request, pk):
+        menu = get_object_or_404(WelcomeMenu, pk=pk)
+        menu.name = request.POST.get('name', '').strip()
+        menu.is_active = request.POST.get('is_active') == 'on'
+        menu.greeting_text = request.POST.get('greeting_text', '').strip()
+        menu.footer_text = request.POST.get('footer_text', '').strip()
+        keywords_raw = request.POST.get('trigger_keywords', '').strip()
+        menu.trigger_keywords = [k.strip().lower() for k in keywords_raw.split(',') if k.strip()]
+        menu.save()
+
+        # Rebuild items
+        menu.items.all().delete()
+        numbers = request.POST.getlist('item_number')
+        labels = request.POST.getlist('item_label')
+        users = request.POST.getlist('item_user')
+        for i, num in enumerate(numbers):
+            try:
+                n = int(num)
+                label = labels[i].strip() if i < len(labels) else ''
+                uid = users[i] if i < len(users) else None
+                if label:
+                    WelcomeMenuItem.objects.create(
+                        menu=menu,
+                        number=n,
+                        label=label,
+                        assigned_user_id=uid if uid else None,
+                    )
+            except (ValueError, TypeError):
+                continue
+
+        from django.contrib import messages
+        messages.success(request, f'Menú "{menu.name}" actualizado correctamente.')
+        return redirect('communications:welcome_menus')
+
+
+class WelcomeMenuDeleteView(LoginRequiredMixin, DeleteView):
+    model = WelcomeMenu
+    template_name = 'communications/welcome_menus/confirm_delete.html'
+    success_url = reverse_lazy('communications:welcome_menus')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            from django.contrib import messages
+            messages.error(request, 'No tenés permiso para acceder a esta sección.')
+            return redirect('communications:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+@login_required
+@require_http_methods(["POST"])
+def transfer_conversation(request, pk):
+    """Transfer/reassign a conversation to another user"""
+    conversation = get_object_or_404(Conversation, pk=pk)
+
+    # Only supervisors, admins, or the assigned agent can transfer
+    if not (request.user.is_superuser or
+            request.user.groups.filter(name='Supervisor').exists() or
+            conversation.assigned_to == request.user):
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
+
+    new_user_id = request.POST.get('user_id')
+    if not new_user_id:
+        return JsonResponse({'error': 'Debe seleccionar un usuario'}, status=400)
+
+    from django.contrib.auth.models import User
+    try:
+        new_user = User.objects.get(pk=new_user_id, is_active=True)
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'Usuario no encontrado'}, status=404)
+
+    from .assignment_system import reassign_conversation
+    reassign_conversation(conversation, new_user, request.user)
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Conversación derivada a {new_user.get_full_name() or new_user.username}',
+        'new_agent': new_user.get_full_name() or new_user.username,
+    })

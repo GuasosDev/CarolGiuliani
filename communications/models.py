@@ -547,3 +547,94 @@ class EmailQueue(models.Model):
 
     def __str__(self):
         return f"{self.subject} - {self.get_status_display()}"
+
+
+# ============================================================================
+# WELCOME MENU MODELS
+# ============================================================================
+
+class WelcomeMenu(models.Model):
+    """Configurable welcome menu for incoming WhatsApp messages"""
+    name = models.CharField(max_length=100, verbose_name="Nombre del Menú")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
+    trigger_keywords = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Palabras Clave",
+        help_text="Lista de palabras que activan el menú (ej: hola, buenas, inicio)"
+    )
+    greeting_text = models.TextField(
+        verbose_name="Texto de Bienvenida",
+        help_text="Texto que se muestra antes de las opciones"
+    )
+    footer_text = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Texto al Pie",
+        default="Responda con el número de su elección"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Menú de Bienvenida"
+        verbose_name_plural = "Menús de Bienvenida"
+        ordering = ['-is_active', 'name']
+
+    def __str__(self):
+        status = "[ACTIVO]" if self.is_active else "[INACTIVO]"
+        return f"{status} {self.name}"
+
+    def build_message_text(self):
+        """Build the full menu text to send via WhatsApp"""
+        lines = [self.greeting_text, ""]
+        for item in self.items.all().order_by('number'):
+            lines.append(f"{item.number}. {item.label}")
+        if self.footer_text:
+            lines.append("")
+            lines.append(self.footer_text)
+        return "\n".join(lines)
+
+
+class WelcomeMenuItem(models.Model):
+    """A single option in a WelcomeMenu"""
+    menu = models.ForeignKey(WelcomeMenu, on_delete=models.CASCADE, related_name='items')
+    number = models.PositiveSmallIntegerField(verbose_name="Número de Opción")
+    label = models.CharField(max_length=100, verbose_name="Etiqueta")
+    assigned_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='menu_items',
+        verbose_name="Usuario Asignado"
+    )
+
+    class Meta:
+        verbose_name = "Opción de Menú"
+        verbose_name_plural = "Opciones de Menú"
+        ordering = ['number']
+        unique_together = [['menu', 'number']]
+
+    def __str__(self):
+        user_str = self.assigned_user.get_full_name() or self.assigned_user.username if self.assigned_user else "Sin asignar"
+        return f"{self.number}. {self.label} → {user_str}"
+
+
+class ContactMenuState(models.Model):
+    """Tracks a contact that has been shown a welcome menu and is awaiting a selection"""
+    contact = models.OneToOneField(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name='menu_state'
+    )
+    menu = models.ForeignKey(WelcomeMenu, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Estado de Menú"
+        verbose_name_plural = "Estados de Menú"
+
+    def __str__(self):
+        return f"{self.contact} esperando selección en '{self.menu.name}'"

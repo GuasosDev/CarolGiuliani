@@ -1,0 +1,190 @@
+{% extends "communications/communications_base.html" %}
+
+{% block title %}{{ action }} Menú de Bienvenida{% endblock %}
+
+{% block comm_js %}
+<script>
+    let itemCount = {% if items %}{ { items | length } } {% else %} 0{% endif %};
+
+    function addItem() {
+        itemCount++;
+        const container = document.getElementById('items-container');
+        const row = document.createElement('div');
+        row.className = 'row g-2 mb-2 item-row';
+        row.innerHTML = `
+        <div class="col-2">
+            <input type="number" name="item_number" class="form-control form-control-sm" placeholder="#" value="${itemCount}" min="1" required>
+        </div>
+        <div class="col-5">
+            <input type="text" name="item_label" class="form-control form-control-sm" placeholder="Etiqueta (ej. Administración)" required>
+        </div>
+        <div class="col-4">
+            <select name="item_user" class="form-select form-select-sm">
+                <option value="">-- Sin asignar --</option>
+                {% for u in users %}
+                <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-1 d-flex align-items-center">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.item-row').remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+        container.appendChild(row);
+    }
+</script>
+{% endblock %}
+
+{% block comm_content %}
+<div class="p-4" style="max-width:720px;">
+    <div class="d-flex align-items-center mb-4">
+        <a href="{% url 'communications:welcome_menus' %}" class="btn btn-outline-secondary btn-sm me-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <h5 class="mb-0 fw-bold"><i class="fas fa-list-ul text-warning me-2"></i>{{ action }} Menú de Bienvenida
+            </h5>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white border-bottom fw-semibold">
+                <i class="fas fa-cog me-1 text-secondary"></i> Configuración General
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nombre del Menú <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" value="{{ menu.name|default:post_data.name }}"
+                        placeholder="ej. Menú Principal" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Palabras Clave</label>
+                    <input type="text" name="trigger_keywords" class="form-control"
+                        value="{% if menu %}{% for kw in menu.trigger_keywords %}{{ kw }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}{{ post_data.trigger_keywords }}{% endif %}"
+                        placeholder="hola, buenas, inicio, hello">
+                    <div class="form-text">Separadas por coma. Cuando un usuario envíe alguna de estas palabras, el menú
+                        se activará automáticamente.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Texto de Bienvenida <span class="text-danger">*</span></label>
+                    <textarea name="greeting_text" class="form-control" rows="3"
+                        placeholder="Bienvenido a nuestro servicio. Por favor seleccione una opción:"
+                        required>{{ menu.greeting_text|default:post_data.greeting_text }}</textarea>
+                    <div class="form-text">Este texto aparece antes de las opciones numeradas.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Texto al Pie</label>
+                    <input type="text" name="footer_text" class="form-control"
+                        value="{{ menu.footer_text|default:post_data.footer_text|default:'Responda con el número de su elección' }}"
+                        placeholder="Responda con el número de su elección">
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="is_active" id="isActiveCheck" {% if menu.is_active or not menu %} checked {% endif %}>
+                    <label class="form-check-label fw-semibold" for="isActiveCheck">
+                        Menú Activo
+                        <small class="text-muted fw-normal">(Solo el primer menú activo se utiliza)</small>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="fas fa-th-list me-1 text-secondary"></i> Opciones del Menú</span>
+                <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">
+                    <i class="fas fa-plus me-1"></i> Agregar opción
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 mb-2 text-muted small px-2">
+                    <div class="col-2 fw-semibold">N°</div>
+                    <div class="col-5 fw-semibold">Etiqueta</div>
+                    <div class="col-4 fw-semibold">Usuario del sistema</div>
+                    <div class="col-1"></div>
+                </div>
+                <div id="items-container">
+                    {% for item in items %}
+                    <div class="row g-2 mb-2 item-row">
+                        <div class="col-2">
+                            <input type="number" name="item_number" class="form-control form-control-sm"
+                                value="{{ item.number }}" min="1" required>
+                        </div>
+                        <div class="col-5">
+                            <input type="text" name="item_label" class="form-control form-control-sm"
+                                value="{{ item.label }}" required>
+                        </div>
+                        <div class="col-4">
+                            <select name="item_user" class="form-select form-select-sm">
+                                <option value="">-- Sin asignar --</option>
+                                {% for u in users %}
+                                <option value="{{ u.pk }}" {% if item.assigned_user_id == u.pk %}selected{% endif %}>
+                                    {{ u.get_full_name | default:u.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-1 d-flex align-items-center">
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                onclick="this.closest('.item-row').remove()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    {# start with one empty row for create #}
+                    {% if action == 'Crear' %}
+                    <div class="row g-2 mb-2 item-row">
+                        <div class="col-2">
+                            <input type="number" name="item_number" class="form-control form-control-sm" value="1"
+                                min="1" required>
+                        </div>
+                        <div class="col-5">
+                            <input type="text" name="item_label" class="form-control form-control-sm"
+                                placeholder="Ej. Administración" required>
+                        </div>
+                        <div class="col-4">
+                            <select name="item_user" class="form-select form-select-sm">
+                                <option value="">-- Sin asignar --</option>
+                                {% for u in users %}
+                                <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-1 d-flex align-items-center">
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                onclick="this.closest('.item-row').remove()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <p class="text-muted small mt-2 mb-0"><i class="fas fa-info-circle me-1"></i>Cada opción corresponde a
+                    un número que el cliente puede responder. El usuario asignado recibirá la conversación.</p>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success px-4">
+                <i class="fas fa-save me-1"></i> Guardar Menú
+            </button>
+            <a href="{% url 'communications:welcome_menus' %}" class="btn btn-outline-secondary px-3">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+{% if not users %}
+<script>
+    // If users were not loaded (e.g. GET on create), fetch them via a quick context fix
+</script>
+{% endif %}
+{% endblock %}

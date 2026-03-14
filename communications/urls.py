@@ -4,7 +4,7 @@ Main URL configuration for communications app
 
 from django.urls import path, include
 from . import views
-from .views import ContactCreateView, open_client_whatsapp
+from .views import ContactCreateView, open_client_whatsapp, WelcomeMenuListView, WelcomeMenuCreateView, WelcomeMenuUpdateView, WelcomeMenuDeleteView, transfer_conversation
 
 app_name = 'communications'
 
@@ -33,4 +33,13 @@ urlpatterns = [
 
     # Reports
     path('reports/conversation/', views.ConversationReportView.as_view(), name='conversation_report'),
+
+    # Welcome Menus
+    path('welcome-menus/', WelcomeMenuListView.as_view(), name='welcome_menus'),
+    path('welcome-menus/create/', WelcomeMenuCreateView.as_view(), name='welcome_menu_create'),
+    path('welcome-menus/<int:pk>/edit/', WelcomeMenuUpdateView.as_view(), name='welcome_menu_edit'),
+    path('welcome-menus/<int:pk>/delete/', WelcomeMenuDeleteView.as_view(), name='welcome_menu_delete'),
+
+    # Conversation Transfer
+    path('conversation/<int:pk>/transfer/', transfer_conversation, name='transfer_conversation'),
 ]
