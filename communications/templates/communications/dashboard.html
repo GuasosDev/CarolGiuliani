@@ -20,7 +20,7 @@
             <div class="d-flex align-items-center">
                 <div class="me-4">
                     <h2 class="omni-page-title mb-0" id="dashboard-header-title">Resumen General</h2>
-                    <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user.first_name|default:"Lautaro" }}</div>
+                    <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user }}</div>
                 </div>
                 <button hx-get="{% url 'client_create' %}" 
                         hx-target="#modal-body" 
@@ -90,103 +90,123 @@
 
         <!-- Column 2: Conversation List (3 cols) -->
         <div class="col-md-3 col-lg-3 border-end bg-white d-flex flex-column h-100">
-            <!-- Scrollable List -->
-            <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
-                 hx-get="{{ request.get_full_path }}"
-                 hx-trigger="every 15s"
-                 hx-select="#dashboard-conversations-container"
-                 hx-swap="outerHTML">
+    <!-- Scrollable List -->
+    <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
+         hx-get="{{ request.get_full_path }}"
+         hx-trigger="every 15s"
+         hx-select="#dashboard-conversations-container"
+         hx-swap="outerHTML">
+        
+        <div class="list-group list-group-flush">
+
+        {% if current_status == 'inbox' %}
+            {% for group in grouped_conversations %}
+                <div class="list-group-item bg-light fw-bold small text-uppercase text-muted py-1 px-3">
+                    {{ group.client.name|default:"Desconocido" }}
+                </div>
                 
-                <div class="list-group list-group-flush">
-                {% if current_status == 'inbox' %}
-                    {% for group in grouped_conversations %}
-                        <div class="list-group-item bg-light fw-bold small text-uppercase text-muted py-1 px-3">
-                            {{ group.client.name }}
-                        </div>
-                        {% for conv in group.conversations %}
-                            <button type="button" 
-                               class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
-                               data-id="{{ conv.id }}"
-                               onclick="loadConversation(this, '{{ conv.id }}')">
-                               
-                               <div class="d-flex justify-content-between mb-1">
+                {% for conv in group.conversations %}
+                    <button type="button" 
+                       class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
+                       data-id="{{ conv.id }}"
+                       onclick="loadConversation(this, '{{ conv.id }}')">
+                       
+                       <div class="d-flex justify-content-between mb-1">
                            <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
                                <!-- Status Indicator -->
                                {% if conv.status == 'normal' %}
-                                   <span class="status-indicator bg-success rounded-circle me-2" style="width: 10px; height: 10px; min-width: 10px;" title="Activo"></span>
+                                   <span class="status-indicator bg-success rounded-circle me-2" style="width: 10px; height: 10px;"></span>
                                {% elif conv.status == 'pending' %}
-                                   <span class="status-indicator bg-warning rounded-circle me-2" style="width: 10px; height: 10px; min-width: 10px;" title="Pendiente"></span>
+                                   <span class="status-indicator bg-warning rounded-circle me-2" style="width: 10px; height: 10px;"></span>
                                {% elif conv.status == 'closed' %}
-                                   <span class="status-indicator bg-danger rounded-circle me-2" style="width: 10px; height: 10px; min-width: 10px;" title="Cerrado"></span>
+                                   <span class="status-indicator bg-danger rounded-circle me-2" style="width: 10px; height: 10px;"></span>
                                {% endif %}
-                               
+
                                {% if conv.channel == 'whatsapp' %}
                                    <i class="fab fa-whatsapp text-success me-2"></i>
                                {% else %}
                                    <i class="fas fa-envelope text-primary me-2"></i>
                                {% endif %}
+
                                <span class="fw-bold text-dark text-truncate">
-                                   {{ conv.contact.client.name|default:"Desconocido" }}
+                                   {% if conv.contact and conv.contact.client %}
+                                       {{ conv.contact.client.name }}
+                                   {% else %}
+                                       Desconocido
+                                   {% endif %}
                                </span>
                            </div>
-                           <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
+                           <small class="text-muted">
+                               {{ conv.updated_at|date:"H:i" }}
+                           </small>
                        </div>
-                               
-                               <div class="d-flex justify-content-between align-items-center">
-                                   <small class="text-muted text-truncate d-block" style="max-width: 100%;">
-                                       {% if conv.messages.last %}
-                                           {{ conv.messages.last.content|truncatechars:35 }}
-                                       {% else %}
-                                           <span class="fst-italic text-muted">Sin mensajes...</span>
-                                       {% endif %}
-                                   </small>
-                               </div>
-                            </button>
-                        {% endfor %}
-                    {% empty %}
-                        <div class="text-center p-4 text-muted">No hay conversaciones</div>
-                    {% endfor %}
-                {% else %}
-                    {% for conv in conversations %}
-                        <button type="button" 
-                           class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
-                           data-id="{{ conv.id }}"
-                           onclick="loadConversation(this, '{{ conv.id }}')">
-                           
-                           <div class="d-flex justify-content-between mb-1">
-                               <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
-                                   {% if conv.channel == 'whatsapp' %}
-                                       <i class="fab fa-whatsapp text-success me-2"></i>
-                                   {% else %}
-                                       <i class="fas fa-envelope text-primary me-2"></i>
-                                   {% endif %}
-                                   <span class="fw-bold text-dark text-truncate">
-                                       {{ conv.contact.client.name|default:"Desconocido" }}
-                                   </span>
-                               </div>
-                               <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
-                           </div>
-                           
-                           <div class="d-flex justify-content-between align-items-center">
-                               <small class="text-muted text-truncate d-block" style="max-width: 100%;">
-                                   {% if conv.messages.last %}
-                                       {{ conv.messages.last.content|truncatechars:35 }}
+
+                       <div class="d-flex justify-content-between align-items-center">
+                           <small class="text-muted text-truncate d-block" style="max-width: 100%;">
+                               {% with last_msg=conv.messages.last %}
+                                   {% if last_msg %}
+                                       {{ last_msg.content|truncatechars:35 }}
                                    {% else %}
                                        <span class="fst-italic text-muted">Sin mensajes...</span>
                                    {% endif %}
-                               </small>
-                           </div>
-                        </button>
-                    {% empty %}
-                        <div class="text-center p-5 text-muted">
-                            <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
-                            <p>No hay conversaciones en esta vista.</p>
-                        </div>
-                    {% endfor %}
-                {% endif %}
+                               {% endwith %}
+                           </small>
+                       </div>
+                    </button>
+                {% endfor %}
+            {% empty %}
+                <div class="text-center p-4 text-muted">No hay conversaciones</div>
+            {% endfor %}
+
+        {% else %}
+            {% for conv in conversations %}
+                <button type="button" 
+                   class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
+                   data-id="{{ conv.id }}"
+                   onclick="loadConversation(this, '{{ conv.id }}')">
+                   
+                   <div class="d-flex justify-content-between mb-1">
+                       <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
+                           {% if conv.channel == 'whatsapp' %}
+                               <i class="fab fa-whatsapp text-success me-2"></i>
+                           {% else %}
+                               <i class="fas fa-envelope text-primary me-2"></i>
+                           {% endif %}
+
+                           <span class="fw-bold text-dark text-truncate">
+                               {% if conv.contact and conv.contact.client %}
+                                   {{ conv.contact.client.name }}
+                               {% else %}
+                                   Desconocido
+                               {% endif %}
+                           </span>
+                       </div>
+                       <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
+                   </div>
+
+                   <div class="d-flex justify-content-between align-items-center">
+                       <small class="text-muted text-truncate d-block" style="max-width: 100%;">
+                           {% with last_msg=conv.messages.last %}
+                               {% if last_msg %}
+                                   {{ last_msg.content|truncatechars:35 }}
+                               {% else %}
+                                   <span class="fst-italic text-muted">Sin mensajes...</span>
+                               {% endif %}
+                           {% endwith %}
+                       </small>
+                   </div>
+                </button>
+            {% empty %}
+                <div class="text-center p-5 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
+                    <p>No hay conversaciones en esta vista.</p>
                 </div>
-            </div>
+            {% endfor %}
+        {% endif %}
+
         </div>
+    </div>
+</div>
 
         <!-- Column 3: Conversation Detail (Rest) -->
         <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel" style="background-color: #f8f9fa;">

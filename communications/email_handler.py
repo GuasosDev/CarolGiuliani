@@ -3,6 +3,8 @@ Email handler for IMAP/SMTP operations
 Handles email synchronization, sending, and threading
 """
 
+from email.utils import formataddr, parseaddr, make_msgid
+import uuid
 import imaplib
 import smtplib
 import email
@@ -172,7 +174,9 @@ class EmailHandler:
             
             # Get or create conversation
             conversation = self.get_or_create_conversation(contact, subject, in_reply_to, references)
-            
+            if conversation.user is None and self.account.user:
+                conversation.user = self.account.user
+                conversation.save()
             # Create message
             message = Message.objects.create(
                 conversation=conversation,
@@ -223,38 +227,56 @@ class EmailHandler:
             return None
     
     def get_or_create_contact_from_email(self, email_address):
-        """Get or create contact from email address"""
-        # Try to find existing client by email
+
         from clients.models import Client
-        
-        try:
-            client = Client.objects.get(email=email_address)
-            contact, _ = Contact.objects.get_or_create(
-                client=client,
-                defaults={'preferred_channel': 'email'}
-            )
-        except Client.DoesNotExist:
-            # Create a placeholder contact (can be linked to client later)
-            contact, _ = Contact.objects.get_or_create(
-                client=None,
-                defaults={'preferred_channel': 'email'}
-            )
-        
+
+        client, _ = Client.objects.get_or_create(
+            email=email_address,
+            defaults={
+                "name": email_address.split("@")[0]
+            }
+        )
+
+        contact, _ = Contact.objects.get_or_create(
+            client=client,
+            defaults={
+                "preferred_channel": "email"
+            }
+        )
+
         return contact
-    
     def get_or_create_conversation(self, contact, subject, in_reply_to, references):
-        """Get or create conversation based on threading"""
-        # Try to find existing conversation by thread
-        if in_reply_to or references:
-            existing_thread = EmailThread.objects.filter(
-                conversation__contact=contact,
-                messages__email_message_id__in=[in_reply_to] if in_reply_to else []
-            ).first()
-            
-            if existing_thread:
-                return existing_thread.conversation
-        
-        # Create new conversation
+
+        # 1️⃣ Buscar por In-Reply-To
+        if in_reply_to:
+            email_msg = EmailMessage.objects.filter(
+                email_message_id=in_reply_to
+            ).select_related("message__conversation").first()
+
+            if email_msg:
+                return email_msg.message.conversation
+
+        # 2️⃣ Buscar por References
+        if references:
+            refs = references.split()
+            email_msg = EmailMessage.objects.filter(
+                email_message_id__in=refs
+            ).select_related("message__conversation").first()
+
+            if email_msg:
+                return email_msg.message.conversation
+
+        # 3️⃣ Buscar conversación abierta del mismo contacto
+        conversation = Conversation.objects.filter(
+            contact=contact,
+            channel='email',
+            status__in=['open', 'pending', 'normal']
+        ).order_by('-updated_at').first()
+
+        if conversation:
+            return conversation
+
+        # 4️⃣ Crear nueva conversación
         conversation = Conversation.objects.create(
             contact=contact,
             channel='email',
@@ -262,11 +284,10 @@ class EmailHandler:
             priority='normal',
             subject=subject
         )
-        
-        # Auto-assign
+
         from .assignment_system import assign_conversation_to_agent
         assign_conversation_to_agent(conversation)
-        
+
         return conversation
     
     def get_or_create_thread(self, conversation, subject, in_reply_to, references):
@@ -311,35 +332,39 @@ class EmailHandler:
             logger.error(f"Error saving attachment: {str(e)}")
     
     def send_email(self, to_addresses, subject, body, html_body=None, cc_addresses=None, 
-                   bcc_addresses=None, attachments=None, conversation=None, signature=None):
-        """Send an email"""
+                bcc_addresses=None, attachments=None, conversation=None, signature=None):
+        """Send an email and save records in DB"""
         if not self.connect_smtp():
             return False, "Failed to connect to SMTP server"
         
         try:
-            # Create message
+            # Crear mensaje
             msg = MIMEMultipart('alternative')
             msg['From'] = formataddr((self.account.name, self.account.email_address))
             msg['To'] = ', '.join(to_addresses)
             msg['Subject'] = subject
-            
+
             if cc_addresses:
                 msg['Cc'] = ', '.join(cc_addresses)
-            
-            # Add signature if provided
+
+            # Generar Message-ID si no existe
+            msg_id = make_msgid()
+            msg['Message-ID'] = msg_id
+
+            # Agregar firma si existe
             if signature:
                 if html_body:
                     html_body += f"<br><br>{signature.html_signature}"
                 if body:
                     body += f"\n\n{signature.plain_signature}"
-            
-            # Attach bodies
+
+            # Adjuntar cuerpos
             if body:
                 msg.attach(MIMEText(body, 'plain'))
             if html_body:
                 msg.attach(MIMEText(html_body, 'html'))
-            
-            # Attach files
+
+            # Adjuntar archivos
             if attachments:
                 for attachment in attachments:
                     part = MIMEBase('application', 'octet-stream')
@@ -347,37 +372,16 @@ class EmailHandler:
                     encoders.encode_base64(part)
                     part.add_header('Content-Disposition', f'attachment; filename={attachment["filename"]}')
                     msg.attach(part)
-            
-            # Send
-            all_recipients = to_addresses + (cc_addresses or []) + (bcc_addresses or [])
+
+            # Enviar
             self.smtp_connection.send_message(msg)
+
+            # Guardar en la DB si hay conversación
             
-            # Create message record if conversation provided
-            if conversation:
-                message = Message.objects.create(
-                    conversation=conversation,
-                    message_type='email',
-                    direction='outbound',
-                    content=body or html_body or '',
-                    metadata={'sent_at': str(timezone.now())}
-                )
-                
-                EmailMessage.objects.create(
-                    message=message,
-                    email_account=self.account,
-                    subject=subject,
-                    html_body=html_body,
-                    plain_body=body,
-                    email_message_id=msg['Message-ID'],
-                    to_addresses=to_addresses,
-                    cc_addresses=cc_addresses or [],
-                    bcc_addresses=bcc_addresses or [],
-                    from_address=self.account.email_address
-                )
-            
+
             logger.info(f"Email sent: {subject}")
             return True, "Email sent successfully"
-            
+
         except Exception as e:
             logger.error(f"Error sending email: {str(e)}")
             return False, str(e)

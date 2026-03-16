@@ -6,6 +6,7 @@ from .models import (
     EmailAccount, EmailMessage, EmailThread, EmailTemplate,
     EmailSignature, EmailAttachment, EmailQueue
 )
+from .forms import EmailAccountAdminForm 
 
 
 # ============================================================================
@@ -127,6 +128,7 @@ class ConversationAssignmentAdmin(admin.ModelAdmin):
 
 @admin.register(EmailAccount)
 class EmailAccountAdmin(admin.ModelAdmin):
+    form = EmailAccountAdminForm 
     list_display = ('name', 'email_address', 'provider', 'sync_enabled', 'is_active', 'last_sync_at')
     list_filter = ('provider', 'sync_enabled', 'is_active')
     search_fields = ('name', 'email_address')
@@ -134,7 +136,7 @@ class EmailAccountAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Información Básica', {
-            'fields': ('name', 'email_address', 'provider', 'is_active')
+            'fields': ('name', 'email_address', 'provider', 'is_active', 'user')
         }),
         ('Configuración IMAP', {
             'fields': ('imap_host', 'imap_port', 'imap_use_ssl')
@@ -143,7 +145,7 @@ class EmailAccountAdmin(admin.ModelAdmin):
             'fields': ('smtp_host', 'smtp_port', 'smtp_use_tls')
         }),
         ('Credenciales', {
-            'fields': ('username',)  # Password handled separately for security
+            'fields': ('username','password')  # Password handled separately for security
         }),
         ('Sincronización', {
             'fields': ('sync_enabled', 'sync_interval', 'last_sync_at')

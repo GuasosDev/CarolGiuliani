@@ -31,7 +31,8 @@ class Contact(models.Model):
         verbose_name_plural = "Contactos de Comunicación"
 
     def __str__(self):
-        return f"{self.client.name} - {self.preferred_channel}"
+        client_name = self.client.name if self.client else "Sin cliente"
+        return f"{client_name} - {self.preferred_channel}"
 
 
 class Conversation(models.Model):
@@ -43,6 +44,7 @@ class Conversation(models.Model):
     
     STATUS_CHOICES = [
         ('normal', 'Activo'),
+        ('assigned', 'Asignada'),
         ('pending', 'Pendiente'),
         ('closed', 'Cerrado'),
     ]
@@ -53,7 +55,13 @@ class Conversation(models.Model):
         ('high', 'Alta'),
         ('urgent', 'Urgente'),
     ]
-
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="conversations",
+        null=True,
+        blank=True
+    )
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='conversations')
     channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, verbose_name="Canal")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='normal', verbose_name="Estado")
@@ -87,7 +95,12 @@ class Conversation(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.contact.client.name} - {self.get_channel_display()} ({self.get_status_display()})"
+        client_name = (
+          self.contact.client.name
+          if self.contact and self.contact.client
+          else "Sin cliente"
+        )
+        return f"{client_name} - {self.get_channel_display()} ({self.get_status_display()})"
 
     def close(self):
         """Close the conversation"""
@@ -154,6 +167,28 @@ class Message(models.Model):
             self.is_read = True
             self.read_at = timezone.now()
             self.save()
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        if is_new:
+            conversation = self.conversation
+
+            conversation.last_message_at = self.created_at
+            conversation.last_message_preview = self.content[:200]
+
+            if self.direction == 'inbound' and conversation.status == 'closed':
+              conversation.status = 'open'
+              conversation.closed_at = None
+
+            conversation.save(update_fields=[
+            'last_message_at',
+            'last_message_preview',
+            'status',
+            'closed_at',
+            'updated_at'
+        ])
 
 
 class InternalNote(models.Model):
@@ -324,6 +359,12 @@ class EmailAccount(models.Model):
         ('outlook', 'Outlook/Office365'),
         ('imap', 'IMAP/SMTP Genérico'),
     ]
+    user = models.ForeignKey(
+    settings.AUTH_USER_MODEL,
+    on_delete=models.CASCADE,
+    related_name="email_accounts",
+    blank=True, null=True
+    )
 
     name = models.CharField(max_length=100, verbose_name="Nombre")
     email_address = models.EmailField(unique=True, verbose_name="Dirección de Email")
@@ -360,15 +401,21 @@ class EmailAccount(models.Model):
     def __str__(self):
         return f"{self.name} - {self.email_address}"
 
-    def set_password(self, raw_password):
-        """Encrypt and store password"""
-        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY.encode())
-        self.encrypted_password = cipher_suite.encrypt(raw_password.encode())
+    def set_password(self, password):
+        from cryptography.fernet import Fernet
+        from django.conf import settings
+
+        fernet = Fernet(settings.EMAIL_ENCRYPTION_KEY)
+
+        if isinstance(password, str):
+            password = password.encode()  # convierte a bytes solo si es str
+
+        self.encrypted_password = fernet.encrypt(password)
 
     def get_password(self):
-        """Decrypt and return password"""
-        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY.encode())
-        return cipher_suite.decrypt(self.encrypted_password).decode()
+        from cryptography.fernet import Fernet
+        fernet = Fernet(settings.EMAIL_ENCRYPTION_KEY)
+        return fernet.decrypt(self.encrypted_password).decode()
 
 
 class EmailMessage(models.Model):
