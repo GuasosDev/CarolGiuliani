@@ -7,7 +7,7 @@ import logging
 from django.utils import timezone
 from .models import EmailAccount, EmailQueue,Conversation
 from .email_handler import EmailHandler
-
+from datetime import timedelta
 logger = logging.getLogger(__name__)
 
 
@@ -144,7 +144,6 @@ def distribute_unassigned_conversations():
     count = distribute_workload()
     logger.info(f"Distributed {count} conversations")
     return count
-from datetime import timedelta
 @shared_task
 def close_inactive_conversations():
     limit = timezone.now() - timedelta(minutes=1)

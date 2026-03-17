@@ -1,183 +1,62 @@
 {% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Supervisor{% endblock %}
+
 {% block content %}
-
-<div class="container mt-4">
-
-<h2 class="mb-4">📊 Supervisor Dashboard</h2>
-
-<div class="row mb-4">
-
-    <div class="col-md-3">
-        <div class="card shadow text-center">
-            <div class="card-body">
-                <h6>Total</h6>
-                <h2>{{ total_conversations }}</h2>
+<div class="container-fluid mt-3">
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="fw-bold">Conversaciones Totales</div>
+                    <div class="display-6">{{ total_conversations }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="fw-bold">Abiertas</div>
+                    <div class="display-6">{{ open_conversations }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="fw-bold">Cerradas Hoy</div>
+                    <div class="display-6">{{ closed_today }}</div>
+                </div>
             </div>
         </div>
     </div>
-
-    <div class="col-md-3">
-        <div class="card shadow border-warning text-center">
-            <div class="card-body">
-                <h6>Abiertas</h6>
-                <h2>{{ open_conversations }}</h2>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="card shadow border-success text-center">
-            <div class="card-body">
-                <h6>Cerradas Hoy</h6>
-                <h2>{{ closed_today }}</h2>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="card shadow border-danger text-center">
-            <div class="card-body">
-                <h6>SLA > 30min</h6>
-                <h2>{{ sla_breached }}</h2>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<!-- Alertas -->
-{% if unassigned > 0 %}
-<div class="alert alert-danger">
-    ⚠️ Hay {{ unassigned }} conversaciones sin asignar.
-</div>
-{% endif %}
-<div class="card shadow mt-4">
-    <div class="card-header bg-danger text-white">
-        📥 Conversaciones sin asignar
-    </div>
-
-    <div class="card-body">
-
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Cliente</th>
-                    <th>Canal</th>
-                    <th>Último mensaje</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for conv in unassigned_conversations %}
-                <tr>
-                    <td>{{ conv.contact.client.name|default:"Contacto Desconocido" }}</td>
-                    <td>{{ conv.channel }}</td>
-                    <td>{{ conv.last_message_at }}</td>
-                    <td>
-                    <form method="post" action="{% url 'communications:assign_conversation' conv.id %}">
-                                {% csrf_token %}
-
-                                <select name="user" class="form-select form-select-sm">
-
-                                {% for agent in users %}
-                                <option value="{{ agent.id }}">
-                                {{ agent.username }}
-                                </option>
-                                {% endfor %}
-
-                                </select>
-
-                                <button type="submit" class="btn btn-sm btn-primary mt-1">
-                                Asignar
-                                </button>
-
-                    </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4">No hay conversaciones sin asignar</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-
-        </table>
-<!-- Paginación -->
-                    <nav aria-label="Paginación de conversaciones">
-                        <ul class="pagination justify-content-center">
-                            {% if unassigned_conversations.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ unassigned_conversations.previous_page_number }}" aria-label="Anterior">
-                                        <span aria-hidden="true">&laquo;</span>
-                                    </a>
-                                </li>
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">&laquo;</span>
-                                </li>
-                            {% endif %}
-
-                            {% for num in unassigned_conversations.paginator.page_range %}
-                                {% if num == unassigned_conversations.number %}
-                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                                {% elif num > unassigned_conversations.number|add:-3 and num < unassigned_conversations.number|add:3 %}
-                                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
-                                {% endif %}
-                            {% endfor %}
-
-                            {% if unassigned_conversations.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ unassigned_conversations.next_page_number }}" aria-label="Siguiente">
-                                        <span aria-hidden="true">&raquo;</span>
-                                    </a>
-                                </li>
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">&raquo;</span>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-    </div>
-</div>
-<div class="card shadow mt-4">
-   <h5 class="p-2 bg-dark text-white rounded" >Mis Conversaciones</h5>
+    <div class="card">
+        <div class="card-header">Carga de Trabajo</div>
+        <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Contacto</th>
-                            <th>Canal</th>
-                            <th>Estado</th>
-                            <th>Prioridad</th>
-                            <th>Último Mensaje</th>
-                            <th>Acciones</th>
+                            <th>Agente</th>
+                            <th>Conversaciones Activas</th>
                         </tr>
                     </thead>
-                    <tbody id="conversations-list">
-                        {% for conversation in my_conversations %}
-                        <tr data-conversation-id="{{ conversation.id }}">
-                            <td>{{ conversation.contact.client.name|default:"Contacto Desconocido" }}</td>
-                            <td><span class="badge bg-{% if conversation.channel == 'whatsapp' %}success{% else %}primary{% endif %}">{{ conversation.get_channel_display }}</span></td>
-                            <td><span class="badge bg-{% if conversation.status == 'open' %}warning{% elif conversation.status == 'assigned' %}info{% else %}secondary{% endif %}">{{ conversation.get_status_display }}</span></td>
-                            <td><span class="badge bg-{% if conversation.priority == 'urgent' %}danger{% elif conversation.priority == 'high' %}warning{% else %}secondary{% endif %}">{{ conversation.get_priority_display }}</span></td>
-                            <td>
-                                <small>{{ conversation.last_message_at }} ago</small><br>
-                                <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10 }}</small>
-                            </td>
-                            <td>
-                                <a href="{% url 'communications:conversation_detail' conversation.id %}" class="btn btn-sm btn-primary">Ver</a>
-                            </td>
+                    <tbody>
+                        {% for s in agent_stats %}
+                        <tr>
+                            <td>{{ s.agent.get_username }}</td>
+                            <td>{{ s.active_conversations }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center">No hay conversaciones asignadas</td>
+                            <td colspan="2" class="text-center">Sin datos</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+<<<<<<< HEAD
 </div>
 <!-- Tabla de agentes -->
 <div class="card shadow">
@@ -229,3 +108,9 @@
 
 {% endblock %}
 
+=======
+        </div>
+    </div>
+</div>
+{% endblock %}
+>>>>>>> Gonza_360_menu2.0_local

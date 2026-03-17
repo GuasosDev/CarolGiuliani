@@ -1,0 +1,27 @@
+<form hx-post="{{ request.path }}" hx-target="#tag-form-container" class="card p-3 bg-light border-0 mb-3">
+    {% csrf_token %}
+    <h6 class="mb-3">{% if form.instance.pk %}Editar{% else %}Nueva{% endif %} Etiqueta</h6>
+    
+    <div class="mb-3">
+        <label for="{{ form.name.id_for_label }}" class="form-label">Nombre</label>
+        <input type="text" name="{{ form.name.name }}" id="{{ form.name.id_for_label }}" 
+               class="form-control form-control-sm" value="{{ form.name.value|default:'' }}" required>
+        {% if form.name.errors %}
+        <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <div class="mb-3">
+        <label for="{{ form.color.id_for_label }}" class="form-label">Color</label>
+        <input type="color" name="{{ form.color.name }}" id="{{ form.color.id_for_label }}" 
+               class="form-control form-control-color w-100" value="{{ form.color.value|default:'#6c757d' }}" title="Elige un color">
+        {% if form.color.errors %}
+        <div class="invalid-feedback d-block">{{ form.color.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('tag-form-container').innerHTML=''">Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+    </div>
+</form>

@@ -1,0 +1,80 @@
+{% extends "communications/communications_base.html" %}
+
+{% block comm_content %}
+<div class="d-flex flex-column h-100">
+    <div class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="mb-1">Respuestas Rápidas</h4>
+            <p class="text-muted mb-0 small">Gestiona plantillas de mensajes para usar en chats</p>
+        </div>
+        <a href="{% url 'communications:quick_reply_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Nueva Respuesta
+        </a>
+    </div>
+
+    <div class="p-4 overflow-auto">
+        <div class="row g-4">
+            {% for reply in quick_replies %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm hover-shadow">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="card-title mb-1 fw-bold text-dark">{{ reply.title }}</h5>
+                                {% if reply.shortcut %}
+                                <span class="badge bg-light text-dark border">/{{ reply.shortcut }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{% url 'communications:quick_reply_update' reply.pk %}"><i class="fas fa-edit me-2"></i>Editar</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="{% url 'communications:quick_reply_delete' reply.pk %}"><i class="fas fa-trash-alt me-2"></i>Eliminar</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-light p-3 rounded mb-3 small text-muted" style="max-height: 100px; overflow-y: auto;">
+                            {{ reply.content|linebreaksbr }}
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-auto">
+                            <div class="d-flex gap-2">
+                                {% if reply.channel == 'whatsapp' %}
+                                <span class="badge bg-success bg-opacity-10 text-success"><i class="fab fa-whatsapp"></i> WA</span>
+                                {% elif reply.channel == 'email' %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary"><i class="fas fa-envelope"></i> Email</span>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary"><i class="fas fa-sync-alt"></i> Ambos</span>
+                                {% endif %}
+                                
+                                {% if reply.is_global %}
+                                <span class="badge bg-info bg-opacity-10 text-info" title="Global"><i class="fas fa-globe"></i></span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted" title="Usado {{ reply.usage_count }} veces">
+                                <i class="fas fa-history me-1"></i> {{ reply.usage_count }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <div class="text-muted mb-3">
+                    <i class="fas fa-bolt fa-3x text-light"></i>
+                </div>
+                <h5>No hay respuestas rápidas</h5>
+                <p class="text-muted">Crea tu primera respuesta rápida para agilizar tus conversaciones.</p>
+                <a href="{% url 'communications:quick_reply_create' %}" class="btn btn-outline-primary mt-2">
+                    Crear Respuesta
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

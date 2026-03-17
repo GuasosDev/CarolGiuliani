@@ -2,14 +2,9 @@
 Email handler for IMAP/SMTP operations
 Handles email synchronization, sending, and threading
 """
+
 from email.utils import formataddr, parseaddr, make_msgid
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-from django.utils import timezone
-from .models import Message, EmailMessage
-import logging
+import uuid
 import imaplib
 import smtplib
 import email
@@ -180,15 +175,9 @@ class EmailHandler:
             
             # Get or create conversation
             conversation = self.get_or_create_conversation(contact, subject, in_reply_to, references)
-            if conversation.status == "closed":
-               conversation.status = "open"
-               if conversation.assigned_to:
-                    conversation.reopened_by = conversation.assigned_to
-               else:
-                    # Si no había agente, puede quedar sin asignar o asignar a un pool
-                    conversation.assigned_to = None
-
-            conversation.save()
+            if conversation.user is None and self.account.user:
+                conversation.user = self.account.user
+                conversation.save()
             # Create message
             message = Message.objects.create(
                 conversation=conversation,
@@ -239,63 +228,60 @@ class EmailHandler:
             return None
     
     def get_or_create_contact_from_email(self, email_address):
+
         from clients.models import Client
 
-        # 1️⃣ Obtener o crear cliente
         client, _ = Client.objects.get_or_create(
             email=email_address,
-            defaults={'name': email_address}
+            defaults={
+                "name": email_address.split("@")[0]
+            }
         )
 
-        # 2️⃣ Obtener o crear contacto vinculado al cliente
         contact, _ = Contact.objects.get_or_create(
             client=client,
             defaults={
-                
-                'preferred_channel': 'email'
+                "preferred_channel": "email"
             }
         )
 
         return contact
-    
     def get_or_create_conversation(self, contact, subject, in_reply_to, references):
 
         # 1️⃣ Buscar por In-Reply-To
         if in_reply_to:
-            parent_email = EmailMessage.objects.filter(
-                email_message_id=in_reply_to.strip()
-            ).first()
+            email_msg = EmailMessage.objects.filter(
+                email_message_id=in_reply_to
+            ).select_related("message__conversation").first()
 
-            if parent_email:
-                return parent_email.thread.conversation
+            if email_msg:
+                return email_msg.message.conversation
 
         # 2️⃣ Buscar por References
         if references:
-            reference_ids = references.split()
-            parent_email = EmailMessage.objects.filter(
-                email_message_id__in=reference_ids
-            ).order_by('-created_at').first()
+            refs = references.split()
+            email_msg = EmailMessage.objects.filter(
+                email_message_id__in=refs
+            ).select_related("message__conversation").first()
 
-            if parent_email and parent_email.thread:
-               return parent_email.thread.conversation
+            if email_msg:
+                return email_msg.message.conversation
 
-        # 3️⃣ Fallback: mismo contacto + subject similar abierto
-        normalized_subject = subject.replace("Re:", "").strip()
-
-        existing_conversation = Conversation.objects.filter(
+        # 3️⃣ Buscar conversación abierta del mismo contacto
+        conversation = Conversation.objects.filter(
             contact=contact,
-            subject__icontains=normalized_subject,
-            status__in=["open", "assigned", "pending"]
-        ).order_by('-created_at').first()
+            channel='email',
+            status__in=['open', 'pending', 'normal']
+        ).order_by('-updated_at').first()
 
-        if existing_conversation:
-            return existing_conversation
+        if conversation:
+            return conversation
 
         # 4️⃣ Crear nueva conversación
         conversation = Conversation.objects.create(
             contact=contact,
             channel='email',
-            status='open',
+            status='normal',
             priority='normal',
             subject=subject,
             
@@ -408,30 +394,3 @@ class EmailHandler:
             return False, str(e)
         finally:
             self.disconnect()
-
-from django.utils import timezone
-from communications.models import EmailQueue, EmailAccount, Conversation
-from clients.models import Client
-
-def send_email_to_client(client_id):
-    client = Client.objects.get(id=client_id)
-    account = EmailAccount.objects.filter(is_active=True).first()
-
-    conversation, _ = Conversation.objects.get_or_create(
-        contact__client=client,
-        channel='email',
-        defaults={
-            'status': 'open',
-            'priority': 'normal',
-            'subject': 'Consulta'
-        }
-    )
-
-    EmailQueue.objects.create(
-        email_account=account,
-        to_addresses=[client.email],
-        subject="Prueba desde el sistema",
-        plain_body="Hola, este es un mensaje enviado desde el sistema.",
-        conversation=conversation,
-        scheduled_at=timezone.now()
-    )

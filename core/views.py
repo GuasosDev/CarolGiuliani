@@ -7,6 +7,10 @@ from django.contrib.auth.models import User
 from .models import CompanySettings, UserProfile
 from django import forms
 import json
+from django.db.models import Q
+# Import models inside methods to avoid circular imports if necessary, 
+# but usually views.py is fine.
+# We'll import inside the view just in case.
 
 class GenericFormMixin:
     template_name = 'core/generic_form.html'
@@ -98,22 +102,47 @@ class UserProfileUpdateView(LoginRequiredMixin, GenericFormMixin, UpdateView):
         # We need to call parent form_valid to save the User object, 
         # which will trigger GenericFormMixin.form_valid
         # But we also need to save the phone.
-        # Let's save phone before calling super() if possible, or after?
-        # GenericFormMixin returns response, so we must do it before returning.
         
-        # Save User first (without committing? No, UpdateView saves it)
-        # Let's rely on form.save() in GenericFormMixin
-        
-        response = super().form_valid(form)
-        
-        # Now save profile
+        # Save profile phone manually
         phone = form.cleaned_data.get('phone')
-        # Ensure profile exists
-        profile, created = UserProfile.objects.get_or_create(user=self.request.user)
-        profile.phone = phone
-        profile.save()
+        if phone:
+            profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+            profile.phone = phone
+            profile.save()
+            
+        return super().form_valid(form)
+
+class GlobalSearchView(LoginRequiredMixin, TemplateView):
+    template_name = 'core/search_results.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        query = self.request.GET.get('q', '')
         
-        return response
+        # Import models here to avoid circular dependencies
+        from clients.models import Client
+        from communications.models import Message
+        
+        if query:
+            # Search Clients (distinct to avoid duplicates if multiple fields match)
+            clients = Client.objects.filter(
+                Q(name__icontains=query) |
+                Q(email__icontains=query) |
+                Q(phone__icontains=query) |
+                Q(business_name__icontains=query) |
+                Q(cuit__icontains=query)
+            ).distinct()[:10]
+            
+            # Search Messages
+            messages = Message.objects.filter(
+                content__icontains=query
+            ).select_related('conversation', 'conversation__contact__client').order_by('-created_at')[:20]
+            
+            context['clients'] = clients
+            context['messages'] = messages
+            context['query'] = query
+            
+        return context
 
 class GenericCreateView(LoginRequiredMixin, GenericFormMixin, CreateView):
     pass

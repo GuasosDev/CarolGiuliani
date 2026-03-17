@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from .models import (
     Contact, Conversation, Message, InternalNote, QuickReply,
     WhatsAppAccount, WhatsAppMessage, ConversationAssignment,
@@ -135,7 +136,7 @@ class EmailAccountAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Información Básica', {
-            'fields': ('user','name', 'email_address', 'provider', 'is_active')
+            'fields': ('name', 'email_address', 'provider', 'is_active', 'user')
         }),
         ('Configuración IMAP', {
             'fields': ('imap_host', 'imap_port', 'imap_use_ssl')

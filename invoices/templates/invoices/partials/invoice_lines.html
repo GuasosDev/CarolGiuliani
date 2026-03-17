@@ -1,7 +1,0 @@
-{% for line in invoice.invoiceline_set.all %}
-{% include 'invoices/partials/invoice_line_row.html' %}
-{% empty %}
-<tr>
-    <td colspan="7" style="padding: 20px; text-align: center;">No lines items found.</td>
-</tr>
-{% endfor %}

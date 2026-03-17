@@ -1,0 +1,24 @@
+{% extends "communications/communications_base.html" %}
+
+{% block title %}Eliminar Menú{% endblock %}
+
+{% block comm_content %}
+<div class="p-4" style="max-width:500px;">
+    <div class="card shadow-sm border-0 border-start border-danger border-3">
+        <div class="card-body">
+            <h5 class="fw-bold text-danger mb-3"><i class="fas fa-exclamation-triangle me-2"></i>Eliminar Menú</h5>
+            <p class="mb-1">¿Estás seguro que querés eliminar el menú <strong>"{{ object.name }}"</strong>?</p>
+            <p class="text-muted small">Esta acción también eliminará todas sus opciones y no puede deshacerse.</p>
+            <form method="post" class="d-flex gap-2 mt-3">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm px-3">
+                    <i class="fas fa-trash me-1"></i> Sí, eliminar
+                </button>
+                <a href="{% url 'communications:welcome_menus' %}" class="btn btn-outline-secondary btn-sm px-3">
+                    Cancelar
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

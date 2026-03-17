@@ -1,0 +1,66 @@
+<div class="modal-header">
+    <h5 class="modal-title">Resultados de búsqueda: "{{ query }}"</h5>
+    <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    {% if not clients and not messages %}
+        <div class="text-center py-4">
+            <i class="fas fa-search fa-3x text-muted mb-3 opacity-50"></i>
+            <p class="text-muted">No se encontraron resultados para "{{ query }}"</p>
+        </div>
+    {% else %}
+        <!-- Clients Section -->
+        {% if clients %}
+        <h6 class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-user me-2"></i>Contactos</h6>
+        <div class="list-group mb-4">
+            {% for client in clients %}
+            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1 fw-bold">{{ client.name }}</h6>
+                    <div class="small text-muted">
+                        {% if client.phone %}<i class="fas fa-phone me-1"></i>{{ client.phone }}{% endif %}
+                        {% if client.email %}<span class="mx-2">•</span><i class="fas fa-envelope me-1"></i>{{ client.email }}{% endif %}
+                    </div>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button hx-get="{% url 'client_update' client.pk %}" 
+                            hx-target="#modal-body" 
+                            class="btn btn-outline-secondary" 
+                            title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <a href="{% url 'communications:open_client_whatsapp' client.pk %}" 
+                       class="btn btn-success" 
+                       title="Chat WhatsApp">
+                        <i class="fab fa-whatsapp"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Messages Section -->
+        {% if messages %}
+        <h6 class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-comment-alt me-2"></i>Mensajes</h6>
+        <div class="list-group">
+            {% for msg in messages %}
+            <a href="{% url 'communications:conversation_detail' msg.conversation.pk %}?highlight={{ query }}" 
+               class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1 text-primary">
+                        {{ msg.conversation.contact.client.name|default:"Desconocido" }}
+                        <small class="text-muted fw-normal ms-2">via {{ msg.channel|title }}</small>
+                    </h6>
+                    <small class="text-muted">{{ msg.created_at|date:"d/m H:i" }}</small>
+                </div>
+                <p class="mb-1 text-truncate small text-muted">{{ msg.content }}</p>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endif %}
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
+</div>

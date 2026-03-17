@@ -18,15 +18,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from core.views import DashboardView, CompanySettingsUpdateView, UserProfileUpdateView
+from core.views import DashboardView, CompanySettingsUpdateView, UserProfileUpdateView, GlobalSearchView
 
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
+    path('search/', GlobalSearchView.as_view(), name='global_search'),
     path('admin/', admin.site.urls),
     path('clients/', include('clients.urls')),
-    path('invoices/', include('invoices.urls')),
-    path('tpv/', include('tpv.urls')),
-    path('inventory/', include('inventory.urls')),
     path('communications/', include('communications.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
     path('settings/company/', CompanySettingsUpdateView.as_view(), name='company_settings'),

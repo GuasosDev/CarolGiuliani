@@ -25,7 +25,9 @@ SECRET_KEY = 'django-insecure-liamf%qvkc0xkxxx@odrfq8g&(2yy6@ux_uxeob5v(=m!=$k@d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['carolgiuliani.online', 'localhost', '127.0.0.1']
+
+CSRF_TRUSTED_ORIGINS = ['https://carolgiuliani.online']
 
 
 # Application definition
@@ -42,9 +44,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'core',
     'clients',
-    'invoices',
-    'inventory',
-    'tpv',
     'communications',
 ]
 
@@ -183,10 +182,7 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'communications.tasks.sync_all_email_accounts',
         'schedule': 60.0,
     },
-    'close-inactive-conversations': {
-        'task': 'communications.tasks.close_inactive_conversations',
-        'schedule': 60.0,  # cada 60 segundos
-    },
+    
 }
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
@@ -219,9 +215,15 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Email encryption key (generate with: from cryptography.fernet import Fernet; Fernet.generate_key())
 # IMPORTANT: Change this in production and keep it secret!
-EMAIL_ENCRYPTION_KEY = b'TxRK15qiP5L8zi9M9a7sn1TpLEgrYAdapFrwAPZ0X50='
+#EMAIL_ENCRYPTION_KEY = b'fqvYtGwVHkNLrppaffMEdBZJobQ6ZhVhrwXjnF7G29Y='
 
 # WhatsApp Business API Configuration
 WHATSAPP_API_VERSION = 'v18.0'
 WHATSAPP_API_URL = 'https://graph.facebook.com'
+
+#WHATSAPP_BUSINESS_PHONE_NUMBER = '+1 555 149 5828'
+#WHATSAPP_BUSINESS_PHONE_NUMBER_ID = '993033493896332'
+#WHATSAPP_BUSINESS_ACCOUNT_ID = '878482468292463'
+#WHATSAPP_BUSINESS_ACCESS_TOKEN = 'EAA8WnFukJkkBQrRGEZAbpDNrV5O0pM4ClBw0CRT8fDUflA5JEAjYIg8qdDlyqxgflDKyWyuJDcqgkQZAEnI8pQJC5Jc6k0PZAiyGNFw30k5ihMHb7zlikXZAn41rfDtFTR91r719CCjfc6g9BfCkk7uKN2ZAdxKxTvHKHOwVZCGVYq0KOz5xxGDUgvSEmeiLokkZABzbTGZCV0XcVY7MZCnxmb1GCIIeII8xCEmymCaNYRQN4ZAJWqUTIHVKKSBDSkQJZACQKRA9mnj8PNGwlI0wovkUylrq3wH7ZAJwH7Lz9AZDZD'
+#WHATSAPP_BUSINESS_WEBHOOK_VERIFY_TOKEN = 'GDSoftWebhookTest_2025'
 

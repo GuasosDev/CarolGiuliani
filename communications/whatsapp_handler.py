@@ -10,11 +10,18 @@ from django.conf import settings
 from django.utils import timezone
 from .models import (
     WhatsAppAccount, WhatsAppMessage, Message, Conversation,
-    Contact, ConversationAssignment
+    Contact, ConversationAssignment, WelcomeMenu, ContactMenuState
 )
 from .assignment_system import assign_conversation_to_agent
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_phone_number(number):
+    if not number:
+        return number
+    digits = ''.join(ch for ch in str(number) if ch.isdigit())
+    return digits
 
 
 class WhatsAppHandler:
@@ -30,6 +37,12 @@ class WhatsAppHandler:
     
     def send_text_message(self, to_number, message_text, conversation=None):
         """Send a text message via WhatsApp"""
+        to_number = normalize_phone_number(to_number)
+        
+        if not to_number:
+            logger.error("Error sending WhatsApp message: No phone number provided")
+            return False, "El destinatario no tiene un número de teléfono válido configurado."
+
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
         
         payload = {
@@ -50,7 +63,6 @@ class WhatsAppHandler:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id')
             
-            # Create message record
             if conversation:
                 message = Message.objects.create(
                     conversation=conversation,
@@ -71,12 +83,21 @@ class WhatsAppHandler:
             logger.info(f"WhatsApp message sent: {message_id}")
             return True, message_id
             
+        except requests.exceptions.HTTPError as e:
+            error_body = None
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+            logger.error(f"Error sending WhatsApp message: {error_body}")
+            return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False, str(e)
     
     def send_media_message(self, to_number, media_type, media_id, caption=None, conversation=None):
         """Send a media message (image, document, audio, video)"""
+        to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
         
         payload = {
@@ -99,7 +120,6 @@ class WhatsAppHandler:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id')
             
-            # Create message record
             if conversation:
                 message = Message.objects.create(
                     conversation=conversation,
@@ -122,12 +142,21 @@ class WhatsAppHandler:
             logger.info(f"WhatsApp media message sent: {message_id}")
             return True, message_id
             
+        except requests.exceptions.HTTPError as e:
+            error_body = None
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+            logger.error(f"Error sending WhatsApp media message: {error_body}")
+            return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp media message: {str(e)}")
             return False, str(e)
     
     def send_template_message(self, to_number, template_name, language_code, components=None):
         """Send a template message"""
+        to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
         
         payload = {
@@ -155,6 +184,14 @@ class WhatsAppHandler:
             logger.info(f"WhatsApp template message sent: {message_id}")
             return True, message_id
             
+        except requests.exceptions.HTTPError as e:
+            error_body = None
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+            logger.error(f"Error sending WhatsApp template message: {error_body}")
+            return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp template message: {str(e)}")
             return False, str(e)
@@ -263,27 +300,50 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         elif message_type == 'contacts':
             content = "[CONTACT CARD]"
         
-        # Get or create contact
-        contact, _ = Contact.objects.get_or_create(
-            whatsapp_number=from_number,
-            defaults={
-                'client_id': None,  # Will need to be linked manually or via matching
-                'preferred_channel': 'whatsapp'
-            }
-        )
+        # Try to find existing contact by matching the last 10 digits (common for AR numbers)
+        normalized_from = normalize_phone_number(from_number)
+        contact = Contact.objects.filter(whatsapp_number=from_number).first()
+        
+        if not contact and normalized_from:
+            # Try matching normalized exact
+            contact = Contact.objects.filter(whatsapp_number=normalized_from).first()
+            
+        if not contact and normalized_from and len(normalized_from) >= 10:
+            # Try matching suffix (useful for AR +54 9 vs +54)
+            suffix = normalized_from[-10:]
+            contact = Contact.objects.filter(whatsapp_number__endswith=suffix).first()
+
+        if not contact and normalized_from and len(normalized_from) >= 10:
+            # Try matching via the linked client's phone number (when whatsapp_number is not set on Contact)
+            from clients.models import Client
+            suffix = normalized_from[-10:]
+            client_match = Client.objects.filter(phone__endswith=suffix).first()
+            if client_match:
+                contact = Contact.objects.filter(client=client_match).first()
+                if contact and not contact.whatsapp_number:
+                    # Save the WA number so future lookups are fast
+                    contact.whatsapp_number = from_number
+                    contact.save(update_fields=['whatsapp_number'])
+
+        if not contact:
+            contact = Contact.objects.create(
+                whatsapp_number=from_number,
+                client_id=None,
+                preferred_channel='whatsapp'
+            )
         
         # Get or create conversation
         conversation = Conversation.objects.filter(
             contact=contact,
             channel='whatsapp',
-            status__in=['open', 'assigned', 'pending']
+            status__in=['normal', 'open', 'assigned', 'pending']
         ).first()
         
         if not conversation:
             conversation = Conversation.objects.create(
                 contact=contact,
                 channel='whatsapp',
-                status='open',
+                status='normal',
                 priority='normal'
             )
             
@@ -314,7 +374,12 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         # Mark as read
         handler = WhatsAppHandler(whatsapp_account)
         handler.mark_message_as_read(message_id)
-        
+
+        # ── Welcome Menu Logic (only for text messages) ──────────────────────
+        if message_type == 'text':
+            _handle_welcome_menu(handler, contact, conversation, content)
+        # ─────────────────────────────────────────────────────────────────────
+
         # Broadcast via WebSocket
         from .websocket_utils import broadcast_new_message
         broadcast_new_message(message)
@@ -325,6 +390,68 @@ def process_incoming_message(whatsapp_account, msg_data, value):
     except Exception as e:
         logger.error(f"Error processing incoming message: {str(e)}")
         return False
+
+
+def _handle_welcome_menu(handler, contact, conversation, text):
+    """
+    Check if the incoming text matches a welcome menu trigger keyword or
+    is a menu selection response. Handles auto-response and conversation routing.
+    """
+    text_stripped = text.strip().lower()
+
+    # 1. Check if contact is waiting to select from a previously sent menu
+    try:
+        menu_state = ContactMenuState.objects.select_related('menu').get(contact=contact)
+        # Try to parse as a number
+        try:
+            chosen_number = int(text_stripped)
+            item = menu_state.menu.items.filter(number=chosen_number).first()
+            if item:
+                # Assign to the item's user
+                if item.assigned_user:
+                    from .assignment_system import reassign_conversation
+                    reassign_conversation(conversation, item.assigned_user, item.assigned_user)
+                    confirmation = f"✅ Te hemos conectado con {item.label}. En breve te atenderán."
+                else:
+                    confirmation = f"✅ Seleccionaste {item.label}. En breve te atenderán."
+                handler.send_text_message(
+                    contact.whatsapp_number,
+                    confirmation,
+                    conversation=conversation
+                )
+                menu_state.delete()
+                logger.info(f"Menu selection {chosen_number} by contact {contact.pk}: assigned to {item.assigned_user}")
+                return
+            else:
+                # Invalid option – resend the menu
+                invalid_msg = f"Opción no válida. Por favor elija un número del menú:\n\n{menu_state.menu.build_message_text()}"
+                handler.send_text_message(contact.whatsapp_number, invalid_msg, conversation=conversation)
+                return
+        except ValueError:
+            # Not a number – treat as a new keyword check, clear state
+            menu_state.delete()
+    except ContactMenuState.DoesNotExist:
+        pass
+
+    # 2. Check if the text is a trigger keyword for any active menu
+    active_menu = WelcomeMenu.objects.filter(is_active=True).first()
+    if not active_menu:
+        return
+
+    keywords = [kw.strip().lower() for kw in active_menu.trigger_keywords if kw.strip()]
+    if text_stripped in keywords:
+        menu_text = active_menu.build_message_text()
+        handler.send_text_message(
+            contact.whatsapp_number,
+            menu_text,
+            conversation=conversation
+        )
+        # Save state so we know this contact is expecting a selection
+        ContactMenuState.objects.update_or_create(
+            contact=contact,
+            defaults={'menu': active_menu}
+        )
+        logger.info(f"Sent welcome menu '{active_menu.name}' to contact {contact.pk}")
 
 
 def process_status_update(status_data):

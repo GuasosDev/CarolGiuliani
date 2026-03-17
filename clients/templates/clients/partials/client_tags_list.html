@@ -1,0 +1,7 @@
+{% for tag in client.tags.all %}
+<span class="badge rounded-pill me-1" style="background-color: {{ tag.color }}; font-size: 0.75rem;">
+    {{ tag.name }}
+</span>
+{% empty %}
+<span class="text-muted small fst-italic">Sin etiquetas</span>
+{% endfor %}

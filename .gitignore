@@ -128,8 +128,11 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+FLUSHALL
+media
+fernet.key
+venv4/
 venv3/
-venv2/
 .env
 .venv
 env/

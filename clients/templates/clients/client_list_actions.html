@@ -1,0 +1,13 @@
+<li>
+    <button class="dropdown-item" 
+            hx-get="{% url 'client_tag_list_for_client' obj.pk %}" 
+            hx-target="#modal-body" 
+            onclick="openModal()">
+        <i class="fas fa-tags me-2 text-primary"></i> Etiquetas
+    </button>
+</li>
+<li>
+    <a class="dropdown-item" href="{% url 'communications:open_client_whatsapp' obj.pk %}">
+        <i class="fab fa-whatsapp me-2 text-success"></i> Chat WhatsApp
+    </a>
+</li>

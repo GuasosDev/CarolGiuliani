@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reporte de Conversaciones</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+            @frame footer_frame {           /* Another static Frame */
+                -pdf-frame-content: footerContent;
+                bottom: 1cm;
+                margin-left: 1cm;
+                margin-right: 1cm;
+                height: 1cm;
+            }
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            color: #333;
+        }
+        h1 {
+            font-size: 18pt;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        h2 {
+            font-size: 14pt;
+            color: #34495e;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .header-info {
+            color: #7f8c8d;
+            font-size: 9pt;
+            margin-bottom: 30px;
+        }
+        .conversation-meta {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-size: 9pt;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .message-inbound {
+            background-color: #f1f0f0;
+            margin-right: 40px;
+        }
+        .message-outbound {
+            background-color: #e3f2fd;
+            margin-left: 40px;
+        }
+        .message-header {
+            font-size: 8pt;
+            color: #7f8c8d;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+        .message-content {
+            font-size: 9pt;
+        }
+        .no-conversations {
+            text-align: center;
+            color: #95a5a6;
+            margin-top: 50px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reporte de Conversaciones</h1>
+    <div class="header-info">
+        <strong>Cliente:</strong> {{ client.name }}<br>
+        <strong>Razón Social:</strong> {{ client.business_name|default:"-" }}<br>
+        <strong>Periodo:</strong> {{ start_date|date:"d/m/Y" }} - {{ end_date|date:"d/m/Y" }}<br>
+        <strong>Generado el:</strong> {{ generated_at|date:"d/m/Y H:i" }}
+    </div>
+
+    {% for conversation in conversations %}
+        <div style="page-break-inside: avoid;">
+            <h2>Conversación #{{ conversation.id }} - {{ conversation.subject|default:"Sin asunto" }}</h2>
+            <div class="conversation-meta">
+                <strong>Canal:</strong> {{ conversation.get_channel_display }} | 
+                <strong>Estado:</strong> {{ conversation.get_status_display }} | 
+                <strong>Iniciada:</strong> {{ conversation.created_at|date:"d/m/Y H:i" }}
+            </div>
+
+            {% for message in conversation.messages.all %}
+                <div class="message {% if message.direction == 'inbound' %}message-inbound{% else %}message-outbound{% endif %}">
+                    <div class="message-header">
+                        {% if message.direction == 'inbound' %}
+                            {{ client.name }}
+                        {% else %}
+                            {{ message.sender|default:"Agente" }}
+                        {% endif %}
+                        - {{ message.created_at|date:"d/m/Y H:i" }}
+                    </div>
+                    <div class="message-content">
+                        {{ message.content|linebreaksbr }}
+                    </div>
+                </div>
+            {% empty %}
+                <div class="message" style="font-style: italic; color: #999;">Sin mensajes en esta conversación.</div>
+            {% endfor %}
+        </div>
+        <br>
+    {% empty %}
+        <div class="no-conversations">
+            No se encontraron conversaciones para este cliente en el periodo seleccionado.
+        </div>
+    {% endfor %}
+
+    <div id="footerContent">
+        Generado por Sistema de Gestión - Página <pdf:pagenumber>
+    </div>
+</body>
+</html>

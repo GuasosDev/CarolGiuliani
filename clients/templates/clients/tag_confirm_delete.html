@@ -1,0 +1,10 @@
+<form hx-post="{{ request.path }}" hx-target="#modal-body" class="p-3 bg-danger-subtle border border-danger rounded mb-3">
+    {% csrf_token %}
+    <h6 class="text-danger mb-3">¿Eliminar etiqueta "{{ object.name }}"?</h6>
+    <p class="small mb-3">Esta acción no se puede deshacer y eliminará la etiqueta de todos los clientes.</p>
+    
+    <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('tag-form-container').innerHTML=''">Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+    </div>
+</form>

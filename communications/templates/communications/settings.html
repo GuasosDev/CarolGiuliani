@@ -1,114 +1,49 @@
 {% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Configuración de Comunicaciones{% endblock %}
+
 {% block content %}
-
-<div class="container mt-4">
-
-    <h2 class="mb-4">⚙️ Configuración del Sistema</h2>
-
-    <!-- ================= WHATSAPP ================= -->
-    <div class="card shadow mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>📱 Cuentas de WhatsApp</span>
-            <a href="#" class="btn btn-sm btn-primary">+ Nueva Cuenta</a>
-        </div>
-        <div class="card-body">
-
-            {% if whatsapp_accounts %}
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Número</th>
-                            <th>Estado</th>
-                            <th>Webhook</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for account in whatsapp_accounts %}
-                        <tr>
-                            <td>{{ account.name }}</td>
-                            <td>{{ account.phone_number }}</td>
-                            <td>
-                                {% if account.is_active %}
-                                    <span class="badge bg-success">Activa</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Inactiva</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <small>{{ account.webhook_url|truncatechars:40 }}</small>
-                            </td>
-                            <td>
-                                <a href="#" class="btn btn-sm btn-outline-warning">Editar</a>
-                                <a href="#" class="btn btn-sm btn-outline-danger">Eliminar</a>
-                            </td>
-                        </tr>
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">Cuentas de WhatsApp</div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for wa in whatsapp_accounts %}
+                        <div class="list-group-item">
+                            <div class="fw-bold">{{ wa.name }}</div>
+                            <div class="text-muted">{{ wa.phone_number }}</div>
+                            <span class="badge bg-{% if wa.is_active %}success{% else %}secondary{% endif %}">
+                                {% if wa.is_active %}Activa{% else %}Inactiva{% endif %}
+                            </span>
+                        </div>
+                        {% empty %}
+                        <div class="text-muted">Sin cuentas configuradas</div>
                         {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No hay cuentas configuradas.</p>
-            {% endif %}
-
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">Cuentas de Email</div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for ea in email_accounts %}
+                        <div class="list-group-item">
+                            <div class="fw-bold">{{ ea.name }}</div>
+                            <div class="text-muted">{{ ea.email_address }}</div>
+                            <span class="badge bg-primary">{{ ea.get_provider_display }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="text-muted">Sin cuentas configuradas</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-
-    <!-- ================= EMAIL ================= -->
-    <div class="card shadow">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>📧 Cuentas de Email</span>
-            <a href="#" class="btn btn-sm btn-primary">+ Nueva Cuenta</a>
-        </div>
-        <div class="card-body">
-
-            {% if email_accounts %}
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Email</th>
-                            <th>Servidor SMTP</th>
-                            <th>Puerto</th>
-                            <th>SSL</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for account in email_accounts %}
-                        <tr>
-                            <td>{{ account.email }}</td>
-                            <td>{{ account.smtp_server }}</td>
-                            <td>{{ account.smtp_port }}</td>
-                            <td>
-                                {% if account.use_ssl %}
-                                    <span class="badge bg-success">Sí</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">No</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if account.is_active %}
-                                    <span class="badge bg-success">Activa</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Inactiva</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <a href="#" class="btn btn-sm btn-outline-warning">Editar</a>
-                                <a href="#" class="btn btn-sm btn-outline-danger">Eliminar</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No hay cuentas configuradas.</p>
-            {% endif %}
-
-        </div>
-    </div>
-
 </div>
-
 {% endblock %}

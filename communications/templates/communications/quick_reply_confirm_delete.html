@@ -1,0 +1,26 @@
+{% extends "communications/communications_base.html" %}
+
+{% block comm_content %}
+<div class="d-flex flex-column h-100 justify-content-center align-items-center">
+    <div class="card border-0 shadow-sm" style="max-width: 500px; width: 100%;">
+        <div class="card-body p-5 text-center">
+            <div class="mb-4">
+                <i class="fas fa-trash-alt fa-3x text-danger"></i>
+            </div>
+            <h4 class="mb-3">¿Eliminar respuesta rápida?</h4>
+            <p class="text-muted mb-4">
+                Estás a punto de eliminar la respuesta rápida <strong>"{{ object.title }}"</strong>.
+                Esta acción no se puede deshacer.
+            </p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-danger btn-lg">Eliminar</button>
+                    <a href="{% url 'communications:quick_replies' %}" class="btn btn-light btn-lg">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

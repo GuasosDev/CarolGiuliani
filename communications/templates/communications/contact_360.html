@@ -1,69 +1,49 @@
 {% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Contacto 360°{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-
-    <!-- Header del contacto -->
-    <div class="card mb-4">
-    <div class="card-body">
-        <h2>{{ contact.client.name }}</h2>
-        <p><strong>Teléfono:</strong> {{ contact.client.phone }}</p>
-        <p><strong>Email:</strong> {{ contact.client.email }}</p>
-        <p><strong>Canal preferido:</strong> {{ contact.preferred_channel }}</p>
-        <p><strong>Creado:</strong> {{ contact.created_at }}</p>
-    </div>
-</div>
-
+<div class="container-fluid mt-3">
     <div class="row">
-        
-        <!-- Conversaciones -->
-        <div class="col-md-6">
-            <h4>Conversaciones</h4>
-
-            {% if conversations %}
-                <ul class="list-group">
-                    {% for conversation in conversations %}
-                        <li class="list-group-item">
-                            <a href="{% url 'communications:conversation_detail' conversation.pk %}">
-                                Conversación #{{ conversation.id }}
-                            </a>
-                            <br>
-                            <small>
-                                Estado: {{ conversation.status }} |
-                                Creada: {{ conversation.created_at }}
-                            </small>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p>No hay conversaciones para este contacto.</p>
-            {% endif %}
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">Contacto</div>
+                <div class="card-body">
+                    <div class="fw-bold">{{ contact.client.name }}</div>
+                    <div class="text-muted">{{ contact.client.email }}</div>
+                    <div class="text-muted">{{ contact.client.phone }}</div>
+                    <div class="mt-2">
+                        <span class="badge bg-{% if contact.preferred_channel == 'whatsapp' %}success{% else %}primary{% endif %}">
+                            {{ contact.get_preferred_channel_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <!-- Mensajes recientes -->
-        <div class="col-md-6">
-            <h4>Últimos 100 mensajes</h4>
-
-            {% if recent_messages %}
-                <ul class="list-group">
-                    {% for message in recent_messages %}
-                        <li class="list-group-item">
-                            <strong>
-                                {{ message.get_direction_display }}
-                            </strong>
-                            <br>
-                            {{ message.content|truncatechars:120 }}
-                            <br>
-                            <small>{{ message.created_at }}</small>
-                        </li>
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">Historial</div>
+                <div class="card-body" style="height: 70vh; overflow-y: auto;">
+                    {% for m in recent_messages %}
+                    <div class="mb-3">
+                        <div class="small text-muted">
+                            {{ m.created_at }} • {{ m.get_message_type_display }} • {{ m.get_direction_display }}
+                        </div>
+                        <div class="p-2 rounded {% if m.direction == 'outbound' %}bg-primary text-white{% else %}bg-light{% endif %}">
+                            {{ m.content }}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted">Sin mensajes</div>
                     {% endfor %}
-                </ul>
-            {% else %}
-                <p>No hay mensajes.</p>
-            {% endif %}
+                </div>
+            </div>
         </div>
-
     </div>
-
 </div>
 {% endblock %}

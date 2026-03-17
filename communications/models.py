@@ -13,14 +13,7 @@ import json
 
 class Contact(models.Model):
     """Extended contact information linked to Client model"""
-    client = models.OneToOneField(
-    Client,
-    on_delete=models.CASCADE,
-    related_name='communication_contact',
-    null=True,
-    blank=True
-)
-
+    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='communication_contact', null=True, blank=True)
     whatsapp_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="WhatsApp")
     preferred_channel = models.CharField(
         max_length=20,
@@ -42,7 +35,6 @@ class Contact(models.Model):
         return f"{client_name} - {self.preferred_channel}"
 
 
-
 class Conversation(models.Model):
     """Unified conversation container for all channels"""
     CHANNEL_CHOICES = [
@@ -51,10 +43,10 @@ class Conversation(models.Model):
     ]
     
     STATUS_CHOICES = [
-        ('open', 'Abierta'),
+        ('normal', 'Activo'),
         ('assigned', 'Asignada'),
         ('pending', 'Pendiente'),
-        ('closed', 'Cerrada'),
+        ('closed', 'Cerrado'),
     ]
     
     PRIORITY_CHOICES = [
@@ -63,10 +55,16 @@ class Conversation(models.Model):
         ('high', 'Alta'),
         ('urgent', 'Urgente'),
     ]
-
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="conversations",
+        null=True,
+        blank=True
+    )
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='conversations')
     channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, verbose_name="Canal")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', verbose_name="Estado")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='normal', verbose_name="Estado")
     assigned_to = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
@@ -104,7 +102,6 @@ class Conversation(models.Model):
         )
         return f"{client_name} - {self.get_channel_display()} ({self.get_status_display()})"
 
-
     def close(self):
         """Close the conversation"""
         self.status = 'closed'
@@ -114,7 +111,7 @@ class Conversation(models.Model):
     def assign_to(self, user):
         """Assign conversation to a user"""
         self.assigned_to = user
-        self.status = 'assigned'
+        self.status = 'normal'
         self.save()
         
         # Create assignment record
@@ -175,6 +172,10 @@ class Message(models.Model):
         is_new = self.pk is None
         super().save(*args, **kwargs)
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
         if is_new:
             conversation = self.conversation
 
@@ -221,6 +222,7 @@ class QuickReply(models.Model):
     ]
 
     title = models.CharField(max_length=100, verbose_name="Título")
+    shortcut = models.CharField(max_length=50, blank=True, null=True, verbose_name="Atajo / Código")
     content = models.TextField(verbose_name="Contenido")
     channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='both', verbose_name="Canal")
     category = models.CharField(max_length=50, blank=True, null=True, verbose_name="Categoría")
@@ -360,6 +362,12 @@ class EmailAccount(models.Model):
         ('outlook', 'Outlook/Office365'),
         ('imap', 'IMAP/SMTP Genérico'),
     ]
+    user = models.ForeignKey(
+    settings.AUTH_USER_MODEL,
+    on_delete=models.CASCADE,
+    related_name="email_accounts",
+    blank=True, null=True
+    )
 
      # Cada usuario tiene solo una cuenta
     user = models.ForeignKey(
@@ -404,15 +412,21 @@ class EmailAccount(models.Model):
     def __str__(self):
         return f"{self.name} - {self.email_address}"
 
-    def set_password(self, raw_password):
-        """Encrypt and store password"""
-        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY)
-        self.encrypted_password = cipher_suite.encrypt(raw_password.encode())
+    def set_password(self, password):
+        from cryptography.fernet import Fernet
+        from django.conf import settings
+
+        fernet = Fernet(settings.EMAIL_ENCRYPTION_KEY)
+
+        if isinstance(password, str):
+            password = password.encode()  # convierte a bytes solo si es str
+
+        self.encrypted_password = fernet.encrypt(password)
 
     def get_password(self):
-        """Decrypt and return password"""
-        cipher_suite = Fernet(settings.EMAIL_ENCRYPTION_KEY)
-        return cipher_suite.decrypt(self.encrypted_password).decode()
+        from cryptography.fernet import Fernet
+        fernet = Fernet(settings.EMAIL_ENCRYPTION_KEY)
+        return fernet.decrypt(self.encrypted_password).decode()
 
 
 class EmailMessage(models.Model):
@@ -591,3 +605,94 @@ class EmailQueue(models.Model):
 
     def __str__(self):
         return f"{self.subject} - {self.get_status_display()}"
+
+
+# ============================================================================
+# WELCOME MENU MODELS
+# ============================================================================
+
+class WelcomeMenu(models.Model):
+    """Configurable welcome menu for incoming WhatsApp messages"""
+    name = models.CharField(max_length=100, verbose_name="Nombre del Menú")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
+    trigger_keywords = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Palabras Clave",
+        help_text="Lista de palabras que activan el menú (ej: hola, buenas, inicio)"
+    )
+    greeting_text = models.TextField(
+        verbose_name="Texto de Bienvenida",
+        help_text="Texto que se muestra antes de las opciones"
+    )
+    footer_text = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Texto al Pie",
+        default="Responda con el número de su elección"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Menú de Bienvenida"
+        verbose_name_plural = "Menús de Bienvenida"
+        ordering = ['-is_active', 'name']
+
+    def __str__(self):
+        status = "[ACTIVO]" if self.is_active else "[INACTIVO]"
+        return f"{status} {self.name}"
+
+    def build_message_text(self):
+        """Build the full menu text to send via WhatsApp"""
+        lines = [self.greeting_text, ""]
+        for item in self.items.all().order_by('number'):
+            lines.append(f"{item.number}. {item.label}")
+        if self.footer_text:
+            lines.append("")
+            lines.append(self.footer_text)
+        return "\n".join(lines)
+
+
+class WelcomeMenuItem(models.Model):
+    """A single option in a WelcomeMenu"""
+    menu = models.ForeignKey(WelcomeMenu, on_delete=models.CASCADE, related_name='items')
+    number = models.PositiveSmallIntegerField(verbose_name="Número de Opción")
+    label = models.CharField(max_length=100, verbose_name="Etiqueta")
+    assigned_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='menu_items',
+        verbose_name="Usuario Asignado"
+    )
+
+    class Meta:
+        verbose_name = "Opción de Menú"
+        verbose_name_plural = "Opciones de Menú"
+        ordering = ['number']
+        unique_together = [['menu', 'number']]
+
+    def __str__(self):
+        user_str = self.assigned_user.get_full_name() or self.assigned_user.username if self.assigned_user else "Sin asignar"
+        return f"{self.number}. {self.label} → {user_str}"
+
+
+class ContactMenuState(models.Model):
+    """Tracks a contact that has been shown a welcome menu and is awaiting a selection"""
+    contact = models.OneToOneField(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name='menu_state'
+    )
+    menu = models.ForeignKey(WelcomeMenu, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Estado de Menú"
+        verbose_name_plural = "Estados de Menú"
+
+    def __str__(self):
+        return f"{self.contact} esperando selección en '{self.menu.name}'"
