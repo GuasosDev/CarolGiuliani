@@ -1,0 +1,27 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro - GD Soft</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+</head>
+<body>
+<div class="auth-fluid">
+    <div class="auth-card">
+        <h2 class="auth-title">GuasosDev Soft</h2>
+        <p class="auth-subtitle">Crea tu cuenta para continuar</p>
+
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-danger" style="width: 100%; padding: 10px;">Registrarse</button>
+        </form>
+
+        <div style="margin-top: 20px;">
+            <p style="font-size: 13px;">Ya tienes una cuenta? <a href="{% url 'login' %}" style="color: #f7b84b;">Ingresar</a></p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -135,7 +135,7 @@ class EmailAccountAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Información Básica', {
-            'fields': ('name', 'email_address', 'provider', 'is_active')
+            'fields': ('user','name', 'email_address', 'provider', 'is_active')
         }),
         ('Configuración IMAP', {
             'fields': ('imap_host', 'imap_port', 'imap_use_ssl')

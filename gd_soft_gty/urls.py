@@ -31,6 +31,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('settings/company/', CompanySettingsUpdateView.as_view(), name='company_settings'),
     path('settings/profile/', UserProfileUpdateView.as_view(), name='user_profile'),
+    path('core/',include('core.urls')),
 ]
 
 # Serve media files in development

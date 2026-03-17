@@ -361,6 +361,14 @@ class EmailAccount(models.Model):
         ('imap', 'IMAP/SMTP Genérico'),
     ]
 
+     # Cada usuario tiene solo una cuenta
+    user = models.ForeignKey(
+    settings.AUTH_USER_MODEL,
+    on_delete=models.CASCADE,
+    related_name="email_accounts",
+    blank=True, null=True
+)
+
     name = models.CharField(max_length=100, verbose_name="Nombre")
     email_address = models.EmailField(unique=True, verbose_name="Dirección de Email")
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, verbose_name="Proveedor")

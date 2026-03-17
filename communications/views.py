@@ -9,15 +9,28 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
 import logging
+from django.core.paginator import Paginator
 from .models import Conversation, Contact, Message,InternalNote
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations
 from django.utils import timezone
-from communications.models import EmailQueue, EmailAccount
+from communications.models import EmailQueue, EmailAccount,User
 from communications.tasks import process_email_queue
 from django.utils import timezone
 logger = logging.getLogger(__name__)
 
+
+def login_redirect(request):
+    user = request.user
+
+    # Si el username es 'supervisor', va a su dashboard
+    if user.username == 'supervisor':
+        return redirect('communications:supervisor_dashboard')
+
+    # Todos los demás van al dashboard normal
+    return redirect('communications:dashboard')
+
+    
 
 @login_required
 def dashboard(request):
@@ -29,18 +42,23 @@ def dashboard(request):
         status__in=['open', 'pending']
     ).order_by('-last_message_at')
 
-    # Mis conversaciones
+    # Paginación para no asignadas (10 por página)
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(unassigned_qs, 5)  # 10 por página
+    unassigned_conversations = paginator.get_page(page_number)
+
+    # Mis conversaciones (pueden quedar limitadas sin paginación)
     my_qs = Conversation.objects.filter(
         assigned_to=request.user,
         status__in=['open', 'assigned', 'pending']
     ).order_by('-last_message_at')
 
     context = {
-        # Listas (limitadas visualmente)
-        'unassigned_conversations': unassigned_qs[:20],
-        'my_conversations': my_qs[:50],
+        # Lista paginada
+        'unassigned_conversations': unassigned_conversations,
+        'my_conversations': my_qs[:50],  # opcional, sigue limitado
 
-        # Contadores reales
+        # Contadores
         'unassigned_count': unassigned_qs.count(),
         'my_active_count': my_qs.filter(status='assigned').count(),
         'my_pending_count': my_qs.filter(status='pending').count(),
@@ -231,7 +249,7 @@ def supervisor_dashboard(request):
     ).count()
 
     # Estadísticas por agente optimizadas
-    agent_stats = (
+    user_stats = (
         Conversation.objects
         .filter(status__in=['open', 'assigned', 'pending'])
         .values('assigned_to__id',
@@ -241,14 +259,39 @@ def supervisor_dashboard(request):
         .annotate(active_conversations=Count('id'))
         .order_by('-active_conversations')
     )
+    unassigned_conversations = Conversation.objects.filter(
+        assigned_to__isnull=True,
+        status__in=['open', 'pending']
+    ).order_by('-last_message_at')
 
+    assigned_conversations = Conversation.objects.filter(
+         assigned_to__isnull=False,
+        status__in=['open', 'pending']
+    ).select_related('assigned_to').order_by('-last_message_at')
+
+    # Paginación para no asignadas (10 por página)
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(unassigned_conversations, 5)  # 10 por página
+    unassigned_conversations = paginator.get_page(page_number)
+   
+    users = User.objects.filter(is_active=True)
+    # Mis conversaciones (pueden quedar limitadas sin paginación)
+    my_qs = Conversation.objects.filter(
+        assigned_to=request.user,
+        status__in=['open', 'assigned', 'pending']
+    ).order_by('-last_message_at')
+    
     context = {
         'total_conversations': total_conversations,
         'open_conversations': open_conversations,
         'closed_today': closed_today,
         'unassigned': unassigned,
         'sla_breached': sla_breached,
-        'agent_stats': agent_stats,
+        'agent_stats': user_stats,
+        "unassigned_conversations": unassigned_conversations,
+        "assigned_conversations": assigned_conversations,
+        "users":users,
+        'my_conversations': my_qs[:50],
     }
 
     return render(request, 'communications/supervisor_dashboard.html', context)
@@ -336,3 +379,16 @@ def take_conversation(request, pk):
         return redirect("communications:conversation_detail", pk=pk)
 
     return HttpResponse(status=400)
+
+@login_required
+def assign_conversation(request, conversation_id):
+
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+
+    if request.method == "POST":
+        user_id = request.POST.get("user")
+
+        conversation.assigned_to_id = user_id
+        conversation.save(update_fields=["assigned_to"])
+
+    return redirect("communications:supervisor_dashboard")

@@ -51,7 +51,134 @@
     ⚠️ Hay {{ unassigned }} conversaciones sin asignar.
 </div>
 {% endif %}
+<div class="card shadow mt-4">
+    <div class="card-header bg-danger text-white">
+        📥 Conversaciones sin asignar
+    </div>
 
+    <div class="card-body">
+
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Canal</th>
+                    <th>Último mensaje</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for conv in unassigned_conversations %}
+                <tr>
+                    <td>{{ conv.contact.client.name|default:"Contacto Desconocido" }}</td>
+                    <td>{{ conv.channel }}</td>
+                    <td>{{ conv.last_message_at }}</td>
+                    <td>
+                    <form method="post" action="{% url 'communications:assign_conversation' conv.id %}">
+                                {% csrf_token %}
+
+                                <select name="user" class="form-select form-select-sm">
+
+                                {% for agent in users %}
+                                <option value="{{ agent.id }}">
+                                {{ agent.username }}
+                                </option>
+                                {% endfor %}
+
+                                </select>
+
+                                <button type="submit" class="btn btn-sm btn-primary mt-1">
+                                Asignar
+                                </button>
+
+                    </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">No hay conversaciones sin asignar</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+<!-- Paginación -->
+                    <nav aria-label="Paginación de conversaciones">
+                        <ul class="pagination justify-content-center">
+                            {% if unassigned_conversations.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ unassigned_conversations.previous_page_number }}" aria-label="Anterior">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">&laquo;</span>
+                                </li>
+                            {% endif %}
+
+                            {% for num in unassigned_conversations.paginator.page_range %}
+                                {% if num == unassigned_conversations.number %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > unassigned_conversations.number|add:-3 and num < unassigned_conversations.number|add:3 %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if unassigned_conversations.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ unassigned_conversations.next_page_number }}" aria-label="Siguiente">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">&raquo;</span>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+    </div>
+</div>
+<div class="card shadow mt-4">
+   <h5 class="p-2 bg-dark text-white rounded" >Mis Conversaciones</h5>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Contacto</th>
+                            <th>Canal</th>
+                            <th>Estado</th>
+                            <th>Prioridad</th>
+                            <th>Último Mensaje</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="conversations-list">
+                        {% for conversation in my_conversations %}
+                        <tr data-conversation-id="{{ conversation.id }}">
+                            <td>{{ conversation.contact.client.name|default:"Contacto Desconocido" }}</td>
+                            <td><span class="badge bg-{% if conversation.channel == 'whatsapp' %}success{% else %}primary{% endif %}">{{ conversation.get_channel_display }}</span></td>
+                            <td><span class="badge bg-{% if conversation.status == 'open' %}warning{% elif conversation.status == 'assigned' %}info{% else %}secondary{% endif %}">{{ conversation.get_status_display }}</span></td>
+                            <td><span class="badge bg-{% if conversation.priority == 'urgent' %}danger{% elif conversation.priority == 'high' %}warning{% else %}secondary{% endif %}">{{ conversation.get_priority_display }}</span></td>
+                            <td>
+                                <small>{{ conversation.last_message_at }} ago</small><br>
+                                <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10 }}</small>
+                            </td>
+                            <td>
+                                <a href="{% url 'communications:conversation_detail' conversation.id %}" class="btn btn-sm btn-primary">Ver</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No hay conversaciones asignadas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+</div>
 <!-- Tabla de agentes -->
 <div class="card shadow">
     <div class="card-header">
@@ -71,8 +198,8 @@
                 {% for agent in agent_stats %}
                 <tr>
                     <td>
-                        {{ agent.assigned_to__first_name }} 
-                        {{ agent.assigned_to__last_name }}
+                        {{ agent.assigned_to__username }} 
+                        
                     </td>
                     <td>
                         <strong>{{ agent.active_conversations }}</strong>

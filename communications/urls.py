@@ -30,5 +30,11 @@ urlpatterns = [
     views.take_conversation,
     name="take_conversation"
 ),
+    path(
+            "assign-conversation/<int:conversation_id>/",
+            views.assign_conversation,
+            name="assign_conversation"
+        ),
+    path('login-redirect/', views.login_redirect, name='login_redirect')  
     
 ]

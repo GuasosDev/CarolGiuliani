@@ -180,7 +180,15 @@ class EmailHandler:
             
             # Get or create conversation
             conversation = self.get_or_create_conversation(contact, subject, in_reply_to, references)
-            
+            if conversation.status == "closed":
+               conversation.status = "open"
+               if conversation.assigned_to:
+                    conversation.reopened_by = conversation.assigned_to
+               else:
+                    # Si no había agente, puede quedar sin asignar o asignar a un pool
+                    conversation.assigned_to = None
+
+            conversation.save()
             # Create message
             message = Message.objects.create(
                 conversation=conversation,
