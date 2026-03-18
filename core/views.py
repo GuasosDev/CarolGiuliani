@@ -163,3 +163,12 @@ class GenericDeleteView(LoginRequiredMixin, DeleteView):
         response = HttpResponse(status=204)
         response['HX-Trigger'] = 'reloadPage' # Or refreshList
         return response
+
+class PrivacyPolicyView(TemplateView):
+    template_name = 'core/legal/privacy_policy.html'
+
+class TermsOfServiceView(TemplateView):
+    template_name = 'core/legal/terms_of_service.html'
+
+class DataDeletionView(TemplateView):
+    template_name = 'core/legal/data_deletion.html'

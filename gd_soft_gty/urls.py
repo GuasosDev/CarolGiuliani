@@ -18,7 +18,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from core.views import DashboardView, CompanySettingsUpdateView, UserProfileUpdateView, GlobalSearchView
+from core.views import (
+    DashboardView, CompanySettingsUpdateView, UserProfileUpdateView, GlobalSearchView,
+    PrivacyPolicyView, TermsOfServiceView, DataDeletionView
+)
 
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
@@ -29,6 +32,11 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('settings/company/', CompanySettingsUpdateView.as_view(), name='company_settings'),
     path('settings/profile/', UserProfileUpdateView.as_view(), name='user_profile'),
+    
+    # Legal Pages (Public)
+    path('privacy-policy/', PrivacyPolicyView.as_view(), name='privacy_policy'),
+    path('terms-of-service/', TermsOfServiceView.as_view(), name='terms_of_service'),
+    path('data-deletion/', DataDeletionView.as_view(), name='data_deletion'),
 ]
 
 # Serve media files in development
