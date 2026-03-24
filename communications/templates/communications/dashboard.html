@@ -20,8 +20,7 @@
             <div class="d-flex align-items-center">
                 <div class="me-4">
                     <h2 class="omni-page-title mb-0" id="dashboard-header-title">Resumen General</h2>
-                    <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user
-                        }}</div>
+                    <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user }}</div>
                 </div>
                 <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
                     onclick="openModal()" class="btn btn-primary rounded-pill shadow-sm d-flex align-items-center">
