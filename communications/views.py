@@ -384,13 +384,21 @@ def settings_view(request):
         return HttpResponse('Unauthorized', status=401)
     
     from .models import WhatsAppAccount, EmailAccount
+    from django.contrib.auth.models import User, Group
+    from core.models import WorkArea
     
     whatsapp_accounts = WhatsAppAccount.objects.all()
     email_accounts = EmailAccount.objects.all()
+    users = User.objects.all().select_related('userprofile', 'userprofile__work_area')
+    work_areas = WorkArea.objects.all()
+    groups = Group.objects.all().prefetch_related('permissions')
     
     context = {
         'whatsapp_accounts': whatsapp_accounts,
         'email_accounts': email_accounts,
+        'users': users,
+        'work_areas': work_areas,
+        'privileges': groups,
     }
     
     return render(request, 'communications/settings.html', context)

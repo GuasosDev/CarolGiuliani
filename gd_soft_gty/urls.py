@@ -20,7 +20,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from core.views import (
     DashboardView, CompanySettingsUpdateView, UserProfileUpdateView, GlobalSearchView,
-    PrivacyPolicyView, TermsOfServiceView, DataDeletionView
+    PrivacyPolicyView, TermsOfServiceView, DataDeletionView,
+    WorkAreaListView, WorkAreaCreateView, WorkAreaUpdateView, WorkAreaDeleteView,
+    UserManagementListView, UserManagementCreateView, UserManagementUpdateView, UserManagementDeleteView,
+    GroupListView, GroupCreateView, GroupUpdateView, GroupDeleteView
 )
 
 urlpatterns = [
@@ -32,6 +35,24 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('settings/company/', CompanySettingsUpdateView.as_view(), name='company_settings'),
     path('settings/profile/', UserProfileUpdateView.as_view(), name='user_profile'),
+    
+    # Work Areas
+    path('settings/work-areas/', WorkAreaListView.as_view(), name='work_area_list'),
+    path('settings/work-areas/create/', WorkAreaCreateView.as_view(), name='work_area_create'),
+    path('settings/work-areas/<int:pk>/update/', WorkAreaUpdateView.as_view(), name='work_area_update'),
+    path('settings/work-areas/<int:pk>/delete/', WorkAreaDeleteView.as_view(), name='work_area_delete'),
+    
+    # Privileges (Groups)
+    path('settings/privileges/', GroupListView.as_view(), name='privilege_list'),
+    path('settings/privileges/create/', GroupCreateView.as_view(), name='privilege_create'),
+    path('settings/privileges/<int:pk>/update/', GroupUpdateView.as_view(), name='privilege_update'),
+    path('settings/privileges/<int:pk>/delete/', GroupDeleteView.as_view(), name='privilege_delete'),
+    
+    # User Management
+    path('settings/users/', UserManagementListView.as_view(), name='user_management_list'),
+    path('settings/users/create/', UserManagementCreateView.as_view(), name='user_management_create'),
+    path('settings/users/<int:pk>/update/', UserManagementUpdateView.as_view(), name='user_management_update'),
+    path('settings/users/<int:pk>/delete/', UserManagementDeleteView.as_view(), name='user_management_delete'),
     
     # Legal Pages (Public)
     path('privacy-policy/', PrivacyPolicyView.as_view(), name='privacy_policy'),

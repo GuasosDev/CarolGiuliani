@@ -3,8 +3,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.http import HttpResponse
-from django.contrib.auth.models import User
-from .models import CompanySettings, UserProfile
+from django.contrib.auth.models import User, Group, Permission
+from .models import CompanySettings, UserProfile, WorkArea
 from django import forms
 import json
 from django.db.models import Q
@@ -28,6 +28,8 @@ class GenericFormMixin:
         if self.request.headers.get('HX-Request'):
             # Return 204 to signal success to HTMX (handled by js)
             response = HttpResponse(status=204)
+            # If it's a secondary modal creation, we might want a different trigger or just reload
+            # For now, let's keep reloadPage which is handled in main.js
             response['HX-Trigger'] = 'reloadPage' 
             return response
         return super().form_valid(form)
@@ -44,6 +46,11 @@ class GenericListView(LoginRequiredMixin, ListView):
     update_url_name = None
     delete_url_name = None
     action_template_name = None # Optional template for custom actions
+
+    def get_template_names(self):
+        if self.request.headers.get('HX-Request'):
+             return ['core/partials/generic_list_partial.html']
+        return [self.template_name]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -76,7 +83,7 @@ class CompanySettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, Generic
 class UserProfileUpdateView(LoginRequiredMixin, GenericFormMixin, UpdateView):
     model = User
     fields = ['first_name', 'last_name', 'email']
-    template_name = 'core/generic_form.html'
+    template_name = 'core/profile_personalization.html'
 
     def get_object(self, queryset=None):
         return self.request.user
@@ -84,32 +91,38 @@ class UserProfileUpdateView(LoginRequiredMixin, GenericFormMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = "Mi Perfil"
-        # Add profile fields manual handling if needed, or use a Form that includes Profile fields.
-        # For simplicity, let's just edit User fields here. 
-        # To edit UserProfile.phone, we need a custom form.
+        context['profile'] = self.request.user.userprofile
         return context
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        # Add phone field from profile
-        if hasattr(self.request.user, 'userprofile'):
-            form.fields['phone'] =  forms.CharField(initial=self.request.user.userprofile.phone, required=False)
-        else:
-             form.fields['phone'] =  forms.CharField(required=False)
+        profile = self.request.user.userprofile
+        form.fields['phone'] = forms.CharField(initial=profile.phone, required=False, label="Teléfono")
+        form.fields['avatar'] = forms.ImageField(required=False, label="Imagen de Perfil")
+        form.fields['dark_mode'] = forms.BooleanField(initial=profile.dark_mode, required=False, label="Modo Oscuro")
+        form.fields['font_size'] = forms.IntegerField(initial=profile.font_size, min_value=12, max_value=24, label="Tamaño de Fuente")
         return form
 
     def form_valid(self, form):
-        # We need to call parent form_valid to save the User object, 
-        # which will trigger GenericFormMixin.form_valid
-        # But we also need to save the phone.
+        user = form.save(commit=False)
+        user.first_name = form.cleaned_data.get('first_name', user.first_name)
+        user.last_name = form.cleaned_data.get('last_name', user.last_name)
+        user.email = form.cleaned_data.get('email', user.email)
+        user.save()
         
-        # Save profile phone manually
-        phone = form.cleaned_data.get('phone')
-        if phone:
-            profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
-            profile.phone = phone
-            profile.save()
-            
+        profile = user.userprofile
+        profile.phone = form.cleaned_data.get('phone')
+        
+        if 'avatar' in self.request.FILES:
+            profile.avatar = self.request.FILES['avatar']
+        
+        profile.dark_mode = form.cleaned_data.get('dark_mode', profile.dark_mode)
+        profile.font_size = form.cleaned_data.get('font_size', profile.font_size)
+        profile.save()
+        
+        from django.contrib import messages
+        messages.success(self.request, "Perfil actualizado correctamente.")
+        
         return super().form_valid(form)
 
 class GlobalSearchView(LoginRequiredMixin, TemplateView):
@@ -172,3 +185,216 @@ class TermsOfServiceView(TemplateView):
 
 class DataDeletionView(TemplateView):
     template_name = 'core/legal/data_deletion.html'
+
+class GroupListView(UserPassesTestMixin, GenericListView):
+    model = Group
+    list_fields = ['name']
+    list_headers = ['Nombre del Grupo']
+    title = "Grupos de Usuarios (Privilegios)"
+    create_url_name = 'privilege_create'
+    update_url_name = 'privilege_update'
+    delete_url_name = 'privilege_delete'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class GroupCreateView(UserPassesTestMixin, GenericCreateView):
+    model = Group
+    fields = ['name', 'permissions']
+    title = "Nuevo Grupo de Privilegios"
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class GroupUpdateView(UserPassesTestMixin, GenericUpdateView):
+    model = Group
+    fields = ['name', 'permissions']
+    title = "Editar Grupo de Privilegios"
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class GroupDeleteView(UserPassesTestMixin, GenericDeleteView):
+    model = Group
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class WorkAreaListView(UserPassesTestMixin, GenericListView):
+    model = WorkArea
+    list_fields = ['name', 'description']
+    list_headers = ['Nombre', 'Descripción']
+    title = "Áreas Laborales"
+    create_url_name = 'work_area_create'
+    update_url_name = 'work_area_update'
+    delete_url_name = 'work_area_delete'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class WorkAreaCreateView(UserPassesTestMixin, GenericCreateView):
+    model = WorkArea
+    fields = ['name', 'description']
+    title = "Nueva Área Laboral"
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class WorkAreaUpdateView(UserPassesTestMixin, GenericUpdateView):
+    model = WorkArea
+    fields = ['name', 'description']
+    title = "Editar Área Laboral"
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class WorkAreaDeleteView(UserPassesTestMixin, GenericDeleteView):
+    model = WorkArea
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class UserManagementListView(UserPassesTestMixin, GenericListView):
+    model = User
+    list_fields = ['username', 'first_name', 'last_name', 'email', 'userprofile__get_role_display', 'userprofile__work_area__name']
+    list_headers = ['Usuario', 'Nombre', 'Apellido', 'Email', 'Rol', 'Área Laboral']
+    title = "Gestión de Usuarios"
+    create_url_name = 'user_management_create'
+    update_url_name = 'user_management_update'
+    delete_url_name = 'user_management_delete'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class UserManagementCreateView(UserPassesTestMixin, GenericCreateView):
+    model = User
+    fields = ['username', 'password', 'first_name', 'last_name', 'email']
+    title = "Nuevo Usuario"
+    template_name = 'core/user_management_form.html'
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields['password'].widget = forms.PasswordInput()
+        form.fields['role'] = forms.ChoiceField(choices=UserProfile.ROLE_CHOICES, label="Rol")
+        form.fields['groups'] = forms.ModelMultipleChoiceField(
+            queryset=Group.objects.all(),
+            required=False,
+            label="Privilegios (Grupos)",
+            widget=forms.SelectMultiple(attrs={'class': 'form-control select2'})
+        )
+        form.fields['work_area'] = forms.ModelChoiceField(
+            queryset=WorkArea.objects.all(),
+            required=False,
+            label="Área Laboral"
+        )
+        return form
+
+    def form_valid(self, form):
+        user = form.save(commit=False)
+        user.set_password(form.cleaned_data['password'])
+        
+        role = form.cleaned_data.get('role')
+        if role == 'admin':
+            user.is_superuser = True
+            user.is_staff = True
+        elif role == 'supervisor':
+            user.is_superuser = False
+            user.is_staff = True
+        else:
+            user.is_superuser = False
+            user.is_staff = False
+            
+        user.save()
+        
+        # Save groups
+        groups = form.cleaned_data.get('groups')
+        if groups:
+            user.groups.set(groups)
+        
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.role = role
+        profile.work_area = form.cleaned_data.get('work_area')
+        profile.save()
+        
+        if self.request.headers.get('HX-Request'):
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'reloadPage'
+            return response
+        return super().form_valid(form)
+
+class UserManagementUpdateView(UserPassesTestMixin, GenericUpdateView):
+    model = User
+    fields = ['first_name', 'last_name', 'email', 'is_active']
+    title = "Editar Usuario"
+    template_name = 'core/user_management_form.html'
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        user_profile, _ = UserProfile.objects.get_or_create(user=self.get_object())
+        form.fields['role'] = forms.ChoiceField(choices=UserProfile.ROLE_CHOICES, initial=user_profile.role, label="Rol")
+        form.fields['groups'] = forms.ModelMultipleChoiceField(
+            queryset=Group.objects.all(),
+            initial=self.get_object().groups.all(),
+            required=False,
+            label="Privilegios (Grupos)",
+            widget=forms.SelectMultiple(attrs={'class': 'form-control select2'})
+        )
+        form.fields['work_area'] = forms.ModelChoiceField(
+            queryset=WorkArea.objects.all(),
+            initial=user_profile.work_area,
+            required=False,
+            label="Área Laboral"
+        )
+        return form
+
+    def form_valid(self, form):
+        user = form.save(commit=False)
+        role = form.cleaned_data.get('role')
+        
+        if role == 'admin':
+            user.is_superuser = True
+            user.is_staff = True
+        elif role == 'supervisor':
+            user.is_superuser = False
+            user.is_staff = True
+        else:
+            user.is_superuser = False
+            user.is_staff = False
+            
+        user.save()
+        
+        # Update groups
+        groups = form.cleaned_data.get('groups')
+        user.groups.set(groups if groups else [])
+        
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.role = role
+        profile.work_area = form.cleaned_data.get('work_area')
+        profile.save()
+        
+        if self.request.headers.get('HX-Request'):
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'reloadPage'
+            return response
+        return super().form_valid(form)
+
+class UserManagementDeleteView(UserPassesTestMixin, GenericDeleteView):
+    model = User
+    success_url = reverse_lazy('user_management_list')
+
+    def test_func(self):
+        return self.request.user.is_superuser

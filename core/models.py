@@ -15,8 +15,6 @@ class CompanySettings(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and CompanySettings.objects.exists():
-            # If you're trying to save a new instance but one exists, forbid it.
-            # However, for simplicity allowing overwrite or just grab first is easier.
             return
         super(CompanySettings, self).save(*args, **kwargs)
 
@@ -28,12 +26,35 @@ class CompanySettings(models.Model):
     def __str__(self):
         return self.name
 
-class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    phone = models.CharField(max_length=50, blank=True, null=True)
+class WorkArea(models.Model):
+    name = models.CharField(max_length=100, verbose_name="Nombre del Área")
+    description = models.TextField(blank=True, null=True, verbose_name="Descripción")
+
+    class Meta:
+        verbose_name = "Área Laboral"
+        verbose_name_plural = "Áreas Laborales"
 
     def __str__(self):
-        return self.user.username
+        return self.name
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Administrador'),
+        ('supervisor', 'Supervisor'),
+        ('employee', 'Empleado'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    work_area = models.ForeignKey(WorkArea, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Área Laboral", related_name="users")
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee', verbose_name="Rol del Usuario")
+    
+    # Personalization
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name="Imagen de Perfil")
+    dark_mode = models.BooleanField(default=False, verbose_name="Modo Oscuro")
+    font_size = models.IntegerField(default=16, verbose_name="Tamaño de Fuente (px)")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()}"
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

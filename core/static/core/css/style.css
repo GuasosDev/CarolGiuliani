@@ -15,6 +15,59 @@
     --border-color: #e2e7f1;
 }
 
+body.dark-mode {
+    --background-color: #212529;
+    --card-bg: #2b3035;
+    --text-color: #adb5bd;
+    --heading-color: #f8f9fa;
+    --border-color: #495057;
+}
+
+body.dark-mode .card,
+body.dark-mode .topbar,
+body.dark-mode .navbar,
+body.dark-mode .dropdown-menu,
+body.dark-mode .modal-content {
+    background-color: var(--card-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode h4,
+body.dark-mode h5,
+body.dark-mode h6,
+body.dark-mode .logo,
+body.dark-mode .dropdown-item {
+    color: var(--heading-color) !important;
+}
+
+body.dark-mode .dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+body.dark-mode .table {
+    color: var(--text-color) !important;
+}
+
+body.dark-mode .table thead th {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    color: var(--heading-color) !important;
+}
+
+body.dark-mode .form-control,
+body.dark-mode .form-select {
+    background-color: #343a40 !important;
+    border-color: var(--border-color) !important;
+    color: var(--heading-color) !important;
+}
+
+body.dark-mode .bg-light {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
 body {
     font-family: 'Nunito', sans-serif;
     margin: 0;

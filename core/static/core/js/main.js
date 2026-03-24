@@ -7,11 +7,24 @@ function closeModal() {
     document.getElementById('modal-body').innerHTML = '';
 }
 
+function openModalSecondary() {
+    document.getElementById('modal-secondary').style.display = 'block';
+}
+
+function closeModalSecondary() {
+    document.getElementById('modal-secondary').style.display = 'none';
+    document.getElementById('modal-secondary-body').innerHTML = '';
+}
+
 // Close modal when clicking outside
 window.onclick = function (event) {
     var modal = document.getElementById('modal');
+    var modalSecondary = document.getElementById('modal-secondary');
     if (event.target == modal) {
         closeModal();
+    }
+    if (event.target == modalSecondary) {
+        closeModalSecondary();
     }
 }
 
@@ -19,6 +32,7 @@ window.onclick = function (event) {
 // Handle refreshing list from generic forms
 document.body.addEventListener('refreshList', function () {
     closeModal();
+    closeModalSecondary();
     // If datatable exists, reload it? Or just reload page?
     // Ideally reload datatable via ajax if possible, but full page reload is safer for now if not using ajax source
     if ($.fn.DataTable.isDataTable('#datatable')) {
@@ -32,6 +46,7 @@ document.body.addEventListener('refreshList', function () {
 
 document.body.addEventListener('reloadPage', function () {
     closeModal();
+    closeModalSecondary();
     location.reload();
 });
 
@@ -39,6 +54,7 @@ document.body.addEventListener('reloadPage', function () {
 document.body.addEventListener('htmx:afterRequest', function (evt) {
     if (evt.detail.successful && evt.detail.xhr.status === 204) {
         closeModal();
+        closeModalSecondary();
         location.reload();
     }
 });
