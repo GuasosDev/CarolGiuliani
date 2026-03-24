@@ -47,16 +47,32 @@
     {% if user.is_authenticated %}
     <style id="user-personalization">
         :root {
-            --global-font-size: {{ user.userprofile.font_size }}px;
+            --global-font-size: {
+                    {
+                    user.userprofile.font_size
+                }
+            }
+
+            px;
         }
+
         body {
             font-size: var(--global-font-size) !important;
         }
+
         /* Propagate font size to common elements */
-        .card-title, h5, h6, .btn, .form-control, .form-label, table {
+        .card-title,
+        h5,
+        h6,
+        .btn,
+        .form-control,
+        .form-label,
+        table {
             font-size: 1em !important;
         }
-        small, .small {
+
+        small,
+        .small {
             font-size: 0.85em !important;
         }
     </style>
@@ -72,12 +88,13 @@
             <div class="user-menu">
                 {% if user.is_authenticated %}
                 <div class="dropdown" style="display: inline-block;">
-                    <a href="#" class="dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false"
-                        style="text-decoration: none; color: inherit;">
+                    <a href="#" class="dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown"
+                        aria-expanded="false" style="text-decoration: none; color: inherit;">
                         {% if user.userprofile.avatar %}
-                            <img src="{{ user.userprofile.avatar.url }}" alt="Avatar" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+                        <img src="{{ user.userprofile.avatar.url }}" alt="Avatar" class="rounded-circle"
+                            style="width: 32px; height: 32px; object-fit: cover;">
                         {% else %}
-                            <i class="fas fa-user-circle fa-lg"></i>
+                        <i class="fas fa-user-circle fa-lg"></i>
                         {% endif %}
                         <span>{{ user.get_full_name|default:user.username }}</span>
                     </a>
@@ -125,7 +142,7 @@
         </div>
     </header>
 
-    <!--<nav class="navbar">
+    <nav class="navbar">
         <button class="navbar-toggler" id="navbar-toggler" aria-label="Toggle navigation">
             <i class="fas fa-bars"></i>
         </button>
@@ -135,14 +152,14 @@
             <li><a href="{% url 'client_list' %}" class="{% if 'clients' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i> Contactos
                 </a></li>
-       
-              
+
+
             <li><a href="{% url 'communications:dashboard' %}"
                     class="{% if 'communications' in request.path %}active{% endif %}">
                     <i class="fas fa-comments"></i> Communications
                 </a></li>
         </ul>
-    </nav>-->
+    </nav>
 
     <main id="main-content">
         {% block content %}{% endblock %}
