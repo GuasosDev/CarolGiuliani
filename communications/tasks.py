@@ -2,12 +2,18 @@
 Celery tasks for background processing
 """
 
+"""
+Celery tasks for background processing
+"""
+
 from celery import shared_task
 import logging
 from django.utils import timezone
-from .models import EmailAccount, EmailQueue,Conversation
+from django.db import transaction
+from .models import EmailAccount, EmailQueue, Conversation
 from .email_handler import EmailHandler
 from datetime import timedelta
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,31 +21,30 @@ logger = logging.getLogger(__name__)
 def sync_all_email_accounts():
     """Sync all active email accounts"""
     accounts = EmailAccount.objects.filter(is_active=True, sync_enabled=True)
-    
-    total_synced = 0
+
+    total = 0
     for account in accounts:
         try:
-            count = sync_email_account.delay(account.id)
-            total_synced += 1
+            sync_email_account.apply_async(args=[account.id])
+            total += 1
         except Exception as e:
             logger.error(f"Error queuing sync for {account.email_address}: {str(e)}")
-    
-    logger.info(f"Queued sync for {total_synced} email accounts")
-    return total_synced
+
+    logger.info(f"Queued sync for {total} email accounts")
+    return total
 
 
 @shared_task
 def sync_email_account(account_id):
-
     try:
         account = EmailAccount.objects.get(id=account_id)
         handler = EmailHandler(account)
-        
+
         emails = handler.fetch_new_emails()
-        
+
         logger.info(f"Synced {len(emails)} emails for {account.email_address}")
         return len(emails)
-        
+
     except EmailAccount.DoesNotExist:
         logger.error(f"Email account not found: {account_id}")
         return 0
@@ -54,34 +59,37 @@ def process_email_queue():
     pending_emails = EmailQueue.objects.filter(
         status='pending',
         scheduled_at__lte=timezone.now()
-    ).order_by('scheduled_at')[:50]  # Process 50 at a time
-    
+    ).order_by('scheduled_at')[:50]
+
     processed = 0
-    for queued_email in pending_emails:
+    for email in pending_emails:
         try:
-            send_queued_email.delay(queued_email.id)
+            send_queued_email.apply_async(args=[email.id])
             processed += 1
         except Exception as e:
-            logger.error(f"Error queuing email {queued_email.id}: {str(e)}")
-    
+            logger.error(f"Error queuing email {email.id}: {str(e)}")
+
     logger.info(f"Queued {processed} emails for sending")
     return processed
 
 
-@shared_task
-def send_queued_email(queue_id):
-    """Send a single queued email"""
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, rate_limit='10/m')
+def send_queued_email(self, queue_id):
+    """Send a single queued email with retry + concurrency protection"""
     try:
-        queued_email = EmailQueue.objects.get(id=queue_id)
-        
-        # Mark as sending
-        queued_email.status = 'sending'
-        queued_email.save()
-        
-        # Get email handler
+        with transaction.atomic():
+            queued_email = EmailQueue.objects.select_for_update().get(id=queue_id)
+
+            # Evitar doble envío
+            if queued_email.status == 'sent':
+                logger.warning(f"Email {queue_id} already sent")
+                return True
+
+            queued_email.status = 'sending'
+            queued_email.save()
+
         handler = EmailHandler(queued_email.email_account)
-        
-        # Send email
+
         success, message = handler.send_email(
             to_addresses=queued_email.to_addresses,
             subject=queued_email.subject,
@@ -91,66 +99,65 @@ def send_queued_email(queue_id):
             bcc_addresses=queued_email.bcc_addresses,
             conversation=queued_email.conversation
         )
-        
+
         if success:
             queued_email.status = 'sent'
             queued_email.sent_at = timezone.now()
             queued_email.save()
-            logger.info(f"Sent queued email {queue_id}")
+
+            logger.info(f"Sent email {queue_id} to {queued_email.to_addresses}")
             return True
+
         else:
-            # Retry logic
-            queued_email.retry_count += 1
-            
-            if queued_email.retry_count >= queued_email.max_retries:
-                queued_email.status = 'failed'
-                queued_email.last_error = message
-            else:
-                queued_email.status = 'pending'
-                queued_email.last_error = message
-            
-            queued_email.save()
-            logger.warning(f"Failed to send queued email {queue_id}: {message}")
-            return False
-        
+            raise Exception(message)
+
     except EmailQueue.DoesNotExist:
         logger.error(f"Queued email not found: {queue_id}")
         return False
+
     except Exception as e:
-        logger.error(f"Error sending queued email {queue_id}: {str(e)}")
-        
+        logger.error(f"Error sending email {queue_id}: {str(e)}")
+
         try:
             queued_email = EmailQueue.objects.get(id=queue_id)
             queued_email.retry_count += 1
             queued_email.last_error = str(e)
-            
+
             if queued_email.retry_count >= queued_email.max_retries:
                 queued_email.status = 'failed'
             else:
                 queued_email.status = 'pending'
-            
+
             queued_email.save()
         except:
             pass
-        
-        return False
+
+        # Retry automático de Celery
+        raise self.retry(exc=e)
 
 
 @shared_task
 def distribute_unassigned_conversations():
     """Distribute unassigned conversations among agents"""
     from .assignment_system import distribute_workload
-    
+
     count = distribute_workload()
     logger.info(f"Distributed {count} conversations")
     return count
+
+
 @shared_task
 def close_inactive_conversations():
-    limit = timezone.now() - timedelta(minutes=1)
+    """Close conversations inactive for 30 minutes"""
+    limit = timezone.now() - timedelta(minutes=30)
 
     conversations = Conversation.objects.filter(
         status="pending",
-         updated_at__lt=limit
+        updated_at__lt=limit
     )
 
+    count = conversations.count()
     conversations.update(status="closed")
+
+    logger.info(f"Closed {count} inactive conversations")
+    return count

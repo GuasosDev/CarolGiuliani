@@ -150,7 +150,11 @@ class EmailHandler:
             in_reply_to = email_message.get('In-Reply-To', '')
             references = email_message.get('References', '')
             date = email_message.get('Date', '')
-            
+            if message_id:
+                exists = EmailMessage.objects.filter(email_message_id=message_id).exists()
+                if exists:
+                    logger.warning(f"Duplicate email skipped: {message_id}")
+                    return None
             # Extract body
             html_body = None
             plain_body = None

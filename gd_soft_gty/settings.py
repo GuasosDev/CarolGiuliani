@@ -199,23 +199,23 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 #La primera vez que arranca el proyecto, se genera la clave y se guarda en fernet.key.
 
 #Las próximas veces usa la misma clave del archivo.
-#import os
-#from cryptography.fernet import Fernet
-#from pathlib import Path
+import os
+from cryptography.fernet import Fernet
+from pathlib import Path
 
-#BASE_DIR = Path(__file__).resolve().parent.parent
-#KEY_FILE = BASE_DIR / "fernet.key"
+BASE_DIR = Path(__file__).resolve().parent.parent
+KEY_FILE = BASE_DIR / "fernet.key"
 
-#if KEY_FILE.exists():
-    #EMAIL_ENCRYPTION_KEY = open(KEY_FILE, "rb").read()
-#else:
-    #EMAIL_ENCRYPTION_KEY = Fernet.generate_key()
-    #with open(KEY_FILE, "wb") as f:
-        #f.write(EMAIL_ENCRYPTION_KEY)
+if KEY_FILE.exists():
+    EMAIL_ENCRYPTION_KEY = open(KEY_FILE, "rb").read()
+else:
+    EMAIL_ENCRYPTION_KEY = Fernet.generate_key()
+    with open(KEY_FILE, "wb") as f:
+        f.write(EMAIL_ENCRYPTION_KEY)
 
 # Email encryption key (generate with: from cryptography.fernet import Fernet; Fernet.generate_key())
 # IMPORTANT: Change this in production and keep it secret!
-#EMAIL_ENCRYPTION_KEY = b'fqvYtGwVHkNLrppaffMEdBZJobQ6ZhVhrwXjnF7G29Y='
+EMAIL_ENCRYPTION_KEY = 'aJ88Y47MnpeKl8kVXLB22A3plcDVhc8TbaEXD7w_Ak0='
 
 # WhatsApp Business API Configuration
 WHATSAPP_API_VERSION = 'v18.0'

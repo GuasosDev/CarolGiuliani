@@ -22,14 +22,13 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     'sync-emails-every-5-minutes': {
         'task': 'communications.tasks.sync_all_email_accounts',
-        'schedule': 300.0,  # 5 minutes in seconds
+        'schedule': crontab(minute='*/5'),
     },
     'process-email-queue-every-minute': {
         'task': 'communications.tasks.process_email_queue',
-        'schedule': 60.0,  # 1 minute
+        'schedule': crontab(minute='*'),
     },
 }
-
 
 @app.task(bind=True, ignore_result=True)
 def debug_task(self):
