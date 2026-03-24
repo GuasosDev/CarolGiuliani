@@ -4,7 +4,7 @@
 
 {% block comm_js %}
 <script>
-    let itemCount = {% if items %}{ { items | length } } {% else %} 0{% endif %};
+    let itemCount = {{ items|length|default:1 }};
 
     function addItem() {
         itemCount++;
@@ -111,62 +111,61 @@
                     <div class="col-1"></div>
                 </div>
                 <div id="items-container">
-                    {% for item in items %}
-                    <div class="row g-2 mb-2 item-row">
-                        <div class="col-2">
-                            <input type="number" name="item_number" class="form-control form-control-sm"
-                                value="{{ item.number }}" min="1" required>
+                    {% if items %}
+                        {% for item in items %}
+                        <div class="row g-2 mb-2 item-row">
+                            <div class="col-2">
+                                <input type="number" name="item_number" class="form-control form-control-sm"
+                                    value="{{ item.number }}" min="1" required>
+                            </div>
+                            <div class="col-5">
+                                <input type="text" name="item_label" class="form-control form-control-sm"
+                                    value="{{ item.label }}" required>
+                            </div>
+                            <div class="col-4">
+                                <select name="item_user" class="form-select form-select-sm">
+                                    <option value="">-- Sin asignar --</option>
+                                    {% for u in users %}
+                                    <option value="{{ u.pk }}" {% if item.assigned_user_id == u.pk %}selected{% endif %}>
+                                        {{ u.get_full_name | default:u.username }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-1 d-flex align-items-center">
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                    onclick="this.closest('.item-row').remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-5">
-                            <input type="text" name="item_label" class="form-control form-control-sm"
-                                value="{{ item.label }}" required>
+                        {% endfor %}
+                    {% else %}
+                        <div class="row g-2 mb-2 item-row">
+                            <div class="col-2">
+                                <input type="number" name="item_number" class="form-control form-control-sm" value="1"
+                                    min="1" required>
+                            </div>
+                            <div class="col-5">
+                                <input type="text" name="item_label" class="form-control form-control-sm"
+                                    placeholder="Ej. Administración" required>
+                            </div>
+                            <div class="col-4">
+                                <select name="item_user" class="form-select form-select-sm">
+                                    <option value="">-- Sin asignar --</option>
+                                    {% for u in users %}
+                                    <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-1 d-flex align-items-center">
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                    onclick="this.closest('.item-row').remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-4">
-                            <select name="item_user" class="form-select form-select-sm">
-                                <option value="">-- Sin asignar --</option>
-                                {% for u in users %}
-                                <option value="{{ u.pk }}" {% if item.assigned_user_id == u.pk %}selected{% endif %}>
-                                    {{ u.get_full_name | default:u.username }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-1 d-flex align-items-center">
-                            <button type="button" class="btn btn-outline-danger btn-sm"
-                                onclick="this.closest('.item-row').remove()">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                    {% empty %}
-                    {# start with one empty row for create #}
-                    {% if action == 'Crear' %}
-                    <div class="row g-2 mb-2 item-row">
-                        <div class="col-2">
-                            <input type="number" name="item_number" class="form-control form-control-sm" value="1"
-                                min="1" required>
-                        </div>
-                        <div class="col-5">
-                            <input type="text" name="item_label" class="form-control form-control-sm"
-                                placeholder="Ej. Administración" required>
-                        </div>
-                        <div class="col-4">
-                            <select name="item_user" class="form-select form-select-sm">
-                                <option value="">-- Sin asignar --</option>
-                                {% for u in users %}
-                                <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-1 d-flex align-items-center">
-                            <button type="button" class="btn btn-outline-danger btn-sm"
-                                onclick="this.closest('.item-row').remove()">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
                     {% endif %}
-                    {% endfor %}
                 </div>
                 <p class="text-muted small mt-2 mb-0"><i class="fas fa-info-circle me-1"></i>Cada opción corresponde a
                     un número que el cliente puede responder. El usuario asignado recibirá la conversación.</p>
