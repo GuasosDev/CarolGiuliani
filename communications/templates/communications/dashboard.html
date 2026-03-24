@@ -20,21 +20,17 @@
             <div class="d-flex align-items-center">
                 <div class="me-4">
                     <h2 class="omni-page-title mb-0" id="dashboard-header-title">Resumen General</h2>
-                    <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user }}</div>
+                    <div class="omni-page-subtitle" id="dashboard-header-subtitle">Bienvenido de nuevo, {{ request.user
+                        }}</div>
                 </div>
-                <button hx-get="{% url 'client_create' %}" 
-                        hx-target="#modal-body" 
-                        hx-trigger="click" 
-                        onclick="openModal()" 
-                        class="btn btn-primary rounded-pill shadow-sm d-flex align-items-center">
+                <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
+                    onclick="openModal()" class="btn btn-primary rounded-pill shadow-sm d-flex align-items-center">
                     <i class="fas fa-plus me-2"></i>
                     <span>Nuevo Contacto</span>
                 </button>
-                <button hx-get="{% url 'communications:conversation_report' %}" 
-                        hx-target="#modal-body" 
-                        hx-trigger="click" 
-                        onclick="openModal()" 
-                        class="btn btn-outline-secondary rounded-pill shadow-sm d-flex align-items-center ms-2">
+                <button hx-get="{% url 'communications:conversation_report' %}" hx-target="#modal-body"
+                    hx-trigger="click" onclick="openModal()"
+                    class="btn btn-outline-secondary rounded-pill shadow-sm d-flex align-items-center ms-2">
                     <i class="fas fa-file-pdf me-2"></i>
                     <span>Listado Conversación</span>
                 </button>
@@ -42,174 +38,166 @@
             <!-- Search Bar -->
             <div class="omni-search-bar mb-0 ms-auto" style="width: 300px;">
                 <i class="fas fa-search"></i>
-                <input type="search" 
-                       name="q"
-                       class="omni-search-input" 
-                       placeholder="Buscar en todo el sistema..."
-                       hx-get="{% url 'global_search' %}"
-                       hx-trigger="keyup changed delay:800ms, search"
-                       hx-target="#modal-body"
-                       hx-on:htmx:after-request="if(event.detail.successful) openModal()"
-                       autocomplete="off">
+                <input type="search" name="q" class="omni-search-input" placeholder="Buscar en todo el sistema..."
+                    hx-get="{% url 'global_search' %}" hx-trigger="keyup changed delay:800ms, search"
+                    hx-target="#modal-body" hx-on:htmx:after-request="if(event.detail.successful) openModal()"
+                    autocomplete="off">
             </div>
         </div>
     </div>
 
     <!-- Main Content Area: 3 Columns -->
-    <div class="row g-0 flex-grow-1 overflow-hidden" style="height: calc(100vh - 80px);"> <!-- Adjust height based on header -->
-        
-    <!-- Column 1: Status Column (Thin) -->
-    <div class="col-auto border-end bg-light d-flex flex-column align-items-center py-4 gap-4" style="width: 80px; min-width: 80px;">
-        <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="status-circle-btn {% if current_status == 'normal' or not current_status %}active{% endif %} text-decoration-none text-center"
-           title="Activos" data-bs-toggle="tooltip" data-bs-placement="right">
-            <div class="status-circle bg-success shadow-sm mx-auto mb-1" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-check text-white"></i>
-            </div>
-            <small class="status-label text-success fw-bold d-block" style="font-size: 0.7rem;">Activo</small>
-        </a>
-        
-        <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="status-circle-btn {% if current_status == 'pending' %}active{% endif %} text-decoration-none text-center"
-           title="Pendientes" data-bs-toggle="tooltip" data-bs-placement="right">
-            <div class="status-circle bg-warning shadow-sm mx-auto mb-1" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-hourglass-half text-white"></i>
-            </div>
-            <small class="status-label text-warning fw-bold d-block" style="font-size: 0.7rem;">Pendiente</small>
-        </a>
-        
-        <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="status-circle-btn {% if current_status == 'closed' %}active{% endif %} text-decoration-none text-center"
-           title="Cerrados" data-bs-toggle="tooltip" data-bs-placement="right">
-            <div class="status-circle bg-danger shadow-sm mx-auto mb-1" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-times text-white"></i>
-            </div>
-            <small class="status-label text-danger fw-bold d-block" style="font-size: 0.7rem;">Cerrado</small>
-        </a>
-    </div>
+    <div class="row g-0 flex-grow-1 overflow-hidden" style="height: calc(100vh - 80px);">
+        <!-- Adjust height based on header -->
+
+        <!-- Column 1: Status Column (Thin) -->
+        <div class="col-auto border-end bg-light d-flex flex-column align-items-center py-4 gap-4"
+            style="width: 80px; min-width: 80px;">
+            <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+                class="status-circle-btn {% if current_status == 'normal' or not current_status %}active{% endif %} text-decoration-none text-center"
+                title="Activos" data-bs-toggle="tooltip" data-bs-placement="right">
+                <div class="status-circle bg-success shadow-sm mx-auto mb-1"
+                    style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-check text-white"></i>
+                </div>
+                <small class="status-label text-success fw-bold d-block" style="font-size: 0.7rem;">Activo</small>
+            </a>
+
+            <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+                class="status-circle-btn {% if current_status == 'pending' %}active{% endif %} text-decoration-none text-center"
+                title="Pendientes" data-bs-toggle="tooltip" data-bs-placement="right">
+                <div class="status-circle bg-warning shadow-sm mx-auto mb-1"
+                    style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-hourglass-half text-white"></i>
+                </div>
+                <small class="status-label text-warning fw-bold d-block" style="font-size: 0.7rem;">Pendiente</small>
+            </a>
+
+            <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+                class="status-circle-btn {% if current_status == 'closed' %}active{% endif %} text-decoration-none text-center"
+                title="Cerrados" data-bs-toggle="tooltip" data-bs-placement="right">
+                <div class="status-circle bg-danger shadow-sm mx-auto mb-1"
+                    style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times text-white"></i>
+                </div>
+                <small class="status-label text-danger fw-bold d-block" style="font-size: 0.7rem;">Cerrado</small>
+            </a>
+        </div>
 
         <!-- Column 2: Conversation List (3 cols) -->
         <div class="col-md-3 col-lg-3 border-end bg-white d-flex flex-column h-100">
-    <!-- Scrollable List -->
-    <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
-         hx-get="{{ request.get_full_path }}"
-         hx-trigger="every 15s"
-         hx-select="#dashboard-conversations-container"
-         hx-swap="outerHTML">
-        
-        <div class="list-group list-group-flush">
+            <!-- Scrollable List -->
+            <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
+                hx-get="{{ request.get_full_path }}" hx-trigger="every 15s"
+                hx-select="#dashboard-conversations-container" hx-swap="outerHTML">
 
-        {% if current_status == 'inbox' %}
-            {% for group in grouped_conversations %}
-                <div class="list-group-item bg-light fw-bold small text-uppercase text-muted py-1 px-3">
-                    {{ group.client.name|default:"Desconocido" }}
-                </div>
-                
-                {% for conv in group.conversations %}
-                    <button type="button" 
-                       class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
-                       data-id="{{ conv.id }}"
-                       onclick="loadConversation(this, '{{ conv.id }}')">
-                       
-                       <div class="d-flex justify-content-between mb-1">
-                           <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
-                               <!-- Status Indicator -->
-                               {% if conv.status == 'normal' %}
-                                   <span class="status-indicator bg-success rounded-circle me-2" style="width: 10px; height: 10px;"></span>
-                               {% elif conv.status == 'pending' %}
-                                   <span class="status-indicator bg-warning rounded-circle me-2" style="width: 10px; height: 10px;"></span>
-                               {% elif conv.status == 'closed' %}
-                                   <span class="status-indicator bg-danger rounded-circle me-2" style="width: 10px; height: 10px;"></span>
-                               {% endif %}
+                <div class="list-group list-group-flush">
 
-                               {% if conv.channel == 'whatsapp' %}
-                                   <i class="fab fa-whatsapp text-success me-2"></i>
-                               {% else %}
-                                   <i class="fas fa-envelope text-primary me-2"></i>
-                               {% endif %}
+                    {% if current_status == 'inbox' %}
+                    {% for group in grouped_conversations %}
+                    <div class="list-group-item bg-light fw-bold small text-uppercase text-muted py-1 px-3">
+                        {{ group.client.name|default:"Desconocido" }}
+                    </div>
 
-                               <span class="fw-bold text-dark text-truncate">
-                                   {% if conv.contact and conv.contact.client %}
-                                       {{ conv.contact.client.name }}
-                                   {% else %}
-                                       Desconocido
-                                   {% endif %}
-                               </span>
-                           </div>
-                           <small class="text-muted">
-                               {{ conv.updated_at|date:"H:i" }}
-                           </small>
-                       </div>
+                    {% for conv in group.conversations %}
+                    <button type="button"
+                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
+                        data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
-                       <div class="d-flex justify-content-between align-items-center">
-                           <small class="text-muted text-truncate d-block" style="max-width: 100%;">
-                               {% with last_msg=conv.messages.last %}
-                                   {% if last_msg %}
-                                       {{ last_msg.content|truncatechars:35 }}
-                                   {% else %}
-                                       <span class="fst-italic text-muted">Sin mensajes...</span>
-                                   {% endif %}
-                               {% endwith %}
-                           </small>
-                       </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
+                                <!-- Status Indicator -->
+                                {% if conv.status == 'normal' %}
+                                <span class="status-indicator bg-success rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"></span>
+                                {% elif conv.status == 'pending' %}
+                                <span class="status-indicator bg-warning rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"></span>
+                                {% elif conv.status == 'closed' %}
+                                <span class="status-indicator bg-danger rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"></span>
+                                {% endif %}
+
+                                {% if conv.channel == 'whatsapp' %}
+                                <i class="fab fa-whatsapp text-success me-2"></i>
+                                {% else %}
+                                <i class="fas fa-envelope text-primary me-2"></i>
+                                {% endif %}
+
+                                <span class="fw-bold text-dark text-truncate">
+                                    {{ conv.get_display_name }}
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                {{ conv.updated_at|date:"H:i" }}
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-truncate d-block" style="max-width: 100%;">
+                                {% with last_msg=conv.messages.last %}
+                                {% if last_msg %}
+                                {{ last_msg.content|truncatechars:35 }}
+                                {% else %}
+                                <span class="fst-italic text-muted">Sin mensajes...</span>
+                                {% endif %}
+                                {% endwith %}
+                            </small>
+                        </div>
                     </button>
-                {% endfor %}
-            {% empty %}
-                <div class="text-center p-4 text-muted">No hay conversaciones</div>
-            {% endfor %}
+                    {% endfor %}
+                    {% empty %}
+                    <div class="text-center p-4 text-muted">No hay conversaciones</div>
+                    {% endfor %}
 
-        {% else %}
-            {% for conv in conversations %}
-                <button type="button" 
-                   class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
-                   data-id="{{ conv.id }}"
-                   onclick="loadConversation(this, '{{ conv.id }}')">
-                   
-                   <div class="d-flex justify-content-between mb-1">
-                       <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
-                           {% if conv.channel == 'whatsapp' %}
-                               <i class="fab fa-whatsapp text-success me-2"></i>
-                           {% else %}
-                               <i class="fas fa-envelope text-primary me-2"></i>
-                           {% endif %}
+                    {% else %}
+                    {% for conv in conversations %}
+                    <button type="button"
+                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
+                        data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
-                           <span class="fw-bold text-dark text-truncate">
-                               {% if conv.contact and conv.contact.client %}
-                                   {{ conv.contact.client.name }}
-                               {% else %}
-                                   Desconocido
-                               {% endif %}
-                           </span>
-                       </div>
-                       <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
-                   </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
+                                {% if conv.channel == 'whatsapp' %}
+                                <i class="fab fa-whatsapp text-success me-2"></i>
+                                {% else %}
+                                <i class="fas fa-envelope text-primary me-2"></i>
+                                {% endif %}
 
-                   <div class="d-flex justify-content-between align-items-center">
-                       <small class="text-muted text-truncate d-block" style="max-width: 100%;">
-                           {% with last_msg=conv.messages.last %}
-                               {% if last_msg %}
-                                   {{ last_msg.content|truncatechars:35 }}
-                               {% else %}
-                                   <span class="fst-italic text-muted">Sin mensajes...</span>
-                               {% endif %}
-                           {% endwith %}
-                       </small>
-                   </div>
-                </button>
-            {% empty %}
-                <div class="text-center p-5 text-muted">
-                    <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
-                    <p>No hay conversaciones en esta vista.</p>
+                                <span class="fw-bold text-dark text-truncate">
+                                    {{ conv.get_display_name }}
+                                </span>
+                            </div>
+                            <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-truncate d-block" style="max-width: 100%;">
+                                {% with last_msg=conv.messages.last %}
+                                {% if last_msg %}
+                                {{ last_msg.content|truncatechars:35 }}
+                                {% else %}
+                                <span class="fst-italic text-muted">Sin mensajes...</span>
+                                {% endif %}
+                                {% endwith %}
+                            </small>
+                        </div>
+                    </button>
+                    {% empty %}
+                    <div class="text-center p-5 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
+                        <p>No hay conversaciones en esta vista.</p>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
                 </div>
-            {% endfor %}
-        {% endif %}
-
+            </div>
         </div>
-    </div>
-</div>
 
         <!-- Column 3: Conversation Detail (Rest) -->
-        <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel" style="background-color: #f8f9fa;">
+        <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel"
+            style="background-color: #f8f9fa;">
             <!-- Empty State -->
             <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
                 <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
@@ -225,7 +213,7 @@
         </div>
 
         <!-- Columna 2: Lista de Conversaciones -->
-         <!--<div class="col-md-4 border-end bg-white d-flex flex-column p-3" style="overflow-y: auto;">
+        <!--<div class="col-md-4 border-end bg-white d-flex flex-column p-3" style="overflow-y: auto;">
               <h5 class="p-2 bg-warning text-dark rounded">Inbox General (No asignadas)</h5>
             <div class="mb-3">
                 {% if unassigned_conversations %}
@@ -284,7 +272,7 @@
 
         <!-- Columna 3: Detalle de Conversación -->
         <div class="col-md-9 bg-white d-flex flex-column p-3" style="overflow-y: auto;">
-             <h5 class="p-2 bg-dark text-white rounded" >Mis Conversaciones</h5>
+            <h5 class="p-2 bg-dark text-white rounded">Mis Conversaciones</h5>
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
                     <thead>
@@ -301,15 +289,23 @@
                         {% for conversation in my_conversations %}
                         <tr data-conversation-id="{{ conversation.id }}">
                             <td>{{ conversation.contact.client.name|default:"Contacto Desconocido" }}</td>
-                            <td><span class="badge bg-{% if conversation.channel == 'whatsapp' %}success{% else %}primary{% endif %}">{{ conversation.get_channel_display }}</span></td>
-                            <td><span class="badge bg-{% if conversation.status == 'open' %}warning{% elif conversation.status == 'assigned' %}info{% else %}secondary{% endif %}">{{ conversation.get_status_display }}</span></td>
-                            <td><span class="badge bg-{% if conversation.priority == 'urgent' %}danger{% elif conversation.priority == 'high' %}warning{% else %}secondary{% endif %}">{{ conversation.get_priority_display }}</span></td>
+                            <td><span
+                                    class="badge bg-{% if conversation.channel == 'whatsapp' %}success{% else %}primary{% endif %}">{{
+                                    conversation.get_channel_display }}</span></td>
+                            <td><span
+                                    class="badge bg-{% if conversation.status == 'open' %}warning{% elif conversation.status == 'assigned' %}info{% else %}secondary{% endif %}">{{
+                                    conversation.get_status_display }}</span></td>
+                            <td><span
+                                    class="badge bg-{% if conversation.priority == 'urgent' %}danger{% elif conversation.priority == 'high' %}warning{% else %}secondary{% endif %}">{{
+                                    conversation.get_priority_display }}</span></td>
                             <td>
                                 <small>{{ conversation.last_message_at }} ago</small><br>
-                                <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10 }}</small>
+                                <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10
+                                    }}</small>
                             </td>
                             <td>
-                                <a href="{% url 'communications:conversation_detail' conversation.id %}" class="btn btn-sm btn-primary">Ver</a>
+                                <a href="{% url 'communications:conversation_detail' conversation.id %}"
+                                    class="btn btn-sm btn-primary">Ver</a>
                             </td>
                         </tr>
                         {% empty %}
@@ -330,14 +326,16 @@
     #dashboard-conversations-container::-webkit-scrollbar {
         width: 6px;
     }
+
     #dashboard-conversations-container::-webkit-scrollbar-track {
         background: #f1f1f1;
     }
+
     #dashboard-conversations-container::-webkit-scrollbar-thumb {
         background: #ccc;
         border-radius: 3px;
     }
-    
+
     /* Active State Style for List Items */
     .conversation-item.active {
         background-color: #e9ecef !important;
@@ -353,10 +351,13 @@
         opacity: 0.6;
         transition: all 0.2s ease;
     }
-    .status-circle-btn:hover, .status-circle-btn.active {
+
+    .status-circle-btn:hover,
+    .status-circle-btn.active {
         opacity: 1;
         transform: scale(1.1);
     }
+
     .status-circle {
         width: 40px;
         height: 40px;
@@ -368,14 +369,18 @@
         border: 2px solid transparent;
         transition: all 0.2s;
     }
+
     .status-circle-btn.active .status-circle {
         border-color: #333;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     }
+
     .status-label {
         font-size: 0.65rem;
-        display: none; /* Hide label by default, show on hover? Or just keep hidden for clean look */
+        display: none;
+        /* Hide label by default, show on hover? Or just keep hidden for clean look */
     }
+
     .status-circle-btn:hover .status-label {
         display: block;
     }
@@ -410,7 +415,7 @@
 
         // 3. Fetch Content via HTMX API manually to ensure scripts run
         const url = `/communications/conversation/${id}/?partial=true`;
-        
+
         if (typeof htmx !== 'undefined') {
             htmx.ajax('GET', url, {
                 target: '#conversation-detail-panel',
@@ -439,19 +444,19 @@
                     'HX-Request': 'true'
                 }
             })
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.text();
-            })
-            .then(html => {
-                panel.innerHTML = html;
-                // Note: Scripts in html won't run with innerHTML. 
-                // We might need to manually execute them or rely on HTMX being present.
-                // Since base.html has HTMX, this path is unlikely.
-            })
-            .catch(err => {
-                panel.innerHTML = `<div class="alert alert-danger m-3">Error fetch: ${err.message}</div>`;
-            });
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text();
+                })
+                .then(html => {
+                    panel.innerHTML = html;
+                    // Note: Scripts in html won't run with innerHTML. 
+                    // We might need to manually execute them or rely on HTMX being present.
+                    // Since base.html has HTMX, this path is unlikely.
+                })
+                .catch(err => {
+                    panel.innerHTML = `<div class="alert alert-danger m-3">Error fetch: ${err.message}</div>`;
+                });
         }
     }
 
@@ -459,7 +464,7 @@
         try {
             // Visual update
             document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
-            
+
             // If element is null (retry), try to find it
             if (!element && id) {
                 element = document.querySelector(`.conversation-item[data-id="${id}"]`);
@@ -467,7 +472,7 @@
 
             if (element) {
                 element.classList.add('active', 'bg-light');
-                
+
                 // Update Header Title with Client Name
                 const clientNameEl = element.querySelector('.fw-bold.text-dark');
                 if (clientNameEl) {
@@ -478,7 +483,7 @@
                     }
                 }
             }
-            
+
             // URL update (without reloading)
             const url = new URL(window.location);
             url.searchParams.set('conversation', id);
@@ -489,12 +494,12 @@
     }
 
     // Restore selection after HTMX swaps (polling)
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
+    document.body.addEventListener('htmx:afterSwap', function (evt) {
         // If the conversation list was refreshed
         if (evt.detail.target.id === 'dashboard-conversations-container') {
             const urlParams = new URLSearchParams(window.location.search);
             const activeId = urlParams.get('conversation');
-            
+
             if (activeId) {
                 // Find the element by data-id
                 const el = document.querySelector(`.conversation-item[data-id="${activeId}"]`);
@@ -510,7 +515,7 @@
     });
 
     // Restore selection on initial load if present in URL
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const urlParams = new URLSearchParams(window.location.search);
         const activeId = urlParams.get('conversation');
         if (activeId) {
