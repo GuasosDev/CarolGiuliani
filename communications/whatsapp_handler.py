@@ -307,6 +307,16 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         if not contact and normalized_from:
             # Try matching normalized exact
             contact = Contact.objects.filter(whatsapp_number=normalized_from).first()
+
+        # If we found a contact but it's not linked to a client, try to find one that IS
+        if contact and not contact.client and normalized_from and len(normalized_from) >= 10:
+            suffix = normalized_from[-10:]
+            better_contact = Contact.objects.filter(
+                whatsapp_number__endswith=suffix
+            ).exclude(client__isnull=True).first()
+            if better_contact:
+                contact = better_contact
+                logger.info(f"Preferred contact with client: {contact.client.name}")
             
         if not contact and normalized_from and len(normalized_from) >= 10:
             # Try matching suffix (useful for AR +54 9 vs +54)
@@ -314,16 +324,21 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             contact = Contact.objects.filter(whatsapp_number__endswith=suffix).first()
 
         if not contact and normalized_from and len(normalized_from) >= 10:
-            # Try matching via the linked client's phone number (when whatsapp_number is not set on Contact)
+            # Try matching via the linked client's phone number
             from clients.models import Client
             suffix = normalized_from[-10:]
             client_match = Client.objects.filter(phone__endswith=suffix).first()
             if client_match:
-                contact = Contact.objects.filter(client=client_match).first()
-                if contact and not contact.whatsapp_number:
+                # Find or create a contact for this client
+                contact, created = Contact.objects.get_or_create(
+                    client=client_match,
+                    defaults={'whatsapp_number': from_number, 'preferred_channel': 'whatsapp'}
+                )
+                if not contact.whatsapp_number:
                     # Save the WA number so future lookups are fast
                     contact.whatsapp_number = from_number
                     contact.save(update_fields=['whatsapp_number'])
+                logger.info(f"Matched incoming number {from_number} to client {client_match.name}")
 
         if not contact:
             contact = Contact.objects.create(
