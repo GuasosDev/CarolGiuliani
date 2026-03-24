@@ -30,3 +30,4 @@ PyYAML==6.0.2
 # UI & Forms
 django-crispy-forms==2.4
 crispy-bootstrap5==2025.6
+

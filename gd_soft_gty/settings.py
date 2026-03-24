@@ -129,7 +129,7 @@ STATICFILES_DIRS = [
     BASE_DIR / "core/static",
 ]
 
-LOGIN_REDIRECT_URL = '/clients/'
+LOGIN_REDIRECT_URL = '/communications/login-redirect/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Default primary key field type
@@ -177,21 +177,45 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ============================================================================
 # CELERY CONFIGURATION
 # ============================================================================
-
+CELERY_BEAT_SCHEDULE = {
+    'sync-emails-every-minute': {
+        'task': 'communications.tasks.sync_all_email_accounts',
+        'schedule': 60.0,
+    },
+    
+}
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
-
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # ============================================================================
 # COMMUNICATIONS APP CONFIGURATION
-# ============================================================================
+#En producción / rama nueva donde no hay clave todavía
+
+#Usás el código que genera fernet.key automáticamente:
+#La primera vez que arranca el proyecto, se genera la clave y se guarda en fernet.key.
+
+#Las próximas veces usa la misma clave del archivo.
+import os
+from cryptography.fernet import Fernet
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+KEY_FILE = BASE_DIR / "fernet.key"
+
+if KEY_FILE.exists():
+    EMAIL_ENCRYPTION_KEY = open(KEY_FILE, "rb").read()
+else:
+    EMAIL_ENCRYPTION_KEY = Fernet.generate_key()
+    with open(KEY_FILE, "wb") as f:
+        f.write(EMAIL_ENCRYPTION_KEY)
 
 # Email encryption key (generate with: from cryptography.fernet import Fernet; Fernet.generate_key())
 # IMPORTANT: Change this in production and keep it secret!
-EMAIL_ENCRYPTION_KEY = 'gAAAAABl1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ='
+EMAIL_ENCRYPTION_KEY = 'aJ88Y47MnpeKl8kVXLB22A3plcDVhc8TbaEXD7w_Ak0='
 
 # WhatsApp Business API Configuration
 WHATSAPP_API_VERSION = 'v18.0'

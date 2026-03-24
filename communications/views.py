@@ -16,7 +16,7 @@ from django.template.loader import get_template
 from xhtml2pdf import pisa
 import json
 import logging
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage
 from .forms import QuickReplyForm, ConversationReportForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
@@ -25,7 +25,18 @@ from core.views import GenericCreateView
 
 logger = logging.getLogger(__name__)
 
+# communications/views.py
 
+def get_agent_conversations(user):
+    """
+    Devuelve todas las conversaciones que tienen mensajes de email asociados
+    a las cuentas de este usuario.
+    """
+    # Primero obtenemos todos los EmailMessages de las cuentas del usuario
+    email_messages = EmailMessage.objects.filter(email_account__user=user).values_list('message_id', flat=True)
+    
+    # Luego obtenemos las conversaciones asociadas a esos mensajes
+    return Conversation.objects.filter(messages__id__in=email_messages).distinct()
 @login_required
 def dashboard(request):
     """Main communication dashboard"""
@@ -33,7 +44,9 @@ def dashboard(request):
     status_filter = request.GET.get('status')
     channel_filter = request.GET.get('channel')
     
-    base_qs = get_agent_conversations(request.user)
+    base_qs = get_agent_conversations(request.user).select_related(
+    "contact__client"
+).prefetch_related("messages")
     
     # Base filtering
     conversations = base_qs
@@ -59,7 +72,10 @@ def dashboard(request):
             conversations = conversations.filter(status='pending')
         elif status_filter == 'unread':
             # Show conversations with unread inbound messages
-            conversations = conversations.filter(messages__is_read=False, messages__direction='inbound').distinct()
+           conversations = conversations.filter(
+    messages__direction='inbound',
+    messages__is_read=False
+).distinct()
         elif status_filter != 'all':
             conversations = conversations.filter(status=status_filter)
         
@@ -126,7 +142,7 @@ def dashboard(request):
         'clients': clients,
         **counts # Unpack counts into context
     }
-    
+
     return render(request, 'communications/dashboard.html', context)
 
 
@@ -149,25 +165,26 @@ def _get_conversation_counts(user):
 
 
 @login_required
-def open_client_whatsapp(request, client_id):
+def open_client_whatsapp(request, client_id, channel):
     client = get_object_or_404(Client, pk=client_id)
     contact, _ = Contact.objects.get_or_create(
         client=client,
-        defaults={'preferred_channel': 'whatsapp'}
+        defaults={'preferred_channel': 'channel'}
     )
     
     conversation = Conversation.objects.filter(
         contact=contact,
-        channel='whatsapp',
-        status__in=['normal', 'pending']
+        channel=channel,
+        status__in=['normal', 'pending','open', 'assigned']
     ).first()
     
     if not conversation:
         conversation = Conversation.objects.create(
             contact=contact,
-            channel='whatsapp',
+            channel=channel,
             status='normal',
-            priority='normal'
+            priority='normal',
+            subject=f"Conversación con {client.name}" if channel == 'email' else None
         )
         assign_conversation_to_agent(conversation, agent=request.user, assigned_by=request.user)
     
@@ -309,10 +326,13 @@ def contact_360_view(request, pk):
     return render(request, 'communications/contact_360.html', context)
 
 
+from django.utils import timezone
+from django.db.models import Count, Q, Avg, F, ExpressionWrapper, DurationField
+from datetime import timedelta
+
 @login_required
 def supervisor_dashboard(request):
-    """Supervisor dashboard with metrics and team overview"""
-    # Check permission
+
     if not (request.user.is_superuser or 
             request.user.groups.filter(name='Supervisor').exists()):
         return HttpResponse('Unauthorized', status=401)
@@ -348,10 +368,11 @@ def supervisor_dashboard(request):
         'total_conversations': total_conversations,
         'open_conversations': open_conversations,
         'closed_today': closed_today,
-        'agent_stats': agent_stats,
+        
     }
-    
+
     return render(request, 'communications/supervisor_dashboard.html', context)
+
 
 
 @login_required
@@ -379,7 +400,9 @@ def settings_view(request):
 @require_http_methods(["GET", "POST"])
 def whatsapp_webhook(request):
     """WhatsApp Business API webhook endpoint"""
-    
+    print("ENTRÓ AL WEBHOOK")
+    print("METHOD:", request.method)
+    print("BODY:", request.body)
     if request.method == 'GET':
         # Webhook verification
         mode = request.GET.get('hub.mode')
