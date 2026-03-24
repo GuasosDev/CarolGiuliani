@@ -29,14 +29,23 @@ logger = logging.getLogger(__name__)
 
 def get_agent_conversations(user):
     """
-    Devuelve todas las conversaciones que tienen mensajes de email asociados
-    a las cuentas de este usuario.
+    Devuelve todas las conversaciones visibles para el usuario:
+    1. Conversaciones asignadas a él (WhatsApp o Email).
+    2. Conversaciones de Email vinculadas a sus cuentas configuradas.
+    3. Todas si es superusuario o supervisor.
     """
-    # Primero obtenemos todos los EmailMessages de las cuentas del usuario
-    email_messages = EmailMessage.objects.filter(email_account__user=user).values_list('message_id', flat=True)
+    if user.is_superuser or user.groups.filter(name='Supervisor').exists():
+        return Conversation.objects.all()
+        
+    # IDs de conversaciones de email vinculadas a las cuentas del usuario
+    email_convo_ids = EmailMessage.objects.filter(
+        email_account__user=user
+    ).values_list('message__conversation_id', flat=True)
     
-    # Luego obtenemos las conversaciones asociadas a esos mensajes
-    return Conversation.objects.filter(messages__id__in=email_messages).distinct()
+    # Retornar conversaciones asignadas al usuario O vinculadas por email
+    return Conversation.objects.filter(
+        models.Q(assigned_to=user) | models.Q(id__in=email_convo_ids)
+    ).distinct()
 @login_required
 def dashboard(request):
     """Main communication dashboard"""
