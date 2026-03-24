@@ -1,44 +1,222 @@
 {% extends "core/base.html" %}
 {% load static %}
 
-{% block title %}Configuración de Comunicaciones{% endblock %}
+{% block title %}Configuración del Sistema{% endblock %}
 
 {% block content %}
 <div class="container mt-3">
+    <!-- Header de la página -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2 class="fw-bold"><i class="fas fa-cog me-2"></i>Configuración del Sistema</h2>
+            <div>
+                <button class="btn btn-primary rounded-pill shadow-sm" hx-get="{% url 'user_management_create' %}" hx-target="#modal-body" onclick="openModal()">
+                    <i class="fas fa-user-plus me-2"></i>Nuevo Usuario
+                </button>
+                <button class="btn btn-outline-secondary rounded-pill shadow-sm ms-2" hx-get="{% url 'work_area_create' %}" hx-target="#modal-body" onclick="openModal()">
+                    <i class="fas fa-briefcase me-2"></i>Nueva Área
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header">Cuentas de WhatsApp</div>
-                <div class="card-body">
-                    <div class="list-group">
-                        {% for wa in whatsapp_accounts %}
-                        <div class="list-group-item">
-                            <div class="fw-bold">{{ wa.name }}</div>
-                            <div class="text-muted">{{ wa.phone_number }}</div>
-                            <span class="badge bg-{% if wa.is_active %}success{% else %}secondary{% endif %}">
-                                {% if wa.is_active %}Activa{% else %}Inactiva{% endif %}
-                            </span>
-                        </div>
-                        {% empty %}
-                        <div class="text-muted">Sin cuentas configuradas</div>
-                        {% endfor %}
+        <!-- Columna de Gestión de Usuarios -->
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-users me-2 text-primary"></i>Gestión de Usuarios</h5>
+                    <button class="btn btn-sm btn-outline-info rounded-pill" hx-get="{% url 'work_area_list' %}" hx-target="#modal-body" onclick="openModal()">
+                        <i class="fas fa-briefcase me-1"></i>Gestionar Áreas
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-3">Usuario</th>
+                                    <th>Rol</th>
+                                    <th>Área</th>
+                                    <th>Estado</th>
+                                    <th class="text-end pe-3">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in users %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <div class="fw-bold">{{ u.get_full_name|default:u.username }}</div>
+                                        <small class="text-muted">{{ u.email }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if u.userprofile.role == 'admin' %}bg-danger{% elif u.userprofile.role == 'supervisor' %}bg-warning{% else %}bg-info{% endif %}">
+                                            {{ u.userprofile.get_role_display|default:"Empleado" }}
+                                        </span>
+                                        <div class="mt-1">
+                                            {% for group in u.groups.all %}
+                                            <span class="badge bg-light text-dark border small" style="font-size: 0.65rem;">{{ group.name }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td>{{ u.userprofile.work_area.name|default:"-" }}</td>
+                                    <td>
+                                        {% if u.is_active %}
+                                        <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <button class="btn btn-sm btn-outline-primary border-0" hx-get="{% url 'user_management_update' u.pk %}" hx-target="#modal-body" onclick="openModal()" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger border-0" hx-get="{% url 'user_management_delete' u.pk %}" hx-target="#modal-body" onclick="openModal()" title="Eliminar">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">No hay usuarios registrados</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gestión de Privilegios -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-key me-2 text-warning"></i>Gestión de Privilegios</h5>
+                    <button class="btn btn-sm btn-primary rounded-pill" hx-get="{% url 'privilege_create' %}" hx-target="#modal-body" onclick="openModal()">
+                        <i class="fas fa-plus me-1"></i>Nuevo Privilegio
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-3">Nombre del Grupo</th>
+                                    <th>Permisos Asignados</th>
+                                    <th class="text-end pe-3">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for g in privileges %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <div class="fw-bold">{{ g.name }}</div>
+                                        <small class="text-muted">{{ g.user_set.count }} usuarios</small>
+                                    </td>
+                                    <td>
+                                        <div style="max-height: 60px; overflow-y: auto;">
+                                            {% for perm in g.permissions.all %}
+                                            <span class="badge bg-light text-dark border mb-1" title="{{ perm.content_type.app_label }} | {{ perm.codename }}">
+                                                {{ perm.name }}
+                                            </span>
+                                            {% empty %}
+                                            <span class="text-muted small">Sin permisos específicos</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <button class="btn btn-sm btn-outline-primary border-0" hx-get="{% url 'privilege_update' g.pk %}" hx-target="#modal-body" onclick="openModal()" title="Editar Grupo/Permisos">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger border-0" hx-get="{% url 'privilege_delete' g.pk %}" hx-target="#modal-body" onclick="openModal()" title="Eliminar Grupo">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center py-4 text-muted">No hay grupos de privilegios definidos</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header">Cuentas de Email</div>
-                <div class="card-body">
-                    <div class="list-group">
-                        {% for ea in email_accounts %}
-                        <div class="list-group-item">
-                            <div class="fw-bold">{{ ea.name }}</div>
-                            <div class="text-muted">{{ ea.email_address }}</div>
-                            <span class="badge bg-primary">{{ ea.get_provider_display }}</span>
+
+        <!-- Columna Lateral: Áreas y Cuentas -->
+        <div class="col-md-4">
+            <!-- Áreas Laborales -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-briefcase me-2 text-info"></i>Áreas Laborales</h5>
+                    <button class="btn btn-sm btn-outline-primary" hx-get="{% url 'work_area_create' %}" hx-target="#modal-body" onclick="openModal()">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for wa in work_areas %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-3">
+                            <div>
+                                <div class="fw-bold">{{ wa.name }}</div>
+                                {% if wa.description %}<small class="text-muted">{{ wa.description|truncatechars:40 }}</small>{% endif %}
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-light" hx-get="{% url 'work_area_update' wa.pk %}" hx-target="#modal-body" onclick="openModal()">
+                                    <i class="fas fa-edit text-muted"></i>
+                                </button>
+                                <button class="btn btn-sm btn-light" hx-get="{% url 'work_area_delete' wa.pk %}" hx-target="#modal-body" onclick="openModal()">
+                                    <i class="fas fa-trash text-danger"></i>
+                                </button>
+                            </div>
                         </div>
                         {% empty %}
-                        <div class="text-muted">Sin cuentas configuradas</div>
+                        <div class="p-4 text-center text-muted">No hay áreas configuradas</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cuentas WhatsApp -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fab fa-whatsapp me-2 text-success"></i>Cuentas WhatsApp</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for wa in whatsapp_accounts %}
+                        <div class="list-group-item py-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div class="fw-bold">{{ wa.name }}</div>
+                                <span class="badge bg-{% if wa.is_active %}success{% else %}secondary{% endif %}">
+                                    {% if wa.is_active %}Activa{% else %}Inactiva{% endif %}
+                                </span>
+                            </div>
+                            <small class="text-muted d-block">{{ wa.phone_number }}</small>
+                        </div>
+                        {% empty %}
+                        <div class="p-4 text-center text-muted">Sin cuentas configuradas</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cuentas Email -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-envelope me-2 text-primary"></i>Cuentas Email</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for ea in email_accounts %}
+                        <div class="list-group-item py-3">
+                            <div class="fw-bold">{{ ea.name }}</div>
+                            <small class="text-muted d-block">{{ ea.email_address }}</small>
+                            <span class="badge bg-light text-primary border mt-1">{{ ea.get_provider_display }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="p-4 text-center text-muted">Sin cuentas configuradas</div>
                         {% endfor %}
                     </div>
                 </div>
