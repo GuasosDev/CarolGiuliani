@@ -83,7 +83,7 @@ class CompanySettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, Generic
 class UserProfileUpdateView(LoginRequiredMixin, GenericFormMixin, UpdateView):
     model = User
     fields = ['first_name', 'last_name', 'email']
-    template_name = 'core/generic_form.html'
+    template_name = 'core/profile_personalization.html'
 
     def get_object(self, queryset=None):
         return self.request.user
@@ -91,32 +91,38 @@ class UserProfileUpdateView(LoginRequiredMixin, GenericFormMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = "Mi Perfil"
-        # Add profile fields manual handling if needed, or use a Form that includes Profile fields.
-        # For simplicity, let's just edit User fields here. 
-        # To edit UserProfile.phone, we need a custom form.
+        context['profile'] = self.request.user.userprofile
         return context
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        # Add phone field from profile
-        if hasattr(self.request.user, 'userprofile'):
-            form.fields['phone'] =  forms.CharField(initial=self.request.user.userprofile.phone, required=False)
-        else:
-             form.fields['phone'] =  forms.CharField(required=False)
+        profile = self.request.user.userprofile
+        form.fields['phone'] = forms.CharField(initial=profile.phone, required=False, label="Teléfono")
+        form.fields['avatar'] = forms.ImageField(required=False, label="Imagen de Perfil")
+        form.fields['dark_mode'] = forms.BooleanField(initial=profile.dark_mode, required=False, label="Modo Oscuro")
+        form.fields['font_size'] = forms.IntegerField(initial=profile.font_size, min_value=12, max_value=24, label="Tamaño de Fuente")
         return form
 
     def form_valid(self, form):
-        # We need to call parent form_valid to save the User object, 
-        # which will trigger GenericFormMixin.form_valid
-        # But we also need to save the phone.
+        user = form.save(commit=False)
+        user.first_name = form.cleaned_data.get('first_name', user.first_name)
+        user.last_name = form.cleaned_data.get('last_name', user.last_name)
+        user.email = form.cleaned_data.get('email', user.email)
+        user.save()
         
-        # Save profile phone manually
-        phone = form.cleaned_data.get('phone')
-        if phone:
-            profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
-            profile.phone = phone
-            profile.save()
-            
+        profile = user.userprofile
+        profile.phone = form.cleaned_data.get('phone')
+        
+        if 'avatar' in self.request.FILES:
+            profile.avatar = self.request.FILES['avatar']
+        
+        profile.dark_mode = form.cleaned_data.get('dark_mode', profile.dark_mode)
+        profile.font_size = form.cleaned_data.get('font_size', profile.font_size)
+        profile.save()
+        
+        from django.contrib import messages
+        messages.success(self.request, "Perfil actualizado correctamente.")
+        
         return super().form_valid(form)
 
 class GlobalSearchView(LoginRequiredMixin, TemplateView):

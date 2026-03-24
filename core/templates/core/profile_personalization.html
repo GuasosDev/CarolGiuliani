@@ -1,0 +1,198 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Mi Perfil - {{ user.get_full_name|default:user.username }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-card {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .avatar-upload-preview {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .settings-section {
+        background-color: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    body.dark-mode .settings-section {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    .font-preview-box {
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 20px;
+        background-color: #fff;
+    }
+    body.dark-mode .font-preview-box {
+        background-color: #1a1d21;
+        border-color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <h2 class="fw-bold mb-0"><i class="fas fa-user-circle me-2 text-primary"></i>Mi Perfil</h2>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary rounded-pill">
+                    <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+                </a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-pill px-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card profile-card">
+                <div class="card-body p-4 p-md-5">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Sección: Datos Personales -->
+                        <div class="settings-section">
+                            <h5 class="fw-bold mb-4 text-primary"><i class="fas fa-user-edit me-2"></i>Datos Personales</h5>
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-bold">Nombre</label>
+                                    <input type="text" name="first_name" class="form-control form-control-lg rounded-3" value="{{ user.first_name }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-bold">Apellido</label>
+                                    <input type="text" name="last_name" class="form-control form-control-lg rounded-3" value="{{ user.last_name }}">
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label text-muted small fw-bold">Correo Electrónico</label>
+                                    <input type="email" name="email" class="form-control form-control-lg rounded-3" value="{{ user.email }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small fw-bold">Teléfono</label>
+                                    <input type="text" name="phone" class="form-control form-control-lg rounded-3" value="{{ profile.phone }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sección: Personalización -->
+                        <h5 class="fw-bold mt-5 mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;">Apariencia y Sistema</h5>
+                        
+                        <!-- Imagen de Perfil -->
+                        <div class="settings-section">
+                            <h6 class="fw-bold mb-3">Imagen de Perfil</h6>
+                            <div class="d-flex align-items-center gap-4">
+                                <div class="avatar-container">
+                                    {% if profile.avatar %}
+                                        <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar-upload-preview">
+                                    {% else %}
+                                        <div class="avatar-upload-preview bg-secondary text-white d-flex align-items-center justify-content-center">
+                                            <i class="fas fa-user fa-3x"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <label class="form-label text-muted small">Subir nueva imagen</label>
+                                    <input type="file" name="avatar" class="form-control rounded-3" id="avatarInput">
+                                    <small class="text-muted mt-1 d-block">Recomendado: Imagen cuadrada (JPG, PNG)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modo Oscuro -->
+                        <div class="settings-section d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold mb-1">Modo Oscuro</h6>
+                                <p class="text-muted small mb-0">Alternar entre el tema claro y oscuro del sistema</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="dark_mode" id="darkModeToggle" 
+                                       style="width: 3.5em; height: 1.75em; cursor: pointer;"
+                                       {% if profile.dark_mode %}checked{% endif %}>
+                            </div>
+                        </div>
+
+                        <!-- Tamaño de Fuente -->
+                        <div class="settings-section">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="fw-bold mb-1">Tamaño de Fuente Global</h6>
+                                    <p class="text-muted small mb-0">Ajusta el tamaño del texto para todo el sistema</p>
+                                </div>
+                                <span id="fontSizeValue" class="badge bg-primary rounded-pill py-2 px-3 fs-6">{{ profile.font_size }}px</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3 px-2">
+                                <span class="small">Aa</span>
+                                <input type="range" class="form-range" name="font_size" min="12" max="24" step="1" id="fontSizeSlider" value="{{ profile.font_size }}">
+                                <span class="fs-3">Aa</span>
+                            </div>
+                            
+                            <div class="font-preview-box mt-4">
+                                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="font-size: 0.7rem;">Vista Previa</small>
+                                <p id="fontPreview" class="mb-0" style="font-size: {{ profile.font_size }}px;">
+                                    Así es como se verá el texto en el sistema. Ajusta el control deslizante para encontrar el tamaño más cómodo para ti.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Acciones -->
+                        <div class="mt-5 d-grid gap-3 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-outline-danger btn-lg rounded-pill px-4" id="resetDefaults">
+                                <i class="fas fa-undo me-2"></i>Restaurar Valores
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5 shadow-sm">
+                                <i class="fas fa-check-circle me-2"></i>Guardar Cambios
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Dinámica del Slider de Fuente
+    const slider = document.getElementById('fontSizeSlider');
+    const valueDisplay = document.getElementById('fontSizeValue');
+    const preview = document.getElementById('fontPreview');
+
+    slider.addEventListener('input', function() {
+        const val = this.value + 'px';
+        valueDisplay.textContent = val;
+        preview.style.fontSize = val;
+    });
+
+    // Restaurar valores por defecto
+    document.getElementById('resetDefaults').addEventListener('click', function() {
+        if(confirm('¿Estás seguro de que deseas restaurar la configuración predeterminada?')) {
+            slider.value = 16;
+            valueDisplay.textContent = '16px';
+            preview.style.fontSize = '16px';
+            document.getElementById('darkModeToggle').checked = false;
+        }
+    });
+
+    // Auto-cierre de alertas
+    setTimeout(function() {
+        var alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            var bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 4000);
+</script>
+{% endblock %}

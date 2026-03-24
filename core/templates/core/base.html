@@ -43,9 +43,27 @@
             event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
         });
     </script>
+
+    {% if user.is_authenticated %}
+    <style id="user-personalization">
+        :root {
+            --global-font-size: {{ user.userprofile.font_size }}px;
+        }
+        body {
+            font-size: var(--global-font-size) !important;
+        }
+        /* Propagate font size to common elements */
+        .card-title, h5, h6, .btn, .form-control, .form-label, table {
+            font-size: 1em !important;
+        }
+        small, .small {
+            font-size: 0.85em !important;
+        }
+    </style>
+    {% endif %}
 </head>
 
-<body>
+<body class="{% if user.is_authenticated and user.userprofile.dark_mode %}dark-mode{% endif %}">
     <header class="topbar">
         <div class="topbar-left">
             <div class="logo"> GuasosDev Soft</div>
@@ -54,16 +72,20 @@
             <div class="user-menu">
                 {% if user.is_authenticated %}
                 <div class="dropdown" style="display: inline-block;">
-                    <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"
+                    <a href="#" class="dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false"
                         style="text-decoration: none; color: inherit;">
-                        <span><i class="fas fa-user-circle"></i> {{ user.username }}</span>
+                        {% if user.userprofile.avatar %}
+                            <img src="{{ user.userprofile.avatar.url }}" alt="Avatar" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+                        {% else %}
+                            <i class="fas fa-user-circle fa-lg"></i>
+                        {% endif %}
+                        <span>{{ user.get_full_name|default:user.username }}</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li>
-                            <button class="dropdown-item" hx-get="{% url 'user_profile' %}" hx-target="#modal-body"
-                                onclick="openModal()">
+                            <a class="dropdown-item" href="{% url 'user_profile' %}">
                                 <i class="fas fa-user-circle me-2"></i> Mi Perfil
-                            </button>
+                            </a>
                         </li>
                         {% if user.is_superuser %}
                         <li>

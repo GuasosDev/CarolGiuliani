@@ -47,6 +47,11 @@ class UserProfile(models.Model):
     phone = models.CharField(max_length=50, blank=True, null=True)
     work_area = models.ForeignKey(WorkArea, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Área Laboral", related_name="users")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee', verbose_name="Rol del Usuario")
+    
+    # Personalization
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name="Imagen de Perfil")
+    dark_mode = models.BooleanField(default=False, verbose_name="Modo Oscuro")
+    font_size = models.IntegerField(default=16, verbose_name="Tamaño de Fuente (px)")
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
