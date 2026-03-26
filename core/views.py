@@ -188,8 +188,8 @@ class DataDeletionView(TemplateView):
 
 class UserRoleListView(UserPassesTestMixin, GenericListView):
     model = UserRole
-    list_fields = ['name', 'description']
-    list_headers = ['Nombre del Rol', 'Descripción']
+    list_fields = ['name', 'is_active', 'is_staff', 'is_superuser']
+    list_headers = ['Nombre del Rol', 'Activo', 'Staff', 'Superuser']
     title = "Roles de Usuario"
     create_url_name = 'user_role_create'
     update_url_name = 'user_role_update'
