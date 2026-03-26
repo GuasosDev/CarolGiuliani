@@ -149,7 +149,7 @@ def distribute_unassigned_conversations():
 @shared_task
 def close_inactive_conversations():
     """Close conversations inactive for 30 minutes"""
-    limit = timezone.now() - timedelta(minutes=30)
+    limit = timezone.now() - timedelta(minutes=1)
 
     conversations = Conversation.objects.filter(
         status="pending",

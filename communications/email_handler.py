@@ -137,6 +137,24 @@ class EmailHandler:
             return []
         finally:
             self.disconnect()
+
+    def clean_email_body(self, body):
+        if not body:
+            return body
+
+        separators = [
+            "On ",
+            "El ",
+            "From:",
+            "De:",
+            "-----Original Message-----"
+        ]
+
+        for sep in separators:
+            if sep in body:
+                return body.split(sep)[0].strip()
+
+        return body.strip()
     
     def process_incoming_email(self, email_message):
         """Process an incoming email and create database records"""
@@ -147,6 +165,11 @@ class EmailHandler:
             cc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Cc', [])]
             subject = email_message.get('Subject', '(No Subject)')
             message_id = email_message.get('Message-ID', '')
+            if not message_id:
+               message_id = f"<no-id-{uuid.uuid4()}@local>"
+            if EmailMessage.objects.filter(email_message_id=message_id).exists():
+                logger.warning(f"Duplicate email skipped: {message_id}")
+                return None
             in_reply_to = email_message.get('In-Reply-To', '')
             references = email_message.get('References', '')
             date = email_message.get('Date', '')
@@ -182,12 +205,15 @@ class EmailHandler:
             if conversation.user is None and self.account.user:
                 conversation.user = self.account.user
                 conversation.save()
+            
+            raw_body = plain_body or html_body or '(Empty message)'
+            clean_body = self.clean_email_body(raw_body)
             # Create message
             message = Message.objects.create(
                 conversation=conversation,
                 message_type='email',
                 direction='inbound',
-                content=plain_body or html_body or '(Empty message)',
+                content=clean_body,
                 sender_name=parseaddr(email_message.get('From', ''))[0] or from_address,
                 metadata={'date': date}
             )
@@ -388,7 +414,29 @@ class EmailHandler:
             self.smtp_connection.send_message(msg)
 
             # Guardar en la DB si hay conversación
-            
+            if conversation:
+                message = Message.objects.create(
+                    conversation=conversation,
+                    message_type='email',
+                    direction='outbound',
+                    content=body or html_body or '(Empty message)',
+                    sender_name=self.account.name,
+                    metadata={
+                        'message_id': msg_id
+                    }
+                )
+
+                EmailMessage.objects.create(
+                    message=message,
+                    email_account=self.account,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=body,
+                    email_message_id=msg_id,
+                    to_addresses=to_addresses,
+                    cc_addresses=cc_addresses or [],
+                    from_address=self.account.email_address
+                )
 
             logger.info(f"Email sent: {subject}")
             return True, "Email sent successfully"

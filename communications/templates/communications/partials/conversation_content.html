@@ -1,5 +1,5 @@
 <div class="omni-chat-wrapper d-flex flex-row h-100 flex-grow-1 border-0 shadow-none rounded-0 w-100" style="min-height: 100%;">
-    <!-- Main Chat Workspace -->
+    <!-- Main Chat Workspace 
    <div class="omni-chat-main">
         <div class="omni-chat-header bg-white">
             <div class="d-flex align-items-center">
@@ -52,7 +52,7 @@
                     {% endif %}
                 </form>
             </div>
-        </div>
+        </div>-->
 
         <div class="omni-messages-area bg-light" id="chatMessagesArea">
             <div class="date-divider">
@@ -87,7 +87,7 @@
                     </div>
 
                     <div class="msg-bubble">
-                        {{ m.content|linebreaksbr }}
+                        {{ m.content|striptags|linebreaksbr }}
                     </div>
 
                     <div class="message-meta d-flex justify-content-between">
