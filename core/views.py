@@ -418,21 +418,28 @@ class UserManagementUpdateView(UserPassesTestMixin, GenericUpdateView):
         user = form.save(commit=False)
         user_role = form.cleaned_data.get('user_role')
         
-        if user_role and user_role.name.lower() == 'administrador':
-            user.is_superuser = True
-            user.is_staff = True
-        elif user_role and user_role.name.lower() == 'supervisor':
-            user.is_superuser = False
-            user.is_staff = True
+        if user_role:
+            user.is_active = user_role.is_active
+            user.is_staff = user_role.is_staff
+            user.is_superuser = user_role.is_superuser
         else:
-            user.is_superuser = False
-            user.is_staff = False
+            # If no role, keep current status or set defaults
+            user.is_active = form.cleaned_data.get('is_active', user.is_active)
             
         user.save()
         
-        # Update groups
-        groups = form.cleaned_data.get('groups')
-        user.groups.set(groups if groups else [])
+        # Sync groups from role AND add manually selected groups
+        final_groups = set()
+        if user_role:
+            for g in user_role.groups.all():
+                final_groups.add(g)
+        
+        selected_groups = form.cleaned_data.get('groups')
+        if selected_groups:
+            for g in selected_groups:
+                final_groups.add(g)
+        
+        user.groups.set(list(final_groups))
         
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.user_role = user_role
