@@ -23,7 +23,8 @@ from core.views import (
     PrivacyPolicyView, TermsOfServiceView, DataDeletionView,
     WorkAreaListView, WorkAreaCreateView, WorkAreaUpdateView, WorkAreaDeleteView,
     UserManagementListView, UserManagementCreateView, UserManagementUpdateView, UserManagementDeleteView,
-    GroupListView, GroupCreateView, GroupUpdateView, GroupDeleteView
+    GroupListView, GroupCreateView, GroupUpdateView, GroupDeleteView,
+    UserRoleListView, UserRoleCreateView, UserRoleUpdateView, UserRoleDeleteView
 )
 
 urlpatterns = [
@@ -41,6 +42,12 @@ urlpatterns = [
     path('settings/work-areas/create/', WorkAreaCreateView.as_view(), name='work_area_create'),
     path('settings/work-areas/<int:pk>/update/', WorkAreaUpdateView.as_view(), name='work_area_update'),
     path('settings/work-areas/<int:pk>/delete/', WorkAreaDeleteView.as_view(), name='work_area_delete'),
+    
+    # User Roles
+    path('settings/roles/', UserRoleListView.as_view(), name='user_role_list'),
+    path('settings/roles/create/', UserRoleCreateView.as_view(), name='user_role_create'),
+    path('settings/roles/<int:pk>/update/', UserRoleUpdateView.as_view(), name='user_role_update'),
+    path('settings/roles/<int:pk>/delete/', UserRoleDeleteView.as_view(), name='user_role_delete'),
     
     # Privileges (Groups)
     path('settings/privileges/', GroupListView.as_view(), name='privilege_list'),

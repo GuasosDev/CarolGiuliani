@@ -50,8 +50,8 @@
                                         <small class="text-muted">{{ u.email }}</small>
                                     </td>
                                     <td>
-                                        <span class="badge {% if u.userprofile.role == 'admin' %}bg-danger{% elif u.userprofile.role == 'supervisor' %}bg-warning{% else %}bg-info{% endif %}">
-                                            {{ u.userprofile.get_role_display|default:"Empleado" }}
+                                        <span class="badge {% if u.userprofile.user_role.name == 'Administrador' %}bg-danger{% elif u.userprofile.user_role.name == 'Supervisor' %}bg-warning{% else %}bg-info{% endif %}">
+                                            {{ u.userprofile.user_role.name|default:"Sin Rol" }}
                                         </span>
                                         <div class="mt-1">
                                             {% for group in u.groups.all %}
@@ -173,6 +173,38 @@
                         </div>
                         {% empty %}
                         <div class="p-4 text-center text-muted">No hay áreas configuradas</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roles de Usuario -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-user-tag me-2 text-success"></i>Roles de Usuario</h5>
+                    <button class="btn btn-sm btn-outline-primary" hx-get="{% url 'user_role_create' %}" hx-target="#modal-body" onclick="openModal()">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for role in roles %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-3">
+                            <div>
+                                <div class="fw-bold">{{ role.name }}</div>
+                                {% if role.description %}<small class="text-muted">{{ role.description|truncatechars:40 }}</small>{% endif %}
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-light" hx-get="{% url 'user_role_update' role.pk %}" hx-target="#modal-body" onclick="openModal()">
+                                    <i class="fas fa-edit text-muted"></i>
+                                </button>
+                                <button class="btn btn-sm btn-light" hx-get="{% url 'user_role_delete' role.pk %}" hx-target="#modal-body" onclick="openModal()">
+                                    <i class="fas fa-trash text-danger"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="p-4 text-center text-muted">No hay roles configurados</div>
                         {% endfor %}
                     </div>
                 </div>

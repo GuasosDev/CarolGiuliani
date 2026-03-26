@@ -104,10 +104,20 @@
                                 <i class="fas fa-user-circle me-2"></i> Mi Perfil
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'communications:settings' %}">
+                                <i class="fas fa-cog me-2"></i> Configuración del sistema
+                            </a>
+                        </li>
                         {% if user.is_superuser %}
                         <li>
                             <a class="dropdown-item" href="{% url 'user_management_list' %}">
                                 <i class="fas fa-users-cog me-2"></i> Gestión de Usuarios
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'user_role_list' %}">
+                                <i class="fas fa-user-tag me-2"></i> Roles de Usuario
                             </a>
                         </li>
                         <li>

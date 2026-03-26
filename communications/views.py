@@ -394,12 +394,13 @@ def settings_view(request):
     
     from .models import WhatsAppAccount, EmailAccount
     from django.contrib.auth.models import User, Group
-    from core.models import WorkArea
+    from core.models import WorkArea, UserRole
     
     whatsapp_accounts = WhatsAppAccount.objects.all()
     email_accounts = EmailAccount.objects.all()
-    users = User.objects.all().select_related('userprofile', 'userprofile__work_area')
+    users = User.objects.all().select_related('userprofile', 'userprofile__work_area', 'userprofile__user_role')
     work_areas = WorkArea.objects.all()
+    roles = UserRole.objects.all()
     groups = Group.objects.all().prefetch_related('permissions')
     
     context = {
@@ -407,6 +408,7 @@ def settings_view(request):
         'email_accounts': email_accounts,
         'users': users,
         'work_areas': work_areas,
+        'roles': roles,
         'privileges': groups,
     }
     
