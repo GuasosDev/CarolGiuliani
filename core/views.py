@@ -338,6 +338,12 @@ class UserManagementCreateView(UserPassesTestMixin, GenericCreateView):
             required=False,
             label="Área Laboral"
         )
+        from communications.models import EmailAccount
+        form.fields['email_account'] = forms.ModelChoiceField(
+            queryset=EmailAccount.objects.all(),
+            required=False,
+            label="Cuenta de Email Asignada"
+        )
         return form
 
     def form_valid(self, form):
@@ -368,6 +374,12 @@ class UserManagementCreateView(UserPassesTestMixin, GenericCreateView):
                 final_groups.add(g)
         
         user.groups.set(list(final_groups))
+        
+        # Assign email account
+        email_account = form.cleaned_data.get('email_account')
+        if email_account:
+            email_account.user = user
+            email_account.save()
         
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.user_role = user_role
@@ -412,6 +424,14 @@ class UserManagementUpdateView(UserPassesTestMixin, GenericUpdateView):
             required=False,
             label="Área Laboral"
         )
+        from communications.models import EmailAccount
+        assigned_email = EmailAccount.objects.filter(user=self.get_object()).first()
+        form.fields['email_account'] = forms.ModelChoiceField(
+            queryset=EmailAccount.objects.all(),
+            initial=assigned_email,
+            required=False,
+            label="Cuenta de Email Asignada"
+        )
         return form
 
     def form_valid(self, form):
@@ -440,6 +460,16 @@ class UserManagementUpdateView(UserPassesTestMixin, GenericUpdateView):
                 final_groups.add(g)
         
         user.groups.set(list(final_groups))
+        
+        # Update assigned email account
+        from communications.models import EmailAccount
+        # First, clear existing assignment for this user
+        EmailAccount.objects.filter(user=user).update(user=None)
+        # Then, assign the new one
+        email_account = form.cleaned_data.get('email_account')
+        if email_account:
+            email_account.user = user
+            email_account.save()
         
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.user_role = user_role

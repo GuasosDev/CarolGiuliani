@@ -38,6 +38,7 @@
                                     <th class="ps-3">Usuario</th>
                                     <th>Rol</th>
                                     <th>Área</th>
+                                    <th>Email Asignado</th>
                                     <th>Estado</th>
                                     <th class="text-end pe-3">Acciones</th>
                                 </tr>
@@ -60,6 +61,13 @@
                                         </div>
                                     </td>
                                     <td>{{ u.userprofile.work_area.name|default:"-" }}</td>
+                                    <td>
+                                        {% for email_acc in u.email_accounts.all %}
+                                            <span class="badge bg-light text-primary border">{{ email_acc.email_address }}</span>
+                                        {% empty %}
+                                            <span class="text-muted small">-</span>
+                                        {% endfor %}
+                                    </td>
                                     <td>
                                         {% if u.is_active %}
                                         <span class="badge bg-success">Activo</span>
