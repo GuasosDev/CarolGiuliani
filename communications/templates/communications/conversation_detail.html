@@ -92,7 +92,7 @@
                                 </small>
 
                                 <div>
-                                    {{ message.content|linebreaks }}
+                                    {{ message.content|striptags|linebreaks }}
                                 </div>
 
                             </div>

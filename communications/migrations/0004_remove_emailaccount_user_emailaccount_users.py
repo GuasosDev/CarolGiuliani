@@ -12,10 +12,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='emailaccount',
-            name='user',
-        ),
         migrations.AddField(
             model_name='emailaccount',
             name='users',

@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -37,16 +37,30 @@ class WorkArea(models.Model):
     def __str__(self):
         return self.name
 
+class UserRole(models.Model):
+    name = models.CharField(max_length=100, verbose_name="Nombre del Rol")
+    description = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    
+    # Permissions and Status
+    is_active = models.BooleanField(default=True, verbose_name="Activo (Active)")
+    is_staff = models.BooleanField(default=False, verbose_name="Acceso al Staff (Staff status)")
+    is_superuser = models.BooleanField(default=False, verbose_name="Superusuario (Superuser status)")
+    
+    # Associated Groups
+    groups = models.ManyToManyField(Group, blank=True, related_name="user_roles", verbose_name="Grupos asociados")
+
+    class Meta:
+        verbose_name = "Rol"
+        verbose_name_plural = "Roles"
+
+    def __str__(self):
+        return self.name
+
 class UserProfile(models.Model):
-    ROLE_CHOICES = [
-        ('admin', 'Administrador'),
-        ('supervisor', 'Supervisor'),
-        ('employee', 'Empleado'),
-    ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     phone = models.CharField(max_length=50, blank=True, null=True)
     work_area = models.ForeignKey(WorkArea, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Área Laboral", related_name="users")
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee', verbose_name="Rol del Usuario")
+    user_role = models.ForeignKey(UserRole, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Rol del Usuario", related_name="users")
     
     # Personalization
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name="Imagen de Perfil")
@@ -54,7 +68,7 @@ class UserProfile(models.Model):
     font_size = models.IntegerField(default=16, verbose_name="Tamaño de Fuente (px)")
 
     def __str__(self):
-        return f"{self.user.username} - {self.get_role_display()}"
+        return f"{self.user.username} - {self.user_role.name if self.user_role else 'Sin Rol'}"
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

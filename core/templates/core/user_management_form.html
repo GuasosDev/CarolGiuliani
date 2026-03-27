@@ -31,6 +31,14 @@
                                 title="Nueva Área Laboral">
                             <i class="fas fa-plus-circle"></i>
                         </button>
+                        {% elif field.name == 'user_role' %}
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" 
+                                hx-get="{% url 'user_role_create' %}" 
+                                hx-target="#modal-secondary-body"
+                                onclick="openModalSecondary()"
+                                title="Nuevo Rol de Usuario">
+                            <i class="fas fa-plus-circle"></i>
+                        </button>
                         {% elif field.name == 'groups' %}
                         <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" 
                                 hx-get="{% url 'privilege_create' %}" 

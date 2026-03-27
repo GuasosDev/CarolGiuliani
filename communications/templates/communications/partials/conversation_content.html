@@ -1,26 +1,28 @@
-<div class="omni-chat-wrapper d-flex flex-row h-100 flex-grow-1 border-0 shadow-none rounded-0 w-100" style="min-height: 100%;">
-    <!-- Main Chat Workspace 
-   <div class="omni-chat-main">
+<div class="omni-chat-wrapper d-flex flex-row h-100 flex-grow-1 border-0 shadow-none rounded-0 w-100"
+    style="min-height: 100%;">
+    <!-- Main Chat Workspace -->
+    <div class="omni-chat-main">
         <div class="omni-chat-header bg-white">
             <div class="d-flex align-items-center">
                 <div class="omni-avatar bg-secondary me-3" style="width: 45px; height: 45px; font-size: 1.2rem;">
-                    {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+                    {{ conversation.get_display_name|make_list|first|upper }}
                 </div>
                 <div>
-                    <h5 class="mb-0 fw-bold text-dark">{{ conversation.contact.client.name|default:"Desconocido" }}
+                    <h5 class="mb-0 fw-bold text-dark">{{ conversation.get_display_name }}
                         <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span>
                         {% if conversation.status == 'normal' %}
-                            <span class="badge bg-success ms-2">Activo</span>
+                        <span class="badge bg-success ms-2">Activo</span>
                         {% elif conversation.status == 'pending' %}
-                            <span class="badge bg-warning text-dark ms-2">Pendiente</span>
+                        <span class="badge bg-warning text-dark ms-2">Pendiente</span>
                         {% elif conversation.status == 'closed' %}
-                            <span class="badge bg-danger ms-2">Cerrado</span>
+                        <span class="badge bg-danger ms-2">Cerrado</span>
                         {% endif %}
                     </h5>
                     <div class="small text-muted mt-1">
-                        <i class="fas fa-envelope me-1"></i> {{ conversation.contact.client.email|default:"Sin email" }}
+                        <i class="fas fa-envelope me-1"></i> {% if conversation.contact.client %}
+                        {{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
                         •
-                        <i class="fas fa-phone me-1"></i> {{ conversation.contact.whatsapp_number|default:conversation.contact.client.phone }}
+                        <i class="fas fa-phone me-1"></i> {{ conversation.contact.get_display_phone }}
                     </div>
                 </div>
             </div>
@@ -29,22 +31,23 @@
                 <button class="btn btn-outline-secondary d-flex align-items-center bg-light border-0 fw-bold me-2">
                     <i class="fas fa-exchange-alt me-2"></i> Transferir
                 </button>
-                
-                <form method="post" action="{% url 'communications:change_conversation_status' conversation.id %}" class="mb-0 d-flex gap-2">
+
+                <form method="post" action="{% url 'communications:change_conversation_status' conversation.id %}"
+                    class="mb-0 d-flex gap-2">
                     {% csrf_token %}
-                    
+
                     {% if conversation.status != 'normal' %}
                     <button type="submit" name="status" value="normal" class="btn btn-outline-success fw-bold">
                         <i class="fas fa-check me-1"></i> Activo
                     </button>
                     {% endif %}
-                    
+
                     {% if conversation.status != 'pending' %}
                     <button type="submit" name="status" value="pending" class="btn btn-outline-warning fw-bold">
                         <i class="fas fa-hourglass-half me-1"></i> Pendiente
                     </button>
                     {% endif %}
-                    
+
                     {% if conversation.status != 'closed' %}
                     <button type="submit" name="status" value="closed" class="btn btn-outline-danger fw-bold">
                         <i class="fas fa-times me-1"></i> Cerrar
@@ -64,7 +67,7 @@
                 <div
                     class="omni-avatar {% if m.direction == 'inbound' %}bg-secondary{% else %}bg-primary{% endif %} msg-avatar">
                     {% if m.direction == 'inbound' %}
-                    {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+                    {{ conversation.get_display_name|make_list|first|upper }}
                     {% else %}
                     {{ request.user.username|make_list|first|upper }}
                     {% endif %}
@@ -74,7 +77,8 @@
                     <div class="msg-header">
                         <span class="fw-bold text-dark">
                             {% if m.direction == 'inbound' %}
-                            {{ conversation.contact.client.name|default:m.sender }}
+                            {% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}
+                            {{ m.sender_name|default:conversation.contact.whatsapp_number }}{% endif %}
                             {% else %}
                             Tú
                             {% endif %}
@@ -125,27 +129,32 @@
                         <i class="fas fa-envelope me-1"></i> Email
                     </button>
                 </div>
-                
+
                 <div class="d-flex gap-2">
                     <div class="dropdown">
                         <button type="button" class="tool-btn" data-bs-toggle="dropdown" title="Respuestas Rápidas">
                             <i class="fas fa-bolt"></i>
                         </button>
-                        <div class="dropdown-menu dropdown-menu-end p-0 shadow-lg" style="width: 300px; max-height: 400px; overflow-y: auto;">
+                        <div class="dropdown-menu dropdown-menu-end p-0 shadow-lg"
+                            style="width: 300px; max-height: 400px; overflow-y: auto;">
                             <div class="p-2 border-bottom sticky-top bg-white">
-                                <input type="text" class="form-control form-control-sm" placeholder="Buscar respuesta..." onkeyup="filterQuickReplies(this)">
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Buscar respuesta..." onkeyup="filterQuickReplies(this)">
                             </div>
                             <div id="quick-replies-list">
                                 {% for reply in quick_replies %}
-                                <a href="#" class="dropdown-item p-2 border-bottom quick-reply-item" 
-                                   data-channel="{{ reply.channel }}"
-                                   onclick="insertQuickReply(this.dataset.content); return false;"
-                                   data-content="{{ reply.content }}">
+                                <a href="#" class="dropdown-item p-2 border-bottom quick-reply-item"
+                                    data-channel="{{ reply.channel }}"
+                                    onclick="insertQuickReply(this.dataset.content); return false;"
+                                    data-content="{{ reply.content }}">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title }}</strong>
-                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{ reply.shortcut }}</small>{% endif %}
+                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title
+                                            }}</strong>
+                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{
+                                            reply.shortcut }}</small>{% endif %}
                                     </div>
-                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{ reply.content }}</small>
+                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{
+                                        reply.content }}</small>
                                     <div class="d-flex gap-1 mt-1">
                                         {% if reply.channel == 'whatsapp' %}
                                         <i class="fab fa-whatsapp text-success" style="font-size: 0.7rem;"></i>
@@ -155,11 +164,13 @@
                                     </div>
                                 </a>
                                 {% empty %}
-                                <div class="p-3 text-center text-muted small">No hay respuestas rápidas configuradas</div>
+                                <div class="p-3 text-center text-muted small">No hay respuestas rápidas configuradas
+                                </div>
                                 {% endfor %}
                             </div>
                             <div class="p-2 border-top sticky-bottom bg-white text-center">
-                                <a href="{% url 'communications:quick_replies' %}" class="small text-primary text-decoration-none">
+                                <a href="{% url 'communications:quick_replies' %}"
+                                    class="small text-primary text-decoration-none">
                                     <i class="fas fa-cog me-1"></i> Administrar respuestas
                                 </a>
                             </div>
@@ -170,23 +181,28 @@
             </div>
 
             <!-- WhatsApp Form -->
-            <div id="channel-whatsapp" class="channel-content {% if conversation.channel == 'email' %}d-none{% endif %}">
+            <div id="channel-whatsapp"
+                class="channel-content {% if conversation.channel == 'email' %}d-none{% endif %}">
                 {% if whatsapp_account %}
-                <form method="post" action="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/" id="whatsappForm">
+                <form method="post"
+                    action="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/"
+                    id="whatsappForm">
                     {% csrf_token %}
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
-                    <input type="hidden" name="to_number" value="{{ conversation.contact.whatsapp_number|default:conversation.contact.client.phone }}">
+                    <input type="hidden" name="to_number" value="{{ conversation.contact.get_display_phone }}">
 
-                    <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary" style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                    <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary"
+                        style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
                         <textarea class="form-control border-0 shadow-none" name="message" rows="1"
                             placeholder="Escribe un mensaje de WhatsApp..."></textarea>
-                        
+
                         <button type="submit" class="btn-send ms-2 text-success" style="border:none; background:none;">
                             <i class="fas fa-paper-plane fa-lg"></i>
                         </button>
                     </div>
                     <div class="d-flex justify-content-between px-2 mt-2">
-                        <div class="small text-muted" style="font-size: 0.7rem;">Enter para enviar, Shift+Enter para nueva línea.</div>
+                        <div class="small text-muted" style="font-size: 0.7rem;">Enter para enviar, Shift+Enter para
+                            nueva línea.</div>
                         <div class="small fw-bold" style="font-size: 0.7rem; color: var(--omni-whatsapp);">
                             <span class="status-dot online"></span> CLIENTE EN LÍNEA VÍA WHATSAPP
                         </div>
@@ -202,21 +218,25 @@
             <!-- Email Form -->
             <div id="channel-email" class="channel-content {% if conversation.channel != 'email' %}d-none{% endif %}">
                 {% if email_account %}
-                <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/" id="emailForm">
+                <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
+                    id="emailForm">
                     {% csrf_token %}
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
-                    
+
                     <div class="bg-white p-2 rounded border mb-2">
                         <div class="mb-2 border-bottom pb-2">
-                            <input type="email" name="to_addresses" class="form-control form-control-sm border-0 px-0 mb-1" 
-                                placeholder="Para" value="{{ conversation.contact.client.email|default:'' }}" required>
-                            <input type="text" name="subject" class="form-control form-control-sm border-0 px-0 fw-bold" 
-                                placeholder="Asunto" value="{% if conversation.subject %}Re: {{ conversation.subject }}{% endif %}" required>
+                            <input type="email" name="to_addresses"
+                                class="form-control form-control-sm border-0 px-0 mb-1" placeholder="Para"
+                                value="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
+                                required>
+                            <input type="text" name="subject" class="form-control form-control-sm border-0 px-0 fw-bold"
+                                placeholder="Asunto"
+                                value="{% if conversation.subject %}Re: {{ conversation.subject }}{% endif %}" required>
                         </div>
                         <textarea class="form-control border-0 shadow-none px-0" name="body" rows="3"
                             placeholder="Escribe el contenido del correo..." required></textarea>
                     </div>
-                    
+
                     <div class="d-flex justify-content-end">
                         <button type="submit" class="btn btn-primary btn-sm px-4">
                             <i class="fas fa-paper-plane me-2"></i> Enviar Email
@@ -232,195 +252,195 @@
         </div>
 
         <script>
-        function switchChannel(channel) {
-            // Reset buttons
-            document.getElementById('btn-whatsapp').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
-            document.getElementById('btn-email').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
-            
-            // Hide all contents
-            document.getElementById('channel-whatsapp').classList.add('d-none');
-            document.getElementById('channel-email').classList.add('d-none');
-            
-            // Activate selected
-            const btn = document.getElementById('btn-' + channel);
-            btn.className = 'btn btn-sm btn-white rounded-pill px-3 active shadow-sm';
-            
-            if (channel === 'whatsapp') {
-                btn.classList.add('text-success');
-                document.getElementById('channel-whatsapp').classList.remove('d-none');
-            } else {
-                btn.classList.add('text-primary');
-                document.getElementById('channel-email').classList.remove('d-none');
-            }
-        }
+            function switchChannel(channel) {
+                // Reset buttons
+                document.getElementById('btn-whatsapp').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
+                document.getElementById('btn-email').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
 
-        function insertQuickReply(content) {
-            // Determine active channel
-            const whatsappContainer = document.getElementById('channel-whatsapp');
-            const emailContainer = document.getElementById('channel-email');
-            
-            let activeTextarea = null;
-            
-            if (!whatsappContainer.classList.contains('d-none')) {
-                activeTextarea = whatsappContainer.querySelector('textarea[name="message"]');
-            } else if (!emailContainer.classList.contains('d-none')) {
-                activeTextarea = emailContainer.querySelector('textarea[name="body"]');
-            }
-            
-            if (activeTextarea) {
-                const start = activeTextarea.selectionStart;
-                const end = activeTextarea.selectionEnd;
-                const text = activeTextarea.value;
-                
-                activeTextarea.value = text.substring(0, start) + content + text.substring(end);
-                activeTextarea.selectionStart = activeTextarea.selectionEnd = start + content.length;
-                activeTextarea.focus();
-            }
-        }
+                // Hide all contents
+                document.getElementById('channel-whatsapp').classList.add('d-none');
+                document.getElementById('channel-email').classList.add('d-none');
 
-        function filterQuickReplies(input) {
-            const filter = input.value.toLowerCase();
-            const items = document.querySelectorAll('#quick-replies-list .dropdown-item');
-            
-            items.forEach(item => {
-                const text = item.innerText.toLowerCase();
-                if (text.includes(filter)) {
-                    item.style.display = '';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
+                // Activate selected
+                const btn = document.getElementById('btn-' + channel);
+                btn.className = 'btn btn-sm btn-white rounded-pill px-3 active shadow-sm';
 
-        // Handle form submissions
-        // In HTMX partials, we don't need DOMContentLoaded as elements are already inserted
-        (function() {
-            const whatsappForm = document.getElementById('whatsappForm');
-            const emailForm = document.getElementById('emailForm');
-            
-            if (whatsappForm) {
-                whatsappForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    sendMessage(this, 'whatsapp');
-                });
-            }
-            
-            if (emailForm) {
-                emailForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    sendMessage(this, 'email');
-                });
-            }
-        })();
-
-        function sendMessage(form, channel) {
-            const formData = new FormData(form);
-            const btn = form.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            
-            // Validate to_number for WhatsApp
-            if (channel === 'whatsapp') {
-                const toNumber = formData.get('to_number');
-                if (!toNumber || toNumber.trim() === '') {
-                    alert('Error: El contacto no tiene un número de teléfono válido para WhatsApp. Por favor edite el contacto y agregue un número de teléfono.');
-                    return;
-                }
-            }
-            
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-            
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-                }
-            })
-            .then(response => {
-                if (response.ok) {
-                    return response.json();
-                }
-                return response.json().then(data => {
-                    let errorMsg = 'Error al enviar mensaje';
-                    if (data.error) {
-                        if (typeof data.error === 'string') {
-                            errorMsg = data.error;
-                        } else if (typeof data.error === 'object') {
-                            // Handle nested error objects (common in WhatsApp API)
-                            if (data.error.message) {
-                                errorMsg = data.error.message;
-                            } else if (data.error.error && data.error.error.message) {
-                                errorMsg = data.error.error.message;
-                            } else {
-                                try {
-                                    errorMsg = JSON.stringify(data.error);
-                                } catch (e) {
-                                    errorMsg = 'Error desconocido en la respuesta';
-                                }
-                            }
-                        }
-                    } else if (data.detail) {
-                        errorMsg = data.detail;
-                    }
-                    throw new Error(errorMsg);
-                }).catch(e => {
-                    // Fallback if json() fails or data.error is missing
-                    if (e.message) throw e;
-                    throw new Error('Error en la solicitud: ' + response.statusText);
-                });
-            })
-            .then(data => {
-                // Clear inputs
                 if (channel === 'whatsapp') {
-                    form.querySelector('textarea[name="message"]').value = '';
+                    btn.classList.add('text-success');
+                    document.getElementById('channel-whatsapp').classList.remove('d-none');
                 } else {
-                    form.querySelector('textarea[name="body"]').value = '';
-                    form.querySelector('input[name="subject"]').value = ''; 
+                    btn.classList.add('text-primary');
+                    document.getElementById('channel-email').classList.remove('d-none');
                 }
-                
-                // Reload messages area
-                refreshMessages();
-                
-                // Show success feedback (optional)
-                btn.innerHTML = '<i class="fas fa-check"></i> Enviado';
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                }, 2000);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error al enviar mensaje: ' + error.message);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            });
-        }
+            }
 
-        function refreshMessages() {
-            const messagesArea = document.getElementById('chatMessagesArea');
-            const url = "{% url 'communications:conversation_detail' conversation.id %}?partial=true";
-            
-            // Fetch conversation detail
-            fetch(url, {
-                headers: {
-                    'HX-Request': 'true' // Request partial
+            function insertQuickReply(content) {
+                // Determine active channel
+                const whatsappContainer = document.getElementById('channel-whatsapp');
+                const emailContainer = document.getElementById('channel-email');
+
+                let activeTextarea = null;
+
+                if (!whatsappContainer.classList.contains('d-none')) {
+                    activeTextarea = whatsappContainer.querySelector('textarea[name="message"]');
+                } else if (!emailContainer.classList.contains('d-none')) {
+                    activeTextarea = emailContainer.querySelector('textarea[name="body"]');
                 }
-            })
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newMessages = doc.getElementById('chatMessagesArea');
-                
-                if (newMessages) {
-                    messagesArea.innerHTML = newMessages.innerHTML;
-                    // Scroll to bottom
-                    messagesArea.scrollTop = messagesArea.scrollHeight;
+
+                if (activeTextarea) {
+                    const start = activeTextarea.selectionStart;
+                    const end = activeTextarea.selectionEnd;
+                    const text = activeTextarea.value;
+
+                    activeTextarea.value = text.substring(0, start) + content + text.substring(end);
+                    activeTextarea.selectionStart = activeTextarea.selectionEnd = start + content.length;
+                    activeTextarea.focus();
                 }
-            })
-            .catch(err => console.error('Error refreshing messages:', err));
-        }
+            }
+
+            function filterQuickReplies(input) {
+                const filter = input.value.toLowerCase();
+                const items = document.querySelectorAll('#quick-replies-list .dropdown-item');
+
+                items.forEach(item => {
+                    const text = item.innerText.toLowerCase();
+                    if (text.includes(filter)) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+
+            // Handle form submissions
+            // In HTMX partials, we don't need DOMContentLoaded as elements are already inserted
+            (function () {
+                const whatsappForm = document.getElementById('whatsappForm');
+                const emailForm = document.getElementById('emailForm');
+
+                if (whatsappForm) {
+                    whatsappForm.addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        sendMessage(this, 'whatsapp');
+                    });
+                }
+
+                if (emailForm) {
+                    emailForm.addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        sendMessage(this, 'email');
+                    });
+                }
+            })();
+
+            function sendMessage(form, channel) {
+                const formData = new FormData(form);
+                const btn = form.querySelector('button[type="submit"]');
+                const originalText = btn.innerHTML;
+
+                // Validate to_number for WhatsApp
+                if (channel === 'whatsapp') {
+                    const toNumber = formData.get('to_number');
+                    if (!toNumber || toNumber.trim() === '') {
+                        alert('Error: El contacto no tiene un número de teléfono válido para WhatsApp. Por favor edite el contacto y agregue un número de teléfono.');
+                        return;
+                    }
+                }
+
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                    }
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        return response.json().then(data => {
+                            let errorMsg = 'Error al enviar mensaje';
+                            if (data.error) {
+                                if (typeof data.error === 'string') {
+                                    errorMsg = data.error;
+                                } else if (typeof data.error === 'object') {
+                                    // Handle nested error objects (common in WhatsApp API)
+                                    if (data.error.message) {
+                                        errorMsg = data.error.message;
+                                    } else if (data.error.error && data.error.error.message) {
+                                        errorMsg = data.error.error.message;
+                                    } else {
+                                        try {
+                                            errorMsg = JSON.stringify(data.error);
+                                        } catch (e) {
+                                            errorMsg = 'Error desconocido en la respuesta';
+                                        }
+                                    }
+                                }
+                            } else if (data.detail) {
+                                errorMsg = data.detail;
+                            }
+                            throw new Error(errorMsg);
+                        }).catch(e => {
+                            // Fallback if json() fails or data.error is missing
+                            if (e.message) throw e;
+                            throw new Error('Error en la solicitud: ' + response.statusText);
+                        });
+                    })
+                    .then(data => {
+                        // Clear inputs
+                        if (channel === 'whatsapp') {
+                            form.querySelector('textarea[name="message"]').value = '';
+                        } else {
+                            form.querySelector('textarea[name="body"]').value = '';
+                            form.querySelector('input[name="subject"]').value = '';
+                        }
+
+                        // Reload messages area
+                        refreshMessages();
+
+                        // Show success feedback (optional)
+                        btn.innerHTML = '<i class="fas fa-check"></i> Enviado';
+                        setTimeout(() => {
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                        }, 2000);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error al enviar mensaje: ' + error.message);
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    });
+            }
+
+            function refreshMessages() {
+                const messagesArea = document.getElementById('chatMessagesArea');
+                const url = "{% url 'communications:conversation_detail' conversation.id %}?partial=true";
+
+                // Fetch conversation detail
+                fetch(url, {
+                    headers: {
+                        'HX-Request': 'true' // Request partial
+                    }
+                })
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const newMessages = doc.getElementById('chatMessagesArea');
+
+                        if (newMessages) {
+                            messagesArea.innerHTML = newMessages.innerHTML;
+                            // Scroll to bottom
+                            messagesArea.scrollTop = messagesArea.scrollHeight;
+                        }
+                    })
+                    .catch(err => console.error('Error refreshing messages:', err));
+            }
         </script>
     </div>
 
@@ -429,10 +449,10 @@
         <div class="p-4 text-center border-bottom bg-white">
             <div class="omni-avatar bg-warning mx-auto mb-3"
                 style="width: 80px; height: 80px; font-size: 2rem; box-shadow: 0 5px 15px rgba(255,184,34,0.3);">
-                {{ conversation.contact.client.name|make_list|first|upper|default:"?" }}
+                {{ conversation.get_display_name|make_list|first|upper }}
             </div>
 
-            <h5 class="fw-bold text-dark mb-1">{{ conversation.contact.client.name|default:"Desconocido" }}</h5>
+            <h5 class="fw-bold text-dark mb-1">{{ conversation.get_display_name }}</h5>
             <div class="text-muted small mb-3">Cliente • <span class="omni-badge status-active">ACTIVO</span></div>
         </div>
 
@@ -440,18 +460,19 @@
             <div class="details-section">
                 <h6 class="details-title">Datos del Cliente</h6>
 
+                {% if conversation.contact.client %}
                 <div class="detail-item text-dark">
                     <i class="fas fa-building text-center" title="Razón Social / Empresa"></i>
-                    <div>{{ conversation.contact.client.business_name|default:conversation.contact.client.name|default:"Sin Empresa" }}</div>
+                    <div>{{conversation.contact.client.business_name|default:conversation.contact.client.name|default:"Sin Empresa" }}</div>
                 </div>
-                
+
                 {% if conversation.contact.client.cuit %}
                 <div class="detail-item text-dark">
                     <i class="fas fa-id-card text-center" title="CUIT"></i>
                     <div>{{ conversation.contact.client.cuit }}</div>
                 </div>
                 {% endif %}
-                
+
                 {% if conversation.contact.client.address %}
                 <div class="detail-item text-dark">
                     <i class="fas fa-map-marker-alt text-center" title="Dirección Física"></i>
@@ -465,20 +486,23 @@
                     <div>{{ conversation.contact.client.fiscal_address }}</div>
                 </div>
                 {% endif %}
-                
+
                 {% if conversation.contact.client.job_title %}
                 <div class="detail-item text-dark">
                     <i class="fas fa-briefcase text-center" title="Cargo"></i>
                     <div>{{ conversation.contact.client.job_title }}</div>
                 </div>
                 {% endif %}
-                
+                {% else %}
+                <div class="text-muted small mb-3">Sin datos de cliente vinculados.</div>
+                {% endif %}
+
                 <div class="detail-item text-dark">
                     <i class="far fa-clock text-center" title="Hora Local"></i>
                     <div>Hora Local: {% now "H:i A" %}</div>
                 </div>
-                
-                {% if conversation.contact.client.additional_info %}
+
+                {% if conversation.contact.client and conversation.contact.client.additional_info %}
                 <div class="mt-2 p-2 bg-light rounded small border">
                     <strong class="d-block mb-1 text-muted" style="font-size: 0.7rem;">INFO ADICIONAL</strong>
                     {{ conversation.contact.client.additional_info|linebreaksbr }}
@@ -489,15 +513,13 @@
                 {% if conversation.contact.client %}
                 <div class="mt-3">
                     <h6 class="details-title mb-2">Notas Internas</h6>
-                    <form hx-post="{% url 'client_update_note' conversation.contact.client.pk %}" 
-                          hx-trigger="change delay:500ms, blur" 
-                          hx-swap="none">
+                    <form hx-post="{% url 'client_update_note' conversation.contact.client.pk %}"
+                        hx-trigger="change delay:500ms, blur" hx-swap="none">
                         {% csrf_token %}
-                        <textarea name="internal_notes" 
-                                  class="form-control form-control-sm bg-light border-0 shadow-none" 
-                                  rows="4" 
-                                  placeholder="Escribe una nota..."
-                                  style="font-size: 0.85rem; resize: none;">{{ conversation.contact.client.internal_notes|default:"" }}</textarea>
+                        <textarea name="internal_notes"
+                            class="form-control form-control-sm bg-light border-0 shadow-none" rows="4"
+                            placeholder="Escribe una nota..."
+                            style="font-size: 0.85rem; resize: none;">{{ conversation.contact.client.internal_notes|default:"" }}</textarea>
                         <div class="text-end mt-1">
                             <small class="text-muted" style="font-size: 0.7rem;">
                                 <i class="fas fa-save me-1"></i>Guardado automático
@@ -514,33 +536,29 @@
                     {% if conversation.contact.client %}
                     <button class="btn btn-sm btn-light text-primary py-0 px-2"
                         hx-get="{% url 'client_tag_list_for_client' conversation.contact.client.pk %}"
-                        hx-target="#modal-body"
-                        onclick="openModal()"
-                        style="font-size: 0.7rem; font-weight: 700;">+ Añadir</button>
+                        hx-target="#modal-body" onclick="openModal()" style="font-size: 0.7rem; font-weight: 700;">+
+                        Añadir</button>
                     {% endif %}
                 </div>
 
                 <div class="tag-list" id="client-tags-container"
-                     hx-get="{% url 'communications:conversation_detail' conversation.id %}"
-                     hx-select="#client-tags-container"
-                     hx-trigger="tagsChanged from:body"
-                     hx-swap="outerHTML">
+                    hx-get="{% url 'communications:conversation_detail' conversation.id %}"
+                    hx-select="#client-tags-container" hx-trigger="tagsChanged from:body" hx-swap="outerHTML">
                     {% if conversation.contact.client %}
-                        {% for tag in conversation.contact.client.tags.all %}
-                        <span class="badge rounded-pill me-1 mb-1 border" 
-                              style="background-color: {{ tag.color }}20; color: {{ tag.color }}; border-color: {{ tag.color }} !important; font-weight: 500;">
-                            {{ tag.name }} 
-                            <i class="fas fa-times ms-1" style="cursor: pointer;"
-                               hx-post="{% url 'client_manage_tags' conversation.contact.client.pk %}"
-                               hx-vals='{"tag_id": "{{ tag.id }}", "action": "remove"}'
-                               hx-confirm="¿Quitar etiqueta?"
-                               hx-swap="none"></i>
-                        </span>
-                        {% empty %}
-                        <small class="text-muted fst-italic">Sin etiquetas asignadas</small>
-                        {% endfor %}
+                    {% for tag in conversation.contact.client.tags.all %}
+                    <span class="badge rounded-pill me-1 mb-1 border"
+                        style="background-color: {{ tag.color }}20; color: {{ tag.color }}; border-color: {{ tag.color }} !important; font-weight: 500;">
+                        {{ tag.name }}
+                        <i class="fas fa-times ms-1" style="cursor: pointer;"
+                            hx-post="{% url 'client_manage_tags' conversation.contact.client.pk %}"
+                            hx-vals='{"tag_id": "{{ tag.id }}", "action": "remove"}' hx-confirm="¿Quitar etiqueta?"
+                            hx-swap="none"></i>
+                    </span>
+                    {% empty %}
+                    <small class="text-muted fst-italic">Sin etiquetas asignadas</small>
+                    {% endfor %}
                     {% else %}
-                        <small class="text-muted">Asocie un cliente para gestionar etiquetas</small>
+                    <small class="text-muted">Asocie un cliente para gestionar etiquetas</small>
                     {% endif %}
                 </div>
             </div>
@@ -586,56 +604,56 @@
     }
 
     // Scroll chat to bottom on load
-    setTimeout(function() {
+    setTimeout(function () {
         var chatArea = document.getElementById("chatMessagesArea");
-        if(chatArea) {
+        if (chatArea) {
             chatArea.scrollTop = chatArea.scrollHeight;
         }
     }, 100);
 
     // Auto-refresh implementation (Polling)
     function initPolling() {
-        window.conversationPollInterval = setInterval(function() {
+        window.conversationPollInterval = setInterval(function () {
             // Check if element still exists (if user navigated away)
             var chatArea = document.getElementById("chatMessagesArea");
             if (!chatArea) {
                 clearInterval(window.conversationPollInterval);
                 return;
             }
-            
+
             // Refresh sidebar list (optional)
             if (document.getElementById('sidebar-conversations-list')) {
                 // Use a safer approach than .load which might duplicate scripts
                 // Ideally sidebar should be separate, but for now we leave it or comment it out if it causes issues
                 // $('#sidebar-conversations-list').load(window.location.href + ' #sidebar-conversations-list > *');
             }
-            
+
             // Refresh messages area
             // Use fetch instead of jQuery for consistency and better error handling
             const url = "{% url 'communications:conversation_detail' conversation.id %}?partial=true";
-            
+
             fetch(url, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newContent = doc.getElementById('chatMessagesArea');
-                
-                if (newContent && chatArea) {
-                    const isAtBottom = chatArea.scrollHeight - chatArea.scrollTop <= chatArea.clientHeight + 100;
-                    chatArea.innerHTML = newContent.innerHTML;
-                    
-                    if (isAtBottom) {
-                        chatArea.scrollTop = chatArea.scrollHeight;
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newContent = doc.getElementById('chatMessagesArea');
+
+                    if (newContent && chatArea) {
+                        const isAtBottom = chatArea.scrollHeight - chatArea.scrollTop <= chatArea.clientHeight + 100;
+                        chatArea.innerHTML = newContent.innerHTML;
+
+                        if (isAtBottom) {
+                            chatArea.scrollTop = chatArea.scrollHeight;
+                        }
                     }
-                }
-            })
-            .catch(err => console.error('Polling error:', err));
+                })
+                .catch(err => console.error('Polling error:', err));
 
         }, 10000); // 10 seconds interval
     }
-    
+
     initPolling();
 </script>

@@ -38,6 +38,7 @@
                                     <th class="ps-3">Usuario</th>
                                     <th>Rol</th>
                                     <th>Área</th>
+                                    <th>Email Asignado</th>
                                     <th>Estado</th>
                                     <th class="text-end pe-3">Acciones</th>
                                 </tr>
@@ -50,8 +51,8 @@
                                         <small class="text-muted">{{ u.email }}</small>
                                     </td>
                                     <td>
-                                        <span class="badge {% if u.userprofile.role == 'admin' %}bg-danger{% elif u.userprofile.role == 'supervisor' %}bg-warning{% else %}bg-info{% endif %}">
-                                            {{ u.userprofile.get_role_display|default:"Empleado" }}
+                                        <span class="badge {% if u.userprofile.user_role.name == 'Administrador' %}bg-danger{% elif u.userprofile.user_role.name == 'Supervisor' %}bg-warning{% else %}bg-info{% endif %}">
+                                            {{ u.userprofile.user_role.name|default:"Sin Rol" }}
                                         </span>
                                         <div class="mt-1">
                                             {% for group in u.groups.all %}
@@ -60,6 +61,13 @@
                                         </div>
                                     </td>
                                     <td>{{ u.userprofile.work_area.name|default:"-" }}</td>
+                                    <td>
+                                        {% for email_acc in u.email_accounts.all %}
+                                            <span class="badge bg-light text-primary border">{{ email_acc.email_address }}</span>
+                                        {% empty %}
+                                            <span class="text-muted small">-</span>
+                                        {% endfor %}
+                                    </td>
                                     <td>
                                         {% if u.is_active %}
                                         <span class="badge bg-success">Activo</span>
@@ -174,6 +182,64 @@
                         {% empty %}
                         <div class="p-4 text-center text-muted">No hay áreas configuradas</div>
                         {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roles de Usuario -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-user-tag me-2 text-success"></i>Roles de Usuario</h5>
+                    <button class="btn btn-sm btn-outline-primary" hx-get="{% url 'user_role_create' %}" hx-target="#modal-body" onclick="openModal()">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-3">Nombre del Rol</th>
+                                    <th>Configuración</th>
+                                    <th>Grupos Asociados</th>
+                                    <th class="text-end pe-3">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for role in roles %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <div class="fw-bold">{{ role.name }}</div>
+                                        <small class="text-muted">{{ role.description|truncatechars:40 }}</small>
+                                    </td>
+                                    <td>
+                                        {% if role.is_active %}<span class="badge bg-success-light text-success border border-success me-1">Active</span>{% endif %}
+                                        {% if role.is_staff %}<span class="badge bg-info-light text-info border border-info me-1">Staff</span>{% endif %}
+                                        {% if role.is_superuser %}<span class="badge bg-danger-light text-danger border border-danger">Superuser</span>{% endif %}
+                                    </td>
+                                    <td>
+                                        {% for g in role.groups.all %}
+                                        <span class="badge bg-light text-dark border mb-1 small">{{ g.name }}</span>
+                                        {% empty %}
+                                        <span class="text-muted small">Ninguno</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <button class="btn btn-sm btn-light" hx-get="{% url 'user_role_update' role.pk %}" hx-target="#modal-body" onclick="openModal()">
+                                            <i class="fas fa-edit text-muted"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-light" hx-get="{% url 'user_role_delete' role.pk %}" hx-target="#modal-body" onclick="openModal()">
+                                            <i class="fas fa-trash text-danger"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No hay roles configurados</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

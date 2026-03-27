@@ -4,7 +4,7 @@ from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.contrib.auth.models import User, Group, Permission
-from .models import CompanySettings, UserProfile, WorkArea
+from .models import CompanySettings, UserProfile, WorkArea, UserRole
 from django import forms
 import json
 from django.db.models import Q
@@ -186,6 +186,43 @@ class TermsOfServiceView(TemplateView):
 class DataDeletionView(TemplateView):
     template_name = 'core/legal/data_deletion.html'
 
+class UserRoleListView(UserPassesTestMixin, GenericListView):
+    model = UserRole
+    list_fields = ['name', 'is_active', 'is_staff', 'is_superuser']
+    list_headers = ['Nombre del Rol', 'Activo', 'Staff', 'Superuser']
+    title = "Roles de Usuario"
+    create_url_name = 'user_role_create'
+    update_url_name = 'user_role_update'
+    delete_url_name = 'user_role_delete'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class UserRoleCreateView(UserPassesTestMixin, GenericCreateView):
+    model = UserRole
+    fields = ['name', 'description', 'is_active', 'is_staff', 'is_superuser', 'groups']
+    title = "Nuevo Rol"
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class UserRoleUpdateView(UserPassesTestMixin, GenericUpdateView):
+    model = UserRole
+    fields = ['name', 'description', 'is_active', 'is_staff', 'is_superuser', 'groups']
+    title = "Editar Rol"
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class UserRoleDeleteView(UserPassesTestMixin, GenericDeleteView):
+    model = UserRole
+    success_url = reverse_lazy('communications:settings')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
 class GroupListView(UserPassesTestMixin, GenericListView):
     model = Group
     list_fields = ['name']
@@ -262,7 +299,7 @@ class WorkAreaDeleteView(UserPassesTestMixin, GenericDeleteView):
 
 class UserManagementListView(UserPassesTestMixin, GenericListView):
     model = User
-    list_fields = ['username', 'first_name', 'last_name', 'email', 'userprofile__get_role_display', 'userprofile__work_area__name']
+    list_fields = ['username', 'first_name', 'last_name', 'email', 'userprofile__user_role__name', 'userprofile__work_area__name']
     list_headers = ['Usuario', 'Nombre', 'Apellido', 'Email', 'Rol', 'Área Laboral']
     title = "Gestión de Usuarios"
     create_url_name = 'user_management_create'
@@ -285,7 +322,11 @@ class UserManagementCreateView(UserPassesTestMixin, GenericCreateView):
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         form.fields['password'].widget = forms.PasswordInput()
-        form.fields['role'] = forms.ChoiceField(choices=UserProfile.ROLE_CHOICES, label="Rol")
+        form.fields['user_role'] = forms.ModelChoiceField(
+            queryset=UserRole.objects.all(),
+            required=False,
+            label="Rol"
+        )
         form.fields['groups'] = forms.ModelMultipleChoiceField(
             queryset=Group.objects.all(),
             required=False,
@@ -297,32 +338,51 @@ class UserManagementCreateView(UserPassesTestMixin, GenericCreateView):
             required=False,
             label="Área Laboral"
         )
+        from communications.models import EmailAccount
+        form.fields['email_account'] = forms.ModelChoiceField(
+            queryset=EmailAccount.objects.all(),
+            required=False,
+            label="Cuenta de Email Asignada"
+        )
         return form
 
     def form_valid(self, form):
         user = form.save(commit=False)
         user.set_password(form.cleaned_data['password'])
         
-        role = form.cleaned_data.get('role')
-        if role == 'admin':
-            user.is_superuser = True
-            user.is_staff = True
-        elif role == 'supervisor':
-            user.is_superuser = False
-            user.is_staff = True
+        user_role = form.cleaned_data.get('user_role')
+        if user_role:
+            user.is_active = user_role.is_active
+            user.is_staff = user_role.is_staff
+            user.is_superuser = user_role.is_superuser
         else:
-            user.is_superuser = False
+            user.is_active = True
             user.is_staff = False
+            user.is_superuser = False
             
         user.save()
         
-        # Save groups
-        groups = form.cleaned_data.get('groups')
-        if groups:
-            user.groups.set(groups)
+        # Sync groups from role AND add manually selected groups
+        final_groups = set()
+        if user_role:
+            for g in user_role.groups.all():
+                final_groups.add(g)
+        
+        selected_groups = form.cleaned_data.get('groups')
+        if selected_groups:
+            for g in selected_groups:
+                final_groups.add(g)
+        
+        user.groups.set(list(final_groups))
+        
+        # Assign email account
+        email_account = form.cleaned_data.get('email_account')
+        if email_account:
+            email_account.user = user
+            email_account.save()
         
         profile, _ = UserProfile.objects.get_or_create(user=user)
-        profile.role = role
+        profile.user_role = user_role
         profile.work_area = form.cleaned_data.get('work_area')
         profile.save()
         
@@ -345,7 +405,12 @@ class UserManagementUpdateView(UserPassesTestMixin, GenericUpdateView):
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         user_profile, _ = UserProfile.objects.get_or_create(user=self.get_object())
-        form.fields['role'] = forms.ChoiceField(choices=UserProfile.ROLE_CHOICES, initial=user_profile.role, label="Rol")
+        form.fields['user_role'] = forms.ModelChoiceField(
+            queryset=UserRole.objects.all(),
+            initial=user_profile.user_role,
+            required=False,
+            label="Rol"
+        )
         form.fields['groups'] = forms.ModelMultipleChoiceField(
             queryset=Group.objects.all(),
             initial=self.get_object().groups.all(),
@@ -359,30 +424,55 @@ class UserManagementUpdateView(UserPassesTestMixin, GenericUpdateView):
             required=False,
             label="Área Laboral"
         )
+        from communications.models import EmailAccount
+        assigned_email = EmailAccount.objects.filter(user=self.get_object()).first()
+        form.fields['email_account'] = forms.ModelChoiceField(
+            queryset=EmailAccount.objects.all(),
+            initial=assigned_email,
+            required=False,
+            label="Cuenta de Email Asignada"
+        )
         return form
 
     def form_valid(self, form):
         user = form.save(commit=False)
-        role = form.cleaned_data.get('role')
+        user_role = form.cleaned_data.get('user_role')
         
-        if role == 'admin':
-            user.is_superuser = True
-            user.is_staff = True
-        elif role == 'supervisor':
-            user.is_superuser = False
-            user.is_staff = True
+        if user_role:
+            user.is_active = user_role.is_active
+            user.is_staff = user_role.is_staff
+            user.is_superuser = user_role.is_superuser
         else:
-            user.is_superuser = False
-            user.is_staff = False
+            # If no role, keep current status or set defaults
+            user.is_active = form.cleaned_data.get('is_active', user.is_active)
             
         user.save()
         
-        # Update groups
-        groups = form.cleaned_data.get('groups')
-        user.groups.set(groups if groups else [])
+        # Sync groups from role AND add manually selected groups
+        final_groups = set()
+        if user_role:
+            for g in user_role.groups.all():
+                final_groups.add(g)
+        
+        selected_groups = form.cleaned_data.get('groups')
+        if selected_groups:
+            for g in selected_groups:
+                final_groups.add(g)
+        
+        user.groups.set(list(final_groups))
+        
+        # Update assigned email account
+        from communications.models import EmailAccount
+        # First, clear existing assignment for this user
+        EmailAccount.objects.filter(user=user).update(user=None)
+        # Then, assign the new one
+        email_account = form.cleaned_data.get('email_account')
+        if email_account:
+            email_account.user = user
+            email_account.save()
         
         profile, _ = UserProfile.objects.get_or_create(user=user)
-        profile.role = role
+        profile.user_role = user_role
         profile.work_area = form.cleaned_data.get('work_area')
         profile.save()
         

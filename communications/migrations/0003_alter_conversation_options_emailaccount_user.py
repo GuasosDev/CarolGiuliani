@@ -17,9 +17,4 @@ class Migration(migrations.Migration):
             name='conversation',
             options={'ordering': ['-last_message_at'], 'verbose_name': 'Conversación', 'verbose_name_plural': 'Conversaciones'},
         ),
-        migrations.AddField(
-            model_name='emailaccount',
-            name='user',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='email_account', to=settings.AUTH_USER_MODEL, verbose_name='Usuario'),
-        ),
     ]

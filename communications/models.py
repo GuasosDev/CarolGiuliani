@@ -34,6 +34,15 @@ class Contact(models.Model):
         client_name = self.client.name if self.client else "Sin cliente"
         return f"{client_name} - {self.preferred_channel}"
 
+    def get_display_phone(self):
+        """Returns the most relevant phone number, safely."""
+        if self.whatsapp_number:
+            return self.whatsapp_number
+        if self.client:
+            # Check for phone attribute on Client model (core app)
+            return getattr(self.client, 'phone', "")
+        return ""
+
 
 class Conversation(models.Model):
     """Unified conversation container for all channels"""
@@ -95,12 +104,23 @@ class Conversation(models.Model):
         ]
 
     def __str__(self):
-        client_name = (
-          self.contact.client.name
-          if self.contact and self.contact.client
-          else "Sin cliente"
-        )
-        return f"{client_name} - {self.get_channel_display()} ({self.get_status_display()})"
+        display_name = self.get_display_name()
+        return f"{display_name} - {self.get_channel_display()} ({self.get_status_display()})"
+
+    def get_display_name(self):
+        """Returns a human-readable name for the conversation, with fallbacks."""
+        if self.contact and self.contact.client:
+            return self.contact.client.name
+        
+        # Look for sender_name in messages if no client linked
+        msg = self.messages.filter(direction='inbound').order_by('-created_at').first()
+        if msg and msg.sender_name:
+            return msg.sender_name
+            
+        if self.contact and self.contact.whatsapp_number:
+            return self.contact.whatsapp_number
+            
+        return "Desconocido"
 
     def close(self):
         """Close the conversation"""
@@ -368,14 +388,6 @@ class EmailAccount(models.Model):
     related_name="email_accounts",
     blank=True, null=True
     )
-
-     # Cada usuario tiene solo una cuenta
-    user = models.ForeignKey(
-    settings.AUTH_USER_MODEL,
-    on_delete=models.CASCADE,
-    related_name="email_accounts",
-    blank=True, null=True
-)
 
     name = models.CharField(max_length=100, verbose_name="Nombre")
     email_address = models.EmailField(unique=True, verbose_name="Dirección de Email")
