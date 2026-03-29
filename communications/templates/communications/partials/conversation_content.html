@@ -1,6 +1,6 @@
 <div class="omni-chat-wrapper d-flex flex-row h-100 flex-grow-1 border-0 shadow-none rounded-0 w-100"
     style="min-height: 100%;">
-    <!-- Main Chat Workspace -->
+  <!--Main Chat Workspace --> 
     <div class="omni-chat-main">
         <div class="omni-chat-header bg-white">
             <div class="d-flex align-items-center">
@@ -28,11 +28,18 @@
             </div>
 
             <div class="chat-header-actions d-flex">
-                <button class="btn btn-outline-secondary d-flex align-items-center bg-light border-0 fw-bold me-2">
-                    <i class="fas fa-exchange-alt me-2"></i> Transferir
+                <button 
+                    hx-get="{% url 'communications:transfer_conversation_modal' conversation.id %}"
+                    hx-target="#modal-body"
+                    hx-trigger="click"
+                    onclick="openModal()"
+                    class="btn btn-sm btn-primary">
+                    Transferir
                 </button>
 
-                <form method="post" action="{% url 'communications:change_conversation_status' conversation.id %}"
+                <form 
+                    hx-post="{% url 'communications:change_conversation_status' conversation.id %}"
+                    hx-swap="none"
                     class="mb-0 d-flex gap-2">
                     {% csrf_token %}
 
@@ -55,9 +62,10 @@
                     {% endif %}
                 </form>
             </div>
-        </div>-->
+        </div>
 
         <div class="omni-messages-area bg-light" id="chatMessagesArea">
+            
             <div class="date-divider">
                 <span>HOY</span>
             </div>
@@ -114,6 +122,8 @@
                 </div>
             </div>
             {% endif %}
+            
+            
         </div>
 
         <div class="omni-chat-input-area">
@@ -656,4 +666,14 @@
     }
 
     initPolling();
+</script>
+
+<script>
+function openModal() {
+    document.getElementById("modal").style.display = "block";
+}
+
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
 </script>

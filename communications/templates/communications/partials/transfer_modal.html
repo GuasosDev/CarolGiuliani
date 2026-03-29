@@ -1,0 +1,19 @@
+<h5>Transferir conversación</h5>
+
+<form 
+    hx-post="{% url 'communications:transfer_conversation' conversation.id %}"
+    hx-target="#modal-body"
+    hx-swap="innerHTML">
+
+    <select name="user_id" class="form-control mb-2">
+        {% for user in users %}
+            <option value="{{ user.id }}">
+                {{ user.get_full_name|default:user.username }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-success">
+        Confirmar
+    </button>
+</form>
