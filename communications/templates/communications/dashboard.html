@@ -100,13 +100,13 @@
 
                     {% for conv in group.conversations %}
                     <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
+                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
                         data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
                         <div class="d-flex justify-content-between mb-1">
                             <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
                                 <!-- Status Indicator -->
-                                {% if conv.status == 'normal' %}
+                                {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}
                                 <span class="status-indicator bg-success rounded-circle me-2"
                                     style="width: 10px; height: 10px;"></span>
                                 {% elif conv.status == 'pending' %}
@@ -152,11 +152,23 @@
                     {% else %}
                     {% for conv in conversations %}
                     <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start"
+                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
                         data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
                         <div class="d-flex justify-content-between mb-1">
                             <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
+                                <!-- Status Indicator -->
+                                {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}
+                                <span class="status-indicator bg-success rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"></span>
+                                {% elif conv.status == 'pending' %}
+                                <span class="status-indicator bg-warning rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"></span>
+                                {% elif conv.status == 'closed' %}
+                                <span class="status-indicator bg-danger rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"></span>
+                                {% endif %}
+
                                 {% if conv.channel == 'whatsapp' %}
                                 <i class="fab fa-whatsapp text-success me-2"></i>
                                 {% else %}

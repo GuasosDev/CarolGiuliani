@@ -327,8 +327,22 @@
 }
 
 .omni-table-row:hover,
-.omni-conv-item:hover {
+.omni-conv-item:hover,
+.conversation-item:hover {
     background-color: rgba(88, 103, 221, 0.08);
+}
+
+/* Status specific borders for conversation items */
+.conversation-item.status-normal {
+    border-left: 10px solid #28a745 !important; /* Verde */
+}
+
+.conversation-item.status-pending {
+    border-left: 10px solid #ffc107 !important; /* Amarillo */
+}
+
+.conversation-item.status-closed {
+    border-left: 10px solid #dc3545 !important; /* Rojo */
 }
 
 /* User Avatar */
