@@ -389,20 +389,15 @@
     overflow: hidden;
 }
 
-.omni-chat-sidebar,
-.omni-chat-details {
+.omni-chat-sidebar {
     width: 320px;
     display: flex;
     flex-direction: column;
-}
-
-.omni-chat-sidebar {
     border-right: 1px solid var(--omni-border);
 }
 
 .omni-chat-details {
-    border-left: 1px solid var(--omni-border);
-    background: #fafbfa;
+    display: none;
 }
 
 .omni-chat-main {

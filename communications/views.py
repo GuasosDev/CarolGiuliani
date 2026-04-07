@@ -16,7 +16,7 @@ from django.template.loader import get_template
 from xhtml2pdf import pisa
 import json
 import logging
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
 from .forms import QuickReplyForm, ConversationReportForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
@@ -25,7 +25,23 @@ from core.views import GenericCreateView
 
 logger = logging.getLogger(__name__)
 
-# communications/views.py
+@login_required
+def add_conversation_note(request, conversation_id):
+    """View to add a note to a conversation and return the notes list partial"""
+    conversation = get_object_or_404(Conversation, pk=conversation_id)
+    if request.method == 'POST':
+        content = request.POST.get('content')
+        if content:
+            InternalNote.objects.create(
+                conversation=conversation,
+                author=request.user,
+                content=content
+            )
+    
+    notes = conversation.internal_notes.all().order_by('-created_at')
+    return render(request, 'communications/partials/notes_list_partial.html', {
+        'notes': notes,
+    })
 
 def get_agent_conversations(user):
     """
@@ -174,11 +190,11 @@ def _get_conversation_counts(user):
 
 
 @login_required
-def open_client_whatsapp(request, client_id, channel):
+def open_client_whatsapp(request, client_id, channel='whatsapp'):
     client = get_object_or_404(Client, pk=client_id)
     contact, _ = Contact.objects.get_or_create(
         client=client,
-        defaults={'preferred_channel': 'channel'}
+        defaults={'preferred_channel': channel}
     )
     
     conversation = Conversation.objects.filter(
@@ -199,7 +215,19 @@ def open_client_whatsapp(request, client_id, channel):
     
     from django.urls import reverse
     url = reverse('communications:dashboard')
-    return redirect(f'{url}?channel=whatsapp&conversation={conversation.pk}')
+    return redirect(f'{url}?channel={channel}&conversation={conversation.pk}')
+
+
+@login_required
+def contact_details_modal(request, conversation_id):
+    """View to show contact details in a modal"""
+    conversation = get_object_or_404(Conversation, pk=conversation_id)
+    notes = conversation.internal_notes.all().order_by('-created_at')
+    
+    return render(request, 'communications/partials/contact_details_modal.html', {
+        'conversation': conversation,
+        'notes': notes,
+    })
 
 
 @login_required
