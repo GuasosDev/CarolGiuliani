@@ -333,6 +333,15 @@
                 const emailForm = document.getElementById('emailForm');
 
                 if (whatsappForm) {
+                    const waTextarea = whatsappForm.querySelector('textarea[name="message"]');
+                    if (waTextarea) {
+                        waTextarea.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                whatsappForm.dispatchEvent(new Event('submit'));
+                            }
+                        });
+                    }
                     whatsappForm.addEventListener('submit', function (e) {
                         e.preventDefault();
                         sendMessage(this, 'whatsapp');
@@ -340,6 +349,15 @@
                 }
 
                 if (emailForm) {
+                    const emailTextarea = emailForm.querySelector('textarea[name="body"]');
+                    if (emailTextarea) {
+                        emailTextarea.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                emailForm.dispatchEvent(new Event('submit'));
+                            }
+                        });
+                    }
                     emailForm.addEventListener('submit', function (e) {
                         e.preventDefault();
                         sendMessage(this, 'email');
