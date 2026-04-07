@@ -24,10 +24,9 @@
 /* Base Layout Modifications */
 .comm-layout {
     display: flex;
-    height: calc(100vh - 60px);
-    /* 60px is approx the top header height */
-    margin: -24px;
-    /* Offset the container padding if present in main core layout */
+    height: calc(100vh - 70px - 60px); /* Adjusted for topbar (70px) + navbar (60px) */
+    margin: 0; 
+    padding: 0;
     overflow: hidden;
     font-family: 'Nunito', sans-serif;
     background-color: var(--omni-bg);
@@ -513,11 +512,15 @@
 
 /* Main Chat Area */
 .omni-chat-header {
-    padding: 15px 25px;
-    border-bottom: 1px solid var(--omni-border);
+    min-height: 70px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--omni-border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    overflow: visible;
 }
 
 .chat-header-actions button {

@@ -3,6 +3,34 @@
 
 {% block title %}Comunicaciones{% endblock %}
 
+{% block navbar_tools %}
+<!-- Action Buttons Group -->
+<div class="btn-group me-3 shadow-sm">
+    <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
+        onclick="openModal()" class="btn btn-primary btn-sm px-3" style="border-top-left-radius: 20px; border-bottom-left-radius: 20px;">
+        <i class="fas fa-plus me-1"></i>
+        <span class="fw-bold" style="font-size: 0.8rem;">Nuevo</span>
+    </button>
+    <button hx-get="{% url 'communications:conversation_report' %}" hx-target="#modal-body"
+        hx-trigger="click" onclick="openModal()"
+        class="btn btn-light border btn-sm px-3" style="border-top-right-radius: 20px; border-bottom-right-radius: 20px;">
+        <i class="fas fa-file-pdf me-1 text-danger"></i>
+        <span class="fw-bold" style="font-size: 0.8rem;">Reporte</span>
+    </button>
+</div>
+
+<!-- Global Search Input -->
+<div class="position-relative" style="width: 220px;">
+    <i class="fas fa-search position-absolute text-muted" style="left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; pointer-events: none;"></i>
+    <input type="search" name="q" class="form-control form-control-sm ps-4 border-0 shadow-sm" 
+        placeholder="Buscar..."
+        hx-get="{% url 'global_search' %}" hx-trigger="keyup changed delay:800ms, search"
+        hx-target="#modal-body" hx-on:htmx:after-request="if(event.detail.successful) openModal()"
+        autocomplete="off" 
+        style="border-radius: 20px; font-size: 0.85rem; height: 32px; background-color: #f0f2f5;">
+</div>
+{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
 {% block comm_css %}{% endblock %}

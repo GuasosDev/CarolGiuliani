@@ -2,44 +2,41 @@
     style="min-height: 100%;">
   <!--Main Chat Workspace --> 
     <div class="omni-chat-main">
-        <div class="omni-chat-header bg-white">
-            <div class="d-flex align-items-center" 
+        <div class="omni-chat-header bg-white py-3 px-3">
+            <div class="d-flex align-items-center flex-grow-1" 
                  hx-get="{% url 'communications:contact_details_modal' conversation.id %}" 
                  hx-target="#modal-body" 
                  onclick="openModal()" 
-                 style="cursor: pointer;">
-                <div class="omni-avatar bg-secondary me-3" style="width: 45px; height: 45px; font-size: 1.2rem;">
+                 style="cursor: pointer; min-width: 0;">
+                <div class="omni-avatar bg-secondary me-2" style="width: 40px; height: 40px; font-size: 1.1rem; flex-shrink: 0;">
                     {{ conversation.get_display_name|make_list|first|upper }}
                 </div>
-                <div>
-                    <h5 class="mb-0 fw-bold text-dark">{{ conversation.get_display_name }}
-                        <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span>
-                        {% if conversation.status == 'normal' %}
-                        <span class="badge bg-success ms-2">Activo</span>
-                        {% elif conversation.status == 'pending' %}
-                        <span class="badge bg-warning text-dark ms-2">Pendiente</span>
-                        {% elif conversation.status == 'closed' %}
-                        <span class="badge bg-danger ms-2">Cerrado</span>
-                        {% endif %}
-                    </h5>
-                    <div class="small text-muted mt-1">
-                        <i class="fas fa-envelope me-1"></i> {% if conversation.contact.client %}
-                        {{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
-                        •
-                        <i class="fas fa-phone me-1"></i> {{ conversation.contact.get_display_phone }}
+                <div class="text-truncate">
+                    <h6 class="mb-0 fw-bold text-dark text-truncate">{{ conversation.get_display_name }}
+                        <span class="badge bg-light text-muted fw-normal ms-1" style="font-size: 0.75rem;">#{{ conversation.id }}</span>
+                    </h6>
+                    <div class="small text-muted d-flex align-items-center" style="font-size: 0.8rem;">
+                        <span class="text-truncate me-3">
+                            <i class="fas fa-envelope me-1 text-primary"></i>{% if conversation.contact.client %}{{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
+                        </span>
+                        <span class="text-nowrap">
+                            <i class="fas fa-phone me-1 text-success"></i>{{ conversation.contact.get_display_phone }}
+                        </span>
                     </div>
                 </div>
             </div>
 
-            <div class="chat-header-actions d-flex">
+            <div class="chat-header-actions d-flex align-items-center gap-3 ms-3">
                 <button 
                     hx-get="{% url 'communications:transfer_conversation_modal' conversation.id %}"
                     hx-target="#modal-body"
                     hx-trigger="click"
                     onclick="openModal()"
-                    class="btn btn-sm btn-primary">
-                    Transferir
+                    class="btn btn-sm btn-outline-primary py-1 px-3">
+                    <i class="fas fa-exchange-alt me-1"></i> Transferir
                 </button>
+
+                <div class="vr mx-1" style="height: 25px;"></div>
 
                 <form 
                     hx-post="{% url 'communications:change_conversation_status' conversation.id %}"
@@ -48,20 +45,20 @@
                     {% csrf_token %}
 
                     {% if conversation.status != 'normal' %}
-                    <button type="submit" name="status" value="normal" class="btn btn-outline-success fw-bold">
-                        <i class="fas fa-check me-1"></i> Activo
+                    <button type="submit" name="status" value="normal" class="btn btn-sm btn-outline-success border-0 p-1" title="Marcar como Activo">
+                        <i class="fas fa-check fa-lg"></i>
                     </button>
                     {% endif %}
 
                     {% if conversation.status != 'pending' %}
-                    <button type="submit" name="status" value="pending" class="btn btn-outline-warning fw-bold">
-                        <i class="fas fa-hourglass-half me-1"></i> Pendiente
+                    <button type="submit" name="status" value="pending" class="btn btn-sm btn-outline-warning border-0 p-1" title="Marcar como Pendiente">
+                        <i class="fas fa-hourglass-half fa-lg"></i>
                     </button>
                     {% endif %}
 
                     {% if conversation.status != 'closed' %}
-                    <button type="submit" name="status" value="closed" class="btn btn-outline-danger fw-bold">
-                        <i class="fas fa-times me-1"></i> Cerrar
+                    <button type="submit" name="status" value="closed" class="btn btn-sm btn-outline-danger border-0 p-1" title="Cerrar Conversación">
+                        <i class="fas fa-times fa-lg"></i>
                     </button>
                     {% endif %}
                 </form>
