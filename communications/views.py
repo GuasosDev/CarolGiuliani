@@ -52,6 +52,7 @@ def dashboard(request):
     # Get user's conversations
     status_filter = request.GET.get('status')
     channel_filter = request.GET.get('channel')
+    user_filter = request.GET.get('user')
     
     base_qs = get_agent_conversations(request.user).select_related(
     "contact__client"
@@ -59,6 +60,10 @@ def dashboard(request):
     
     # Base filtering
     conversations = base_qs
+    
+    # Filter by specific user (only for supervisors/admins)
+    if user_filter and (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+        conversations = conversations.filter(assigned_to_id=user_filter)
     
     if channel_filter:
         if channel_filter != 'multichannel':
@@ -120,6 +125,12 @@ def dashboard(request):
 
     clients = Client.objects.all().order_by('name')[:200]
     
+    # Get users for filtering (only for supervisors/admins)
+    from django.contrib.auth.models import User
+    available_users = []
+    if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
+        available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    
     # Get counts using helper
     counts = _get_conversation_counts(request.user)
     
@@ -148,6 +159,8 @@ def dashboard(request):
         'email_percent': email_percent,
         'current_status': status_filter,
         'current_channel': channel_filter,
+        'current_user': user_filter,
+        'available_users': available_users,
         'clients': clients,
         **counts # Unpack counts into context
     }
@@ -178,7 +191,7 @@ def open_client_whatsapp(request, client_id, channel):
     client = get_object_or_404(Client, pk=client_id)
     contact, _ = Contact.objects.get_or_create(
         client=client,
-        defaults={'preferred_channel': 'channel'}
+        defaults={'preferred_channel': channel}
     )
     
     conversation = Conversation.objects.filter(

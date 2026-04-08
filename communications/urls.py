@@ -17,7 +17,8 @@ urlpatterns = [
     
     # Web interface URLs
     path('', views.dashboard, name='dashboard'),
-    path('client/<int:client_id>/whatsapp/', open_client_whatsapp, name='open_client_whatsapp'),
+    path('client/<int:client_id>/whatsapp/<str:channel>/', open_client_whatsapp, name='open_client_whatsapp'),
+    path('client/<int:client_id>/whatsapp/', open_client_whatsapp, {'channel': 'whatsapp'}, name='open_client_whatsapp_legacy'),
     path('conversation/<int:pk>/', views.conversation_detail, name='conversation_detail'),
     path('conversation/<int:pk>/status/', views.change_conversation_status, name='change_conversation_status'),
     path('contact/<int:pk>/', views.contact_360_view, name='contact_360'),
