@@ -12,13 +12,40 @@
     .navbar {
         margin-bottom: 0 !important;
     }
+
+    .comm-split-row {
+        flex-wrap: nowrap !important;
+        align-items: stretch;
+    }
+
+    #conversation-list-panel {
+        width: 340px;
+        min-width: 240px;
+        max-width: 520px;
+    }
+
+    #conversation-splitter {
+        flex: 0 0 10px;
+        cursor: col-resize;
+        background: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.08) 4px, rgba(0,0,0,0.08) 6px, transparent 10px);
+        transition: background-color 0.15s;
+    }
+
+    #conversation-splitter:hover {
+        background: linear-gradient(90deg, transparent 0, rgba(102, 88, 221, 0.35) 4px, rgba(102, 88, 221, 0.35) 6px, transparent 10px);
+    }
+
+    body.comm-resizing {
+        user-select: none;
+        cursor: col-resize !important;
+    }
 </style>
 {% endblock %}
 
 {% block comm_content %}
 <div class="d-flex flex-column h-100">
     <!-- Main Content Area: 3 Columns -->
-    <div class="row g-0 flex-grow-1 overflow-hidden" style="height: 100%;">
+    <div class="row g-0 flex-grow-1 overflow-hidden comm-split-row" style="height: 100%;">
         <!-- Adjust height to fill parent -->
 
         <!-- Column 1: Status Column (Thin) -->
@@ -56,7 +83,7 @@
         </div>
 
         <!-- Column 2: Conversation List (3 cols) -->
-        <div class="col-md-3 col-lg-3 border-end bg-white d-flex flex-column h-100">
+        <div class="col-auto border-end bg-white d-flex flex-column h-100" id="conversation-list-panel">
             <!-- Scrollable List -->
             <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
                 hx-get="{{ request.get_full_path }}" hx-trigger="every 15s"
@@ -178,6 +205,8 @@
             </div>
         </div>
 
+        <div id="conversation-splitter" aria-label="Redimensionar panel"></div>
+
         <!-- Column 3: Conversation Detail (Rest) -->
         <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel"
             style="background-color: #f8f9fa;">
@@ -252,54 +281,6 @@
 
            
         </div>-->
-
-        <!-- Columna 3: Detalle de Conversación -->
-        <div class="col-md-9 bg-white d-flex flex-column p-3" style="overflow-y: auto;">
-            <h5 class="p-2 bg-dark text-white rounded">Mis Conversaciones</h5>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Contacto</th>
-                            <th>Canal</th>
-                            <th>Estado</th>
-                            <th>Prioridad</th>
-                            <th>Último Mensaje</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="conversations-list">
-                        {% for conversation in my_conversations %}
-                        <tr data-conversation-id="{{ conversation.id }}">
-                            <td>{{ conversation.contact.client.name|default:"Contacto Desconocido" }}</td>
-                            <td><span
-                                    class="badge bg-{% if conversation.channel == 'whatsapp' %}success{% else %}primary{% endif %}">{{
-                                    conversation.get_channel_display }}</span></td>
-                            <td><span
-                                    class="badge bg-{% if conversation.status == 'open' %}warning{% elif conversation.status == 'assigned' %}info{% else %}secondary{% endif %}">{{
-                                    conversation.get_status_display }}</span></td>
-                            <td><span
-                                    class="badge bg-{% if conversation.priority == 'urgent' %}danger{% elif conversation.priority == 'high' %}warning{% else %}secondary{% endif %}">{{
-                                    conversation.get_priority_display }}</span></td>
-                            <td>
-                                <small>{{ conversation.last_message_at }} ago</small><br>
-                                <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10
-                                    }}</small>
-                            </td>
-                            <td>
-                                <a href="{% url 'communications:conversation_detail' conversation.id %}"
-                                    class="btn btn-sm btn-primary">Ver</a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center">No hay conversaciones asignadas</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
 
     </div>
 </div>
@@ -376,6 +357,53 @@
 </style>
 
 <script>
+    (function () {
+        const panel = document.getElementById('conversation-list-panel');
+        const splitter = document.getElementById('conversation-splitter');
+        if (!panel || !splitter) return;
+
+        const minWidth = 240;
+        const maxWidth = 520;
+        const storageKey = 'communications.conversationListWidth';
+
+        const saved = Number(window.localStorage.getItem(storageKey));
+        if (!Number.isNaN(saved) && saved >= minWidth && saved <= maxWidth) {
+            panel.style.width = `${saved}px`;
+        }
+
+        let startX = 0;
+        let startWidth = 0;
+        let dragging = false;
+
+        splitter.addEventListener('pointerdown', (e) => {
+            dragging = true;
+            startX = e.clientX;
+            startWidth = panel.getBoundingClientRect().width;
+            document.body.classList.add('comm-resizing');
+            splitter.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+
+        splitter.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const dx = e.clientX - startX;
+            const next = Math.min(maxWidth, Math.max(minWidth, Math.round(startWidth + dx)));
+            panel.style.width = `${next}px`;
+        });
+
+        const stop = (e) => {
+            if (!dragging) return;
+            dragging = false;
+            document.body.classList.remove('comm-resizing');
+            const current = Math.round(panel.getBoundingClientRect().width);
+            window.localStorage.setItem(storageKey, String(current));
+            if (e && e.pointerId != null) splitter.releasePointerCapture(e.pointerId);
+        };
+
+        splitter.addEventListener('pointerup', stop);
+        splitter.addEventListener('pointercancel', stop);
+    })();
+
     // Handle conversation selection state and loading
     function loadConversation(element, id) {
         // Clear any existing polling interval from the previous conversation
