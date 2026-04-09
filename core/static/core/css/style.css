@@ -97,6 +97,61 @@ body {
     color: var(--heading-color);
 }
 
+.topbar-left {
+    display: flex;
+    align-items: center;
+    min-width: 220px;
+}
+
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.topbar-brand-img {
+    height: 42px;
+    width: auto;
+    max-width: 220px;
+    object-fit: contain;
+}
+
+.topbar-center {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 20px;
+    min-width: 0;
+}
+
+.topbar-search {
+    width: 520px;
+    max-width: 100%;
+}
+
+.topbar-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-color);
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+
+.topbar-search-input {
+    padding-left: 54px !important;
+    border-radius: 20px;
+    border: 0;
+    background-color: rgba(102, 88, 221, 0.08);
+}
+
+.topbar-search-input:focus {
+    background-color: rgba(102, 88, 221, 0.12);
+    box-shadow: none;
+}
+
 .topbar-tools {
     display: flex;
     align-items: center;
