@@ -82,7 +82,21 @@
 <body class="{% if user.is_authenticated and user.userprofile.dark_mode %}dark-mode{% endif %}">
     <header class="topbar">
         <div class="topbar-left">
-            <div class="logo"> Sistema Multicanal WhatsApp Business + Email</div>
+            <a class="topbar-brand" href="{% url 'dashboard' %}">
+                <img class="topbar-brand-img" src="{% static 'communications/images/logo-completo1.jpeg' %}" alt="Logo">
+            </a>
+        </div>
+        <div class="topbar-center d-none d-md-flex">
+            <div class="topbar-search position-relative">
+                <i class="fas fa-search topbar-search-icon"></i>
+                <input type="search" name="q" class="topbar-search-input form-control form-control-sm"
+                    placeholder="Buscar..."
+                    hx-get="{% url 'global_search' %}"
+                    hx-trigger="keyup changed delay:800ms, search"
+                    hx-target="#modal-body"
+                    hx-on:htmx:after-request="if(event.detail.successful) openModal()"
+                    autocomplete="off">
+            </div>
         </div>
         <div class="topbar-right">
             <div class="user-menu">
@@ -169,6 +183,11 @@
                     <i class="fas fa-comments"></i> Communications
                 </a></li>
         </ul>
+
+        <!-- Navbar Tools Block -->
+        <div class="navbar-tools d-none d-md-flex align-items-center ms-auto px-4" style="overflow: visible;">
+            {% block navbar_tools %}{% endblock %}
+        </div>
     </nav>
 
     <main id="main-content">

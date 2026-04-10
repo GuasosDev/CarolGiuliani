@@ -1,66 +1,96 @@
 <div class="modal-header">
-    <h5 class="modal-title">Resultados de búsqueda: "{{ query }}"</h5>
-    <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
+    <div class="d-flex align-items-center w-100">
+        <div class="me-auto">
+            <h5 class="modal-title mb-0">Búsqueda</h5>
+            <div class="text-muted small">
+                {% if has_query %}
+                    {{ total_results }} resultado{{ total_results|pluralize:"s" }} para “{{ query }}”
+                {% else %}
+                    Escribí al menos 2 caracteres
+                {% endif %}
+            </div>
+        </div>
+        <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
+    </div>
 </div>
+
 <div class="modal-body">
-    {% if not clients and not messages %}
+    <style>
+        .search-section-title{letter-spacing:.02em}
+        .search-result{border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:12px 14px;background:#fff}
+        .search-result:hover{border-color:rgba(102,88,221,.35);box-shadow:0 6px 18px rgba(18,38,63,.06)}
+        .search-result-title{color:#1a0dab;text-decoration:none;font-weight:700}
+        .search-result-title:hover{text-decoration:underline}
+        .search-result-meta{font-size:.75rem}
+        .search-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(102,88,221,.10);color:#6658dd;flex-shrink:0}
+        mark{padding:0 .15em;border-radius:.2em}
+    </style>
+
+    {% if not has_query %}
         <div class="text-center py-4">
-            <i class="fas fa-search fa-3x text-muted mb-3 opacity-50"></i>
-            <p class="text-muted">No se encontraron resultados para "{{ query }}"</p>
+            <i class="fas fa-magnifying-glass fa-3x text-muted mb-3 opacity-50"></i>
+            <p class="text-muted mb-0">Escribí una palabra o parte de ella para buscar en todo el sistema.</p>
         </div>
     {% else %}
-        <!-- Clients Section -->
-        {% if clients %}
-        <h6 class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-user me-2"></i>Contactos</h6>
-        <div class="list-group mb-4">
-            {% for client in clients %}
-            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1 fw-bold">{{ client.name }}</h6>
-                    <div class="small text-muted">
-                        {% if client.phone %}<i class="fas fa-phone me-1"></i>{{ client.phone }}{% endif %}
-                        {% if client.email %}<span class="mx-2">•</span><i class="fas fa-envelope me-1"></i>{{ client.email }}{% endif %}
-                    </div>
-                </div>
-                <div class="btn-group btn-group-sm">
-                    <button hx-get="{% url 'client_update' client.pk %}" 
-                            hx-target="#modal-body" 
-                            class="btn btn-outline-secondary" 
-                            title="Editar">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <a href="{% url 'communications:open_client_whatsapp' client.pk 'whatsapp' %}" 
-                       class="btn btn-success" 
-                       title="Chat WhatsApp">
-                        <i class="fab fa-whatsapp"></i>
-                    </a>
-                </div>
+        {% if total_results == 0 %}
+            <div class="text-center py-4">
+                <i class="fas fa-search fa-3x text-muted mb-3 opacity-50"></i>
+                <p class="text-muted mb-0">No se encontraron resultados para “{{ query }}”.</p>
             </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- Messages Section -->
-        {% if messages %}
-        <h6 class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-comment-alt me-2"></i>Mensajes</h6>
-        <div class="list-group">
-            {% for msg in messages %}
-            <a href="{% url 'communications:conversation_detail' msg.conversation.pk %}?highlight={{ query }}" 
-               class="list-group-item list-group-item-action">
-                <div class="d-flex w-100 justify-content-between">
-                    <h6 class="mb-1 text-primary">
-                        {{ msg.conversation.contact.client.name|default:"Desconocido" }}
-                        <small class="text-muted fw-normal ms-2">via {{ msg.channel|title }}</small>
-                    </h6>
-                    <small class="text-muted">{{ msg.created_at|date:"d/m H:i" }}</small>
+        {% else %}
+            {% for section in results %}
+                <div class="d-flex align-items-center mb-2 mt-4">
+                    <div class="me-2 text-muted"><i class="fas {{ section.icon }}"></i></div>
+                    <div class="text-uppercase text-muted small fw-bold search-section-title">{{ section.title }}</div>
+                    <div class="ms-auto text-muted small">{{ section.items|length }}</div>
                 </div>
-                <p class="mb-1 text-truncate small text-muted">{{ msg.content }}</p>
-            </a>
+
+                <div class="d-grid gap-2">
+                    {% for item in section.items %}
+                        <div class="search-result">
+                            <div class="d-flex gap-3">
+                                <div class="search-icon">
+                                    <i class="fas {{ section.icon }}"></i>
+                                </div>
+                                <div class="flex-grow-1" style="min-width:0">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div style="min-width:0">
+                                            {% if item.primary.href %}
+                                                <a class="search-result-title d-block text-truncate" href="{{ item.primary.href }}" onclick="closeModal()">{{ item.title|safe }}</a>
+                                            {% else %}
+                                                <button class="btn btn-link p-0 text-start search-result-title d-block text-truncate" hx-get="{{ item.primary.hx_get }}" hx-target="#modal-body">{{ item.title|safe }}</button>
+                                            {% endif %}
+                                            {% if item.subtitle %}
+                                                <div class="text-muted small text-truncate">{{ item.subtitle|safe }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                            {% if item.primary.hx_get %}
+                                                <button class="btn btn-sm btn-outline-primary" hx-get="{{ item.primary.hx_get }}" hx-target="#modal-body">{{ item.primary.label }}</button>
+                                            {% elif item.primary.href %}
+                                                <a class="btn btn-sm btn-outline-primary" href="{{ item.primary.href }}" onclick="closeModal()">{{ item.primary.label }}</a>
+                                            {% endif %}
+                                            {% if item.secondary.href %}
+                                                <a class="btn btn-sm btn-success" href="{{ item.secondary.href }}" onclick="closeModal()">{{ item.secondary.label }}</a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if item.snippet %}
+                                        <div class="mt-2 text-muted small">{{ item.snippet|safe }}</div>
+                                    {% endif %}
+                                    {% if item.meta %}
+                                        <div class="mt-2 text-muted search-result-meta">{{ item.meta }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
             {% endfor %}
-        </div>
         {% endif %}
     {% endif %}
 </div>
+
 <div class="modal-footer">
     <button type="button" class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
 </div>

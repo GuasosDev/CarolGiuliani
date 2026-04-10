@@ -2,40 +2,41 @@
     style="min-height: 100%;">
   <!--Main Chat Workspace --> 
     <div class="omni-chat-main">
-        <div class="omni-chat-header bg-white">
-            <div class="d-flex align-items-center">
-                <div class="omni-avatar bg-secondary me-3" style="width: 45px; height: 45px; font-size: 1.2rem;">
+        <div class="omni-chat-header bg-white py-3 px-3">
+            <div class="d-flex align-items-center flex-grow-1" 
+                 hx-get="{% url 'communications:contact_details_modal' conversation.id %}" 
+                 hx-target="#modal-body" 
+                 onclick="openModal()" 
+                 style="cursor: pointer; min-width: 0;">
+                <div class="omni-avatar bg-secondary me-2" style="width: 40px; height: 40px; font-size: 1.1rem; flex-shrink: 0;">
                     {{ conversation.get_display_name|make_list|first|upper }}
                 </div>
-                <div>
-                    <h5 class="mb-0 fw-bold text-dark">{{ conversation.get_display_name }}
-                        <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span>
-                        {% if conversation.status == 'normal' %}
-                        <span class="badge bg-success ms-2">Activo</span>
-                        {% elif conversation.status == 'pending' %}
-                        <span class="badge bg-warning text-dark ms-2">Pendiente</span>
-                        {% elif conversation.status == 'closed' %}
-                        <span class="badge bg-danger ms-2">Cerrado</span>
-                        {% endif %}
-                    </h5>
-                    <div class="small text-muted mt-1">
-                        <i class="fas fa-envelope me-1"></i> {% if conversation.contact.client %}
-                        {{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
-                        •
-                        <i class="fas fa-phone me-1"></i> {{ conversation.contact.get_display_phone }}
+                <div class="text-truncate">
+                    <h6 class="mb-0 fw-bold text-dark text-truncate">{{ conversation.get_display_name }}
+                        <span class="badge bg-light text-muted fw-normal ms-1" style="font-size: 0.75rem;">#{{ conversation.id }}</span>
+                    </h6>
+                    <div class="small text-muted d-flex align-items-center" style="font-size: 0.8rem;">
+                        <span class="text-truncate me-3">
+                            <i class="fas fa-envelope me-1 text-primary"></i>{% if conversation.contact.client %}{{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
+                        </span>
+                        <span class="text-nowrap">
+                            <i class="fas fa-phone me-1 text-success"></i>{{ conversation.contact.get_display_phone }}
+                        </span>
                     </div>
                 </div>
             </div>
 
-            <div class="chat-header-actions d-flex">
+            <div class="chat-header-actions d-flex align-items-center gap-3 ms-3">
                 <button 
                     hx-get="{% url 'communications:transfer_conversation_modal' conversation.id %}"
                     hx-target="#modal-body"
                     hx-trigger="click"
                     onclick="openModal()"
-                    class="btn btn-sm btn-primary">
-                    Transferir
+                    class="btn btn-sm btn-outline-primary py-1 px-3">
+                    <i class="fas fa-exchange-alt me-1"></i> Transferir
                 </button>
+
+                <div class="vr mx-1" style="height: 25px;"></div>
 
                 <form 
                     hx-post="{% url 'communications:change_conversation_status' conversation.id %}"
@@ -44,20 +45,20 @@
                     {% csrf_token %}
 
                     {% if conversation.status != 'normal' %}
-                    <button type="submit" name="status" value="normal" class="btn btn-outline-success fw-bold">
-                        <i class="fas fa-check me-1"></i> Activo
+                    <button type="submit" name="status" value="normal" class="btn btn-sm btn-outline-success border-0 p-1" title="Marcar como Activo">
+                        <i class="fas fa-check fa-lg"></i>
                     </button>
                     {% endif %}
 
                     {% if conversation.status != 'pending' %}
-                    <button type="submit" name="status" value="pending" class="btn btn-outline-warning fw-bold">
-                        <i class="fas fa-hourglass-half me-1"></i> Pendiente
+                    <button type="submit" name="status" value="pending" class="btn btn-sm btn-outline-warning border-0 p-1" title="Marcar como Pendiente">
+                        <i class="fas fa-hourglass-half fa-lg"></i>
                     </button>
                     {% endif %}
 
                     {% if conversation.status != 'closed' %}
-                    <button type="submit" name="status" value="closed" class="btn btn-outline-danger fw-bold">
-                        <i class="fas fa-times me-1"></i> Cerrar
+                    <button type="submit" name="status" value="closed" class="btn btn-sm btn-outline-danger border-0 p-1" title="Cerrar Conversación">
+                        <i class="fas fa-times fa-lg"></i>
                     </button>
                     {% endif %}
                 </form>
@@ -329,6 +330,15 @@
                 const emailForm = document.getElementById('emailForm');
 
                 if (whatsappForm) {
+                    const waTextarea = whatsappForm.querySelector('textarea[name="message"]');
+                    if (waTextarea) {
+                        waTextarea.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                whatsappForm.dispatchEvent(new Event('submit'));
+                            }
+                        });
+                    }
                     whatsappForm.addEventListener('submit', function (e) {
                         e.preventDefault();
                         sendMessage(this, 'whatsapp');
@@ -336,6 +346,15 @@
                 }
 
                 if (emailForm) {
+                    const emailTextarea = emailForm.querySelector('textarea[name="body"]');
+                    if (emailTextarea) {
+                        emailTextarea.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                emailForm.dispatchEvent(new Event('submit'));
+                            }
+                        });
+                    }
                     emailForm.addEventListener('submit', function (e) {
                         e.preventDefault();
                         sendMessage(this, 'email');
@@ -452,158 +471,6 @@
                     .catch(err => console.error('Error refreshing messages:', err));
             }
         </script>
-    </div>
-
-    <!-- Right side Details Sidebar -->
-    <div class="omni-chat-details">
-        <div class="p-4 text-center border-bottom bg-white">
-            <div class="omni-avatar bg-warning mx-auto mb-3"
-                style="width: 80px; height: 80px; font-size: 2rem; box-shadow: 0 5px 15px rgba(255,184,34,0.3);">
-                {{ conversation.get_display_name|make_list|first|upper }}
-            </div>
-
-            <h5 class="fw-bold text-dark mb-1">{{ conversation.get_display_name }}</h5>
-            <div class="text-muted small mb-3">Cliente • <span class="omni-badge status-active">ACTIVO</span></div>
-        </div>
-
-        <div class="flex-grow-1 overflow-auto">
-            <div class="details-section">
-                <h6 class="details-title">Datos del Cliente</h6>
-
-                {% if conversation.contact.client %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-building text-center" title="Razón Social / Empresa"></i>
-                    <div>{{conversation.contact.client.business_name|default:conversation.contact.client.name|default:"Sin Empresa" }}</div>
-                </div>
-
-                {% if conversation.contact.client.cuit %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-id-card text-center" title="CUIT"></i>
-                    <div>{{ conversation.contact.client.cuit }}</div>
-                </div>
-                {% endif %}
-
-                {% if conversation.contact.client.address %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-map-marker-alt text-center" title="Dirección Física"></i>
-                    <div>{{ conversation.contact.client.address }}</div>
-                </div>
-                {% endif %}
-
-                {% if conversation.contact.client.fiscal_address %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-file-invoice-dollar text-center" title="Dirección Fiscal"></i>
-                    <div>{{ conversation.contact.client.fiscal_address }}</div>
-                </div>
-                {% endif %}
-
-                {% if conversation.contact.client.job_title %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-briefcase text-center" title="Cargo"></i>
-                    <div>{{ conversation.contact.client.job_title }}</div>
-                </div>
-                {% endif %}
-                {% else %}
-                <div class="text-muted small mb-3">Sin datos de cliente vinculados.</div>
-                {% endif %}
-
-                <div class="detail-item text-dark">
-                    <i class="far fa-clock text-center" title="Hora Local"></i>
-                    <div>Hora Local: {% now "H:i A" %}</div>
-                </div>
-
-                {% if conversation.contact.client and conversation.contact.client.additional_info %}
-                <div class="mt-2 p-2 bg-light rounded small border">
-                    <strong class="d-block mb-1 text-muted" style="font-size: 0.7rem;">INFO ADICIONAL</strong>
-                    {{ conversation.contact.client.additional_info|linebreaksbr }}
-                </div>
-                {% endif %}
-
-                <!-- Internal Notes Section -->
-                {% if conversation.contact.client %}
-                <div class="mt-3">
-                    <h6 class="details-title mb-2">Notas Internas</h6>
-                    <form hx-post="{% url 'client_update_note' conversation.contact.client.pk %}"
-                        hx-trigger="change delay:500ms, blur" hx-swap="none">
-                        {% csrf_token %}
-                        <textarea name="internal_notes"
-                            class="form-control form-control-sm bg-light border-0 shadow-none" rows="4"
-                            placeholder="Escribe una nota..."
-                            style="font-size: 0.85rem; resize: none;">{{ conversation.contact.client.internal_notes|default:"" }}</textarea>
-                        <div class="text-end mt-1">
-                            <small class="text-muted" style="font-size: 0.7rem;">
-                                <i class="fas fa-save me-1"></i>Guardado automático
-                            </small>
-                        </div>
-                    </form>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="details-section">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="details-title mb-0">Etiquetas</h6>
-                    {% if conversation.contact.client %}
-                    <button class="btn btn-sm btn-light text-primary py-0 px-2"
-                        hx-get="{% url 'client_tag_list_for_client' conversation.contact.client.pk %}"
-                        hx-target="#modal-body" onclick="openModal()" style="font-size: 0.7rem; font-weight: 700;">+
-                        Añadir</button>
-                    {% endif %}
-                </div>
-
-                <div class="tag-list" id="client-tags-container"
-                    hx-get="{% url 'communications:conversation_detail' conversation.id %}"
-                    hx-select="#client-tags-container" hx-trigger="tagsChanged from:body" hx-swap="outerHTML">
-                    {% if conversation.contact.client %}
-                    {% for tag in conversation.contact.client.tags.all %}
-                    <span class="badge rounded-pill me-1 mb-1 border"
-                        style="background-color: {{ tag.color }}20; color: {{ tag.color }}; border-color: {{ tag.color }} !important; font-weight: 500;">
-                        {{ tag.name }}
-                        <i class="fas fa-times ms-1" style="cursor: pointer;"
-                            hx-post="{% url 'client_manage_tags' conversation.contact.client.pk %}"
-                            hx-vals='{"tag_id": "{{ tag.id }}", "action": "remove"}' hx-confirm="¿Quitar etiqueta?"
-                            hx-swap="none"></i>
-                    </span>
-                    {% empty %}
-                    <small class="text-muted fst-italic">Sin etiquetas asignadas</small>
-                    {% endfor %}
-                    {% else %}
-                    <small class="text-muted">Asocie un cliente para gestionar etiquetas</small>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Internal Notes re-purposed as Interacciones or Notes section -->
-            <div class="details-section border-0">
-                <h6 class="details-title">Notas Internas (<span id="notesCount">{{ notes.count }}</span>)</h6>
-                <div class="mb-3" style="max-height: 200px; overflow-y: auto;" id="notesContainer">
-                    {% for n in notes %}
-                    <div class="bg-warning-subtle p-2 rounded mb-2 border border-warning">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="small fw-bold text-dark"><i class="fas fa-user-circle me-1"></i> {{
-                                n.author.username }}</span>
-                            <span class="text-muted" style="font-size: 0.65rem;">{{ n.created_at|date:"d/m H:i"
-                                }}</span>
-                        </div>
-                        <div class="small text-dark">{{ n.content }}</div>
-                    </div>
-                    {% empty %}
-                    <div class="text-muted small text-center my-3">Sin notas internas.</div>
-                    {% endfor %}
-                </div>
-
-                <form method="post" action="/communications/api/notes/" class="mt-2">
-                    {% csrf_token %}
-                    <input type="hidden" name="conversation" value="{{ conversation.id }}">
-                    <div class="input-group input-group-sm mb-2 shadow-sm rounded">
-                        <input type="text" class="form-control border-0" name="content" placeholder="Escribir nota..."
-                            style="background: #fff;">
-                        <button type="submit" class="btn btn-white text-warning border-0" style="background: #fff;"><i
-                                class="fas fa-paper-plane"></i></button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 </div>
 

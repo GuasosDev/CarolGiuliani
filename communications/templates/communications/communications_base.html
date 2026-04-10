@@ -3,6 +3,23 @@
 
 {% block title %}Comunicaciones{% endblock %}
 
+{% block navbar_tools %}
+<!-- Action Buttons Group -->
+<div class="btn-group me-3 shadow-sm">
+    <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
+        onclick="openModal()" class="btn btn-primary btn-sm px-3" style="border-top-left-radius: 20px; border-bottom-left-radius: 20px;">
+        <i class="fas fa-plus me-1"></i>
+        <span class="fw-bold" style="font-size: 0.8rem;">Nuevo</span>
+    </button>
+    <button hx-get="{% url 'communications:conversation_report' %}" hx-target="#modal-body"
+        hx-trigger="click" onclick="openModal()"
+        class="btn btn-light border btn-sm px-3" style="border-top-right-radius: 20px; border-bottom-right-radius: 20px;">
+        <i class="fas fa-file-pdf me-1 text-danger"></i>
+        <span class="fw-bold" style="font-size: 0.8rem;">Reporte</span>
+    </button>
+</div>
+{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
 {% block comm_css %}{% endblock %}
