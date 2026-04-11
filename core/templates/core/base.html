@@ -44,6 +44,23 @@
             var parts = value.split('; ' + name + '=');
             if (parts.length === 2) return parts.pop().split(';').shift();
         }
+        function applyPersonalizationFromStorage() {
+            try {
+                var fs = localStorage.getItem('gd_font_size');
+                if (fs) {
+                    document.documentElement.style.setProperty('--global-font-size', fs + 'px');
+                    document.documentElement.style.fontSize = fs + 'px';
+                }
+                var dm = localStorage.getItem('gd_dark_mode');
+                if (dm === 'true') {
+                    document.body.classList.add('dark-mode');
+                } else if (dm === 'false') {
+                    document.body.classList.remove('dark-mode');
+                }
+            } catch (e) {}
+        }
+        applyPersonalizationFromStorage();
+        document.addEventListener('DOMContentLoaded', applyPersonalizationFromStorage);
         document.addEventListener('htmx:configRequest', function (event) {
             var token = getCookie('csrftoken');
             if (token) {
