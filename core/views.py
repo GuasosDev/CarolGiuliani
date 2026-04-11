@@ -1,5 +1,6 @@
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -124,6 +125,28 @@ class UserProfileUpdateView(LoginRequiredMixin, GenericFormMixin, UpdateView):
         messages.success(self.request, "Perfil actualizado correctamente.")
         
         return super().form_valid(form)
+
+@login_required
+def update_personalization(request):
+    if request.method == 'POST':
+        profile = request.user.userprofile
+        font_size = request.POST.get('font_size')
+        dark_mode = request.POST.get('dark_mode')
+        if font_size:
+            try:
+                fs = int(font_size)
+                if fs < 12:
+                    fs = 12
+                if fs > 24:
+                    fs = 24
+                profile.font_size = fs
+            except Exception:
+                pass
+        if dark_mode is not None:
+            profile.dark_mode = dark_mode in ['true', 'on', '1', 'True', True]
+        profile.save()
+        return HttpResponse(status=204)
+    return HttpResponse(status=405)
 
 class GlobalSearchView(LoginRequiredMixin, TemplateView):
     template_name = 'core/search_results.html'

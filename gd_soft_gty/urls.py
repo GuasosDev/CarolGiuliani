@@ -20,7 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from core.views import (
     DashboardView, CompanySettingsUpdateView, UserProfileUpdateView, GlobalSearchView,
-    PrivacyPolicyView, TermsOfServiceView, DataDeletionView,
+    PrivacyPolicyView, TermsOfServiceView, DataDeletionView, update_personalization,
     WorkAreaListView, WorkAreaCreateView, WorkAreaUpdateView, WorkAreaDeleteView,
     UserManagementListView, UserManagementCreateView, UserManagementUpdateView, UserManagementDeleteView,
     GroupListView, GroupCreateView, GroupUpdateView, GroupDeleteView,
@@ -36,6 +36,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('settings/company/', CompanySettingsUpdateView.as_view(), name='company_settings'),
     path('settings/profile/', UserProfileUpdateView.as_view(), name='user_profile'),
+    path('settings/personalization/', update_personalization, name='update_personalization'),
     
     # Work Areas
     path('settings/work-areas/', WorkAreaListView.as_view(), name='work_area_list'),
