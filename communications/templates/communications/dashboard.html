@@ -43,14 +43,12 @@
 {% endblock %}
 
 {% block comm_content %}
-<div class="d-flex flex-column h-100">
+<div class="d-flex h-100 flex-grow-1 gap-3 overflow-hidden px-3">
     <!-- Main Content Area: 3 Columns -->
-    <div class="row g-0 flex-grow-1 overflow-hidden comm-split-row" style="height: 100%;">
-        <!-- Adjust height to fill parent -->
 
-        <!-- Column 1: Status Column (Thin) -->
-        <div class="col-auto border-end bg-light d-flex flex-column align-items-center py-4 gap-4"
-            style="width: 80px; min-width: 80px;">
+    <!-- Column 1: Status Column (Thin) -->
+    <div class="bg-white d-flex flex-column align-items-center py-4 gap-4 border rounded-4 shadow-sm h-100 flex-shrink-0"
+        style="width: 80px;">
             <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}"
                 class="status-circle-btn {% if current_status == 'normal' or not current_status %}active{% endif %} text-decoration-none text-center"
                 title="Activos" data-bs-toggle="tooltip" data-bs-placement="right">
@@ -82,8 +80,8 @@
             </a>
         </div>
 
-        <!-- Column 2: Conversation List (3 cols) -->
-        <div class="col-auto border-end bg-white d-flex flex-column h-100" id="conversation-list-panel">
+    <!-- Column 2: Conversation List (3 cols) -->
+    <div class="bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0" id="conversation-list-panel">
             <!-- Scrollable List -->
             <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
                 hx-get="{{ request.get_full_path }}" hx-trigger="every 15s"
@@ -205,11 +203,11 @@
             </div>
         </div>
 
-        <div id="conversation-splitter" aria-label="Redimensionar panel"></div>
+    <div id="conversation-splitter" aria-label="Redimensionar panel" class="mx-1 d-none d-md-block"></div>
 
-        <!-- Column 3: Conversation Detail (Rest) -->
-        <div class="col bg-light d-flex flex-column h-100 position-relative p-0" id="conversation-detail-panel"
-            style="background-color: #f8f9fa;">
+    <!-- Column 3: Conversation Detail (Rest) -->
+    <div class="bg-white d-flex flex-column h-100 position-relative p-0 border rounded-4 shadow-sm overflow-hidden flex-grow-1" id="conversation-detail-panel"
+        style="background-color: #f8f9fa;">
             <!-- Empty State -->
             <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
                 <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
@@ -282,7 +280,6 @@
            
         </div>-->
 
-    </div>
 </div>
 
 <style>

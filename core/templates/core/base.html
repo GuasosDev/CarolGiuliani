@@ -193,15 +193,15 @@
             <i class="fas fa-bars"></i>
         </button>
         <ul class="nav-links" id="nav-links">
-            <li><a href="{% url 'dashboard' %}" class="{% if request.path == '/' %}active{% endif %}"><i
-                        class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.view_name == 'dashboard' or request.resolver_match.view_name == 'communications:role_dashboard' or request.resolver_match.view_name == 'communications:supervisor_dashboard' or request.resolver_match.view_name == 'communications:agent_dashboard' %}active{% endif %}">
+                <i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
             <li><a href="{% url 'client_list' %}" class="{% if 'clients' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i> Contactos
                 </a></li>
 
 
             <li><a href="{% url 'communications:dashboard' %}"
-                    class="{% if 'communications' in request.path %}active{% endif %}">
+                    class="{% if request.resolver_match.view_name == 'communications:dashboard' %}active{% endif %}">
                     <i class="fas fa-comments"></i> Communications
                 </a></li>
         </ul>

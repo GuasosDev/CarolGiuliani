@@ -1,0 +1,144 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Mi Dashboard - Agente{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-7">
+            <h2 class="fw-bold">Bienvenido, {{ request.user.get_full_name|default:request.user.username }}</h2>
+            <p class="text-muted small mb-0">Estado de tu atención para el día de hoy.</p>
+        </div>
+        <div class="col-md-5 text-md-end mt-3 mt-md-0">
+            <div class="d-flex gap-2 justify-content-md-end">
+                <a href="{% url 'communications:contact_create' %}" class="btn btn-light fw-bold px-3 border border-secondary-subtle text-dark-emphasis rounded-pill btn-sm">
+                    <i class="fas fa-user-plus me-2 text-muted"></i> Nuevo Contacto
+                </a>
+                <a href="{% url 'communications:quick_replies' %}" class="btn btn-light fw-bold px-3 border border-secondary-subtle text-dark-emphasis rounded-pill btn-sm">
+                    <i class="fas fa-keyboard me-2 text-muted"></i> Respuestas Rápidas
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Métricas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white shadow-sm border-0 position-relative overflow-hidden">
+                <div class="card-body py-4">
+                    <div class="d-flex justify-content-between align-items-center position-relative" style="z-index: 2;">
+                        <div>
+                            <div class="fw-bold opacity-75 small text-uppercase mb-1">Mis Chats Abiertos</div>
+                            <div class="display-5 fw-bold">{{ open_conversations }}</div>
+                        </div>
+                        <div class="fs-1 opacity-25">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                    </div>
+                </div>
+                <i class="fas fa-comments position-absolute" style="font-size: 8rem; bottom: -20px; right: -20px; opacity: 0.1; z-index: 1;"></i>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white shadow-sm border-0 position-relative overflow-hidden">
+                <div class="card-body py-4">
+                    <div class="d-flex justify-content-between align-items-center position-relative" style="z-index: 2;">
+                        <div>
+                            <div class="fw-bold opacity-75 small text-uppercase mb-1">Cerrados Hoy</div>
+                            <div class="display-5 fw-bold">{{ closed_today }}</div>
+                        </div>
+                        <div class="fs-1 opacity-25">
+                            <i class="fas fa-check-double"></i>
+                        </div>
+                    </div>
+                </div>
+                <i class="fas fa-check-double position-absolute" style="font-size: 8rem; bottom: -20px; right: -20px; opacity: 0.1; z-index: 1;"></i>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100 d-flex flex-column justify-content-center bg-light">
+                <div class="card-body text-center d-flex align-items-center">
+                    <a href="{% url 'communications:dashboard' %}" class="btn btn-primary btn-lg w-100 py-3 shadow-sm fw-bold">
+                        <i class="fas fa-external-link-alt me-2"></i> Ir al Panel de Atención
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Tabla de Actividad Reciente -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="mb-0 fw-bold">Actividad Reciente</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Contacto</th>
+                                    <th>Canal</th>
+                                    <th>Estado</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for conv in recent_conversations %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-soft-primary text-primary rounded-circle p-2 me-3" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="fas fa-user"></i>
+                                            </div>
+                                            <div class="fw-bold text-dark">{{ conv.contact.client.name|default:conv.contact.whatsapp_number|default:conv.contact.client.email }}</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if conv.channel == 'whatsapp' %}
+                                            <span class="badge bg-soft-success text-success px-3"><i class="fab fa-whatsapp me-1"></i> WhatsApp</span>
+                                        {% else %}
+                                            <span class="badge bg-soft-info text-info px-3"><i class="fas fa-envelope me-1"></i> Email</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if conv.status == 'normal' %}bg-success{% elif conv.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                            {{ conv.status|upper }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{% url 'communications:dashboard' %}?conversation={{ conv.id }}" class="btn btn-sm btn-outline-primary fw-bold">
+                                            Ver Chat <i class="fas fa-arrow-right ms-1"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <i class="fas fa-ghost fs-1 mb-3"></i>
+                                        <p>No tienes actividad reciente para mostrar.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-soft-primary { background-color: rgba(102, 88, 221, 0.1); }
+    .bg-soft-success { background-color: rgba(28, 187, 140, 0.1); }
+    .bg-soft-info { background-color: rgba(79, 198, 225, 0.1); }
+    .bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
+    .text-primary { color: #6658dd !important; }
+    .text-success { color: #1cbb8c !important; }
+    .text-info { color: #4fc6e1 !important; }
+    .text-warning { color: #f7b84b !important; }
+</style>
+{% endblock %}

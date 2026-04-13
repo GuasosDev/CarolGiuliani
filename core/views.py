@@ -2,7 +2,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, T
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.contrib.auth.models import User, Group, Permission
 from .models import CompanySettings, UserProfile, WorkArea, UserRole
@@ -36,7 +36,9 @@ class GenericFormMixin:
         return super().form_valid(form)
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    template_name = 'core/dashboard.html'
+    def get(self, request, *args, **kwargs):
+        # Redirect to the role-based dashboard in communications
+        return redirect('communications:role_dashboard')
 
 class GenericListView(LoginRequiredMixin, ListView):
     template_name = 'core/generic_list.html'

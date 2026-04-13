@@ -26,6 +26,8 @@ urlpatterns = [
     path('contact/<int:pk>/', views.contact_360_view, name='contact_360'),
     path('contacts/create/', ContactCreateView.as_view(), name='contact_create'),
     path('supervisor/', views.supervisor_dashboard, name='supervisor_dashboard'),
+    path('agent/', views.agent_dashboard, name='agent_dashboard'),
+    path('panel/', views.role_dashboard, name='role_dashboard'),
     path('settings/', views.settings_view, name='settings'),
     
     # Quick Replies

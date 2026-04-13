@@ -383,46 +383,127 @@ from datetime import timedelta
 
 @login_required
 def supervisor_dashboard(request):
+    # Check if user has permission (Supervisor or Superuser)
+    # Also allow manual testing with view_as
+    mode = request.session.get('view_as')
+    is_supervisor = request.user.is_superuser or \
+                    mode == 'supervisor' or \
+                    request.user.groups.filter(name='Supervisor').exists()
 
-    if not (request.user.is_superuser or 
-            request.user.groups.filter(name='Supervisor').exists()):
-        return HttpResponse('Unauthorized', status=401)
+    if not is_supervisor:
+        return redirect('communications:agent_dashboard')
     
     from django.contrib.auth.models import User
     from django.db.models import Count, Q
     
-    # Get all agents
+    # Get filters from request
+    agent_id = request.GET.get('agent')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    channel_filter = request.GET.get('channel')
+    
+    # Get all agents for the filter dropdown
     agents = User.objects.filter(is_staff=True, is_active=True)
     
+    # Base QuerySet for metrics
+    conversations_qs = Conversation.objects.all()
+    
+    # Apply filters to the QuerySet
+    if agent_id:
+        conversations_qs = conversations_qs.filter(assigned_to_id=agent_id)
+    if start_date:
+        conversations_qs = conversations_qs.filter(created_at__date__gte=start_date)
+    if end_date:
+        conversations_qs = conversations_qs.filter(created_at__date__lte=end_date)
+    if channel_filter:
+        conversations_qs = conversations_qs.filter(channel=channel_filter)
+    
     # Get metrics
-    total_conversations = Conversation.objects.count()
-    open_conversations = Conversation.objects.filter(status__in=['normal', 'pending']).count()
-    closed_today = Conversation.objects.filter(
-        status='closed',
-        closed_at__date=timezone.now().date()
-    ).count()
+    total_conversations = conversations_qs.count()
+    open_conversations = conversations_qs.filter(status__in=['normal', 'pending']).count()
+    
+    # Closed today logic (reflecting filters if provided)
+    closed_qs = conversations_qs.filter(status='closed')
+    if not (start_date or end_date):
+        closed_today = closed_qs.filter(closed_at__date=timezone.now().date()).count()
+    else:
+        closed_today = closed_qs.count()
+    
+    # Channel distribution (Filtered)
+    channel_stats = conversations_qs.values('channel').annotate(count=Count('id'))
     
     # Agent workload
     agent_stats = []
-    for agent in agents:
+    # If a specific agent is filtered, we only show that one in the table, otherwise all
+    stat_agents = agents.filter(id=agent_id) if agent_id else agents
+    
+    for agent in stat_agents:
         active_count = Conversation.objects.filter(
             assigned_to=agent,
             status__in=['normal', 'pending']
-        ).count()
+        )
+        # We don't usually filter current workload by historical date, but for consistency:
+        if start_date: active_count = active_count.filter(created_at__date__gte=start_date)
+        if end_date: active_count = active_count.filter(created_at__date__lte=end_date)
         
         agent_stats.append({
             'agent': agent,
-            'active_conversations': active_count
+            'active_conversations': active_count.count()
         })
     
     context = {
         'total_conversations': total_conversations,
         'open_conversations': open_conversations,
         'closed_today': closed_today,
-        
+        'agent_stats': agent_stats,
+        'channel_stats': channel_stats,
+        'agents': agents,
+        'filters': {
+            'agent': agent_id,
+            'start_date': start_date,
+            'end_date': end_date,
+            'channel': channel_filter,
+        }
     }
 
     return render(request, 'communications/supervisor_dashboard.html', context)
+
+
+@login_required
+def agent_dashboard(request):
+    from django.db.models import Count, Q
+    
+    # My specific metrics
+    open_conversations = Conversation.objects.filter(
+        assigned_to=request.user, 
+        status__in=['normal', 'pending']
+    ).count()
+    
+    closed_today = Conversation.objects.filter(
+        assigned_to=request.user,
+        status='closed',
+        closed_at__date=timezone.now().date()
+    ).count()
+    
+    # Recent activity
+    recent_conversations = Conversation.objects.filter(
+        assigned_to=request.user
+    ).select_related('contact').order_by('-updated_at')[:5]
+    
+    context = {
+        'open_conversations': open_conversations,
+        'closed_today': closed_today,
+        'recent_conversations': recent_conversations,
+    }
+    return render(request, 'communications/agent_dashboard.html', context)
+
+
+@login_required
+def role_dashboard(request):
+    mode = request.session.get('view_as')
+    if mode == 'supervisor' or request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
+        return redirect('communications:supervisor_dashboard')
+    return redirect('communications:agent_dashboard')
 
 
 
