@@ -95,7 +95,7 @@ class WhatsAppHandler:
             logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False, str(e)
     
-    def send_media_message(self, to_number, media_type, media_id, caption=None, conversation=None):
+    def send_media_message(self, to_number, media_type, media_id, caption=None, filename=None, conversation=None):
         """Send a media message (image, document, audio, video)"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -112,6 +112,8 @@ class WhatsAppHandler:
         
         if caption and media_type in ['image', 'document', 'video']:
             payload[media_type]['caption'] = caption
+        if filename and media_type == 'document':
+            payload[media_type]['filename'] = filename
         
         try:
             response = requests.post(url, headers=self.headers, json=payload)
@@ -152,6 +154,48 @@ class WhatsAppHandler:
             return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp media message: {str(e)}")
+            return False, str(e)
+
+    def detect_media_type(self, uploaded_file):
+        content_type = (getattr(uploaded_file, 'content_type', None) or '').lower()
+        if content_type.startswith('image/'):
+            return 'image'
+        if content_type.startswith('video/'):
+            return 'video'
+        if content_type.startswith('audio/'):
+            return 'audio'
+        return 'document'
+
+    def upload_media(self, uploaded_file):
+        url = f"{self.api_url}/{self.account.phone_number_id}/media"
+        headers = {
+            'Authorization': f'Bearer {self.account.access_token}',
+        }
+
+        file_handle = getattr(uploaded_file, 'file', uploaded_file)
+        content_type = getattr(uploaded_file, 'content_type', None)
+        filename = getattr(uploaded_file, 'name', 'attachment')
+
+        files = {
+            'file': (filename, file_handle, content_type) if content_type else (filename, file_handle)
+        }
+        data = {
+            'messaging_product': 'whatsapp'
+        }
+
+        try:
+            response = requests.post(url, headers=headers, files=files, data=data)
+            response.raise_for_status()
+            media_id = response.json().get('id')
+            if not media_id:
+                return False, response.json()
+            return True, media_id
+        except requests.exceptions.HTTPError:
+            try:
+                return False, response.json()
+            except Exception:
+                return False, response.text
+        except requests.exceptions.RequestException as e:
             return False, str(e)
     
     def send_template_message(self, to_number, template_name, language_code, components=None):

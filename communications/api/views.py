@@ -166,19 +166,47 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         handler = WhatsAppHandler(account)
         
         to_number = request.data.get('to_number')
-        message_text = request.data.get('message')
+        message_text = (request.data.get('message') or '').strip()
         conversation_id = request.data.get('conversation_id')
+        attachments = request.FILES.getlist('attachments')
         
         conversation = None
         if conversation_id:
             conversation = Conversation.objects.get(id=conversation_id)
-        
-        success, result = handler.send_text_message(to_number, message_text, conversation)
-        
-        if success:
-            return Response({'status': 'sent', 'message_id': result})
-        else:
+
+        if not attachments:
+            if not message_text:
+                return Response({'error': 'Por favor escribe un mensaje o adjunta archivos antes de enviar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            success, result = handler.send_text_message(to_number, message_text, conversation)
+            if success:
+                return Response({'status': 'sent', 'message_id': result})
             return Response({'error': result}, status=status.HTTP_400_BAD_REQUEST)
+
+        message_ids = []
+        for idx, f in enumerate(attachments):
+            media_type = handler.detect_media_type(f)
+
+            success, media_id_or_error = handler.upload_media(f)
+            if not success:
+                return Response({'error': media_id_or_error}, status=status.HTTP_400_BAD_REQUEST)
+
+            caption = message_text if (idx == 0 and message_text) else None
+            filename = getattr(f, 'name', None) if media_type == 'document' else None
+
+            success, msg_id_or_error = handler.send_media_message(
+                to_number=to_number,
+                media_type=media_type,
+                media_id=media_id_or_error,
+                caption=caption,
+                filename=filename,
+                conversation=conversation
+            )
+            if not success:
+                return Response({'error': msg_id_or_error}, status=status.HTTP_400_BAD_REQUEST)
+            message_ids.append(msg_id_or_error)
+
+        return Response({'status': 'sent', 'message_ids': message_ids})
 
 
 class EmailAccountViewSet(viewsets.ModelViewSet):

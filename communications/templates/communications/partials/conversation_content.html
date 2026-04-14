@@ -633,6 +633,15 @@
                         console.log('FormData entries:', Array.from(formData.entries()));
                     }
                 }
+                if (channel === 'whatsapp') {
+                    const fileInput = document.getElementById('imageInputWhatsapp');
+                    if (fileInput && fileInput.files.length > 0) {
+                        formData.delete('attachments');
+                        Array.from(fileInput.files).forEach(file => {
+                            formData.append('attachments', file);
+                        });
+                    }
+                }
 
                 // Validate to_number for WhatsApp
                 if (channel === 'whatsapp') {
@@ -692,6 +701,10 @@
                             const messageTextarea = form.querySelector('textarea[name="message"]');
                             if (messageTextarea) {
                                 messageTextarea.value = '';
+                            }
+                            const fileInput = document.getElementById('imageInputWhatsapp');
+                            if (fileInput) {
+                                fileInput.value = '';
                             }
                         } else {
                             const emailBodyDiv = document.getElementById('emailBodyDiv');
