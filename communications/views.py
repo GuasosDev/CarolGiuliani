@@ -16,6 +16,7 @@ from django.template.loader import get_template
 from xhtml2pdf import pisa
 import json
 import logging
+import re
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
 from .forms import QuickReplyForm, ConversationReportForm
 from .whatsapp_handler import process_whatsapp_webhook
@@ -234,7 +235,55 @@ def open_client_whatsapp(request, client_id, channel='whatsapp'):
 @login_required
 def contact_details_modal(request, conversation_id):
     """View to show contact details in a modal"""
-    conversation = get_object_or_404(Conversation, pk=conversation_id)
+    conversation = get_object_or_404(
+        Conversation.objects.select_related('contact', 'contact__client'),
+        pk=conversation_id
+    )
+
+    if conversation.contact and not conversation.contact.client:
+        matched_contact = None
+        wa = (conversation.contact.whatsapp_number or "").strip()
+        digits = re.sub(r"\D+", "", wa)
+        if len(digits) >= 10:
+            suffix = digits[-10:]
+            matched_contact = Contact.objects.select_related('client').filter(
+                whatsapp_number__endswith=suffix,
+                client__isnull=False
+            ).first()
+
+            if not matched_contact:
+                client_match = Client.objects.filter(phone__endswith=suffix).first()
+                if client_match:
+                    contact_for_client = Contact.objects.filter(client=client_match).first()
+                    if contact_for_client:
+                        matched_contact = contact_for_client
+                    else:
+                        conversation.contact.client = client_match
+                        conversation.contact.save(update_fields=['client'])
+
+        if not conversation.contact.client and conversation.channel == 'email':
+            from_address = EmailMessage.objects.filter(
+                message__conversation=conversation,
+                message__direction='inbound'
+            ).order_by('-created_at').values_list('from_address', flat=True).first()
+            if from_address:
+                client_match = Client.objects.filter(email__iexact=from_address).first()
+                if client_match:
+                    contact_for_client = Contact.objects.filter(client=client_match).first()
+                    if contact_for_client:
+                        matched_contact = contact_for_client
+                    else:
+                        conversation.contact.client = client_match
+                        conversation.contact.save(update_fields=['client'])
+
+        if matched_contact and matched_contact.pk != conversation.contact_id:
+            if wa and not matched_contact.whatsapp_number and conversation.channel == 'whatsapp':
+                matched_contact.whatsapp_number = wa
+                matched_contact.save(update_fields=['whatsapp_number'])
+            conversation.contact = matched_contact
+            conversation.save(update_fields=['contact'])
+            conversation = Conversation.objects.select_related('contact', 'contact__client').get(pk=conversation.pk)
+
     notes = conversation.internal_notes.all().order_by('-created_at')
     
     return render(request, 'communications/partials/contact_details_modal.html', {
