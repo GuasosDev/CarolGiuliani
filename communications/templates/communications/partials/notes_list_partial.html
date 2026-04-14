@@ -1,0 +1,11 @@
+{% for n in notes %}
+<div class="bg-warning-subtle p-2 rounded mb-2 border border-warning">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="small fw-bold text-dark"><i class="fas fa-user-circle me-1"></i> {{ n.author.username }}</span>
+        <span class="text-muted" style="font-size: 0.65rem;">{{ n.created_at|date:"d/m H:i" }}</span>
+    </div>
+    <div class="small text-dark">{{ n.content }}</div>
+</div>
+{% empty %}
+<div class="text-muted small text-center my-3">Sin notas en esta conversación.</div>
+{% endfor %}

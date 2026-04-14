@@ -17,12 +17,17 @@ urlpatterns = [
     
     # Web interface URLs
     path('', views.dashboard, name='dashboard'),
-    path('client/<int:client_id>/whatsapp/', open_client_whatsapp, name='open_client_whatsapp'),
+    path('client/<int:client_id>/whatsapp/<str:channel>/', open_client_whatsapp, name='open_client_whatsapp'),
+    path('client/<int:client_id>/whatsapp/', open_client_whatsapp, {'channel': 'whatsapp'}, name='open_client_whatsapp_legacy'),
     path('conversation/<int:pk>/', views.conversation_detail, name='conversation_detail'),
     path('conversation/<int:pk>/status/', views.change_conversation_status, name='change_conversation_status'),
+    path('conversation/<int:conversation_id>/add-note/', views.add_conversation_note, name='add_conversation_note'),
+    path('conversation/<int:conversation_id>/details-modal/', views.contact_details_modal, name='contact_details_modal'),
     path('contact/<int:pk>/', views.contact_360_view, name='contact_360'),
     path('contacts/create/', ContactCreateView.as_view(), name='contact_create'),
     path('supervisor/', views.supervisor_dashboard, name='supervisor_dashboard'),
+    path('agent/', views.agent_dashboard, name='agent_dashboard'),
+    path('panel/', views.role_dashboard, name='role_dashboard'),
     path('settings/', views.settings_view, name='settings'),
     
     # Quick Replies
@@ -47,6 +52,10 @@ urlpatterns = [
         transfer_conversation_modal,
         name='transfer_conversation_modal'
     ),
+<<<<<<< HEAD
 
     path('client/<int:client_id>/email/', open_client_email, name='open_client_email'),
+=======
+    
+>>>>>>> origin/dashboard-martin
 ]

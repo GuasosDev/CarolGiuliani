@@ -53,6 +53,10 @@ document.body.addEventListener('reloadPage', function () {
 // Fallback: If 204 is returned but event doesn't trigger (sometimes happens if parsed differently)
 document.body.addEventListener('htmx:afterRequest', function (evt) {
     if (evt.detail.successful && evt.detail.xhr.status === 204) {
+        var el = evt.detail.elt;
+        if (el && (el.dataset.noReload === 'true' || (el.closest && el.closest('[data-no-reload="true"]')))) {
+            return;
+        }
         closeModal();
         closeModalSecondary();
         location.reload();
