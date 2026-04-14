@@ -1,0 +1,17 @@
+<div class="alert alert-success d-flex align-items-center justify-content-between shadow-sm">
+    
+    <div class="d-flex align-items-center gap-2">
+        <span>✅</span>
+        <span>{{ message }}</span>
+    </div>
+
+    <button type="button" class="btn-close" aria-label="Close" onclick="this.parentElement.remove()"></button>
+
+</div>
+
+<script>
+    setTimeout(() => {
+        closeModal();
+        location.reload();
+    }, 1000);
+</script>

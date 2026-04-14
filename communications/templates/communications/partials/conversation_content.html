@@ -1,56 +1,61 @@
 <div class="omni-chat-wrapper d-flex flex-row h-100 flex-grow-1 border-0 shadow-none rounded-0 w-100"
     style="min-height: 100%;">
-    <!-- Main Chat Workspace -->
+  <!--Main Chat Workspace --> 
     <div class="omni-chat-main">
-        <div class="omni-chat-header bg-white">
-            <div class="d-flex align-items-center">
-                <div class="omni-avatar bg-secondary me-3" style="width: 45px; height: 45px; font-size: 1.2rem;">
+        <div class="omni-chat-header bg-white py-3 px-3">
+            <div class="d-flex align-items-center flex-grow-1" 
+                 hx-get="{% url 'communications:contact_details_modal' conversation.id %}" 
+                 hx-target="#modal-body" 
+                 onclick="openModal()" 
+                 style="cursor: pointer; min-width: 0;">
+                <div class="omni-avatar bg-secondary me-2" style="width: 40px; height: 40px; font-size: 1.1rem; flex-shrink: 0;">
                     {{ conversation.get_display_name|make_list|first|upper }}
                 </div>
-                <div>
-                    <h5 class="mb-0 fw-bold text-dark">{{ conversation.get_display_name }}
-                        <span class="badge bg-light text-muted fw-normal ms-2">ID: #{{ conversation.id }}</span>
-                        {% if conversation.status == 'normal' %}
-                        <span class="badge bg-success ms-2">Activo</span>
-                        {% elif conversation.status == 'pending' %}
-                        <span class="badge bg-warning text-dark ms-2">Pendiente</span>
-                        {% elif conversation.status == 'closed' %}
-                        <span class="badge bg-danger ms-2">Cerrado</span>
-                        {% endif %}
-                    </h5>
-                    <div class="small text-muted mt-1">
-                        <i class="fas fa-envelope me-1"></i> {% if conversation.contact.client %}
-                        {{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
-                        •
-                        <i class="fas fa-phone me-1"></i> {{ conversation.contact.get_display_phone }}
+                <div class="text-truncate">
+                    <h6 class="mb-0 fw-bold text-dark text-truncate">{{ conversation.get_display_name }}
+                        <span class="badge bg-light text-muted fw-normal ms-1" style="font-size: 0.75rem;">#{{ conversation.id }}</span>
+                    </h6>
+                    <div class="small text-muted d-flex align-items-center" style="font-size: 0.8rem;">
+                        <span class="text-truncate me-3">
+                            <i class="fas fa-envelope me-1 text-primary"></i>{% if conversation.contact.client %}{{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
+                        </span>
+                        <span class="text-nowrap">
+                            <i class="fas fa-phone me-1 text-success"></i>{{ conversation.contact.get_display_phone }}
+                        </span>
                     </div>
                 </div>
             </div>
 
             <div class="chat-header-actions d-flex">
-                <button class="btn btn-outline-secondary d-flex align-items-center bg-light border-0 fw-bold me-2">
-                    <i class="fas fa-exchange-alt me-2"></i> Transferir
+                 <button 
+                    hx-get="{% url 'communications:transfer_conversation_modal' conversation.id %}"
+                    hx-target="#modal-body"
+                    hx-trigger="click"
+                    onclick="openModal()"
+                    class="btn btn-sm btn-primary">
+                    Transferir
                 </button>
 
-                <form method="post" action="{% url 'communications:change_conversation_status' conversation.id %}"
+                <form hx-post="{% url 'communications:change_conversation_status' conversation.id %}"
+                    hx-swap="none"
                     class="mb-0 d-flex gap-2">
                     {% csrf_token %}
 
                     {% if conversation.status != 'normal' %}
-                    <button type="submit" name="status" value="normal" class="btn btn-outline-success fw-bold">
-                        <i class="fas fa-check me-1"></i> Activo
+                    <button type="submit" name="status" value="normal" class="btn btn-sm btn-outline-success border-0 p-1" title="Marcar como Activo">
+                        <i class="fas fa-check fa-lg"></i>
                     </button>
                     {% endif %}
 
                     {% if conversation.status != 'pending' %}
-                    <button type="submit" name="status" value="pending" class="btn btn-outline-warning fw-bold">
-                        <i class="fas fa-hourglass-half me-1"></i> Pendiente
+                    <button type="submit" name="status" value="pending" class="btn btn-sm btn-outline-warning border-0 p-1" title="Marcar como Pendiente">
+                        <i class="fas fa-hourglass-half fa-lg"></i>
                     </button>
                     {% endif %}
 
                     {% if conversation.status != 'closed' %}
-                    <button type="submit" name="status" value="closed" class="btn btn-outline-danger fw-bold">
-                        <i class="fas fa-times me-1"></i> Cerrar
+                    <button type="submit" name="status" value="closed" class="btn btn-sm btn-outline-danger border-0 p-1" title="Cerrar Conversación">
+                        <i class="fas fa-times fa-lg"></i>
                     </button>
                     {% endif %}
                 </form>
@@ -58,6 +63,7 @@
         </div>
 
         <div class="omni-messages-area bg-light" id="chatMessagesArea">
+            
             <div class="date-divider">
                 <span>HOY</span>
             </div>
@@ -86,13 +92,32 @@
                         {% if m.message_type == 'whatsapp' %}
                         <span class="ms-1 text-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
                         {% else %}
-                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email</span>
+                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email </span><br>
+                        <span class="ms-1 text-primary"><i class="fas fa-tag"></i>Asunto:{{ conversation.subject }}</span>
                         {% endif %}
                     </div>
 
-                    <div class="msg-bubble">
-                        {{ m.content|linebreaksbr }}
-                    </div>
+                                <div class="msg-bubble text-break pt-1 d-inline-block text-start">
+                                
+                                        {{ m.content|linebreaksbr }}
+
+                                    {% if m.email_data %}
+                                        {% for att in m.email_data.attachments.all %}
+                                            <div style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
+                                                <i class="fas fa-paperclip me-2"></i>
+                                                <a href="{{ att.file.url }}" target="_blank">
+                                                    {{ att.filename }}
+                                                </a>
+                                                <small class="ms-2 text-muted">
+                                                    ({{ att.size|filesizeformat }})
+                                                </small>
+                                                
+                                            </div>
+                                        {% empty %}
+                                            <!-- no attachments -->
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
 
                     <div class="message-meta d-flex justify-content-between">
                         <span>{{ m.created_at|time:"h:i A" }}</span>
@@ -114,6 +139,8 @@
                 </div>
             </div>
             {% endif %}
+            
+            
         </div>
 
         <div class="omni-chat-input-area">
@@ -148,13 +175,13 @@
                                     onclick="insertQuickReply(this.dataset.content); return false;"
                                     data-content="{{ reply.content }}">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title
-                                            }}</strong>
-                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{
-                                            reply.shortcut }}</small>{% endif %}
+                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title }}</strong>
+                                            
+                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{  reply.shortcut }}</small>{% endif %}
+                                           
                                     </div>
-                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{
-                                        reply.content }}</small>
+                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{  reply.content }}</small>
+                                       
                                     <div class="d-flex gap-1 mt-1">
                                         {% if reply.channel == 'whatsapp' %}
                                         <i class="fab fa-whatsapp text-success" style="font-size: 0.7rem;"></i>
@@ -176,7 +203,10 @@
                             </div>
                         </div>
                     </div>
-                    <button type="button" class="tool-btn"><i class="fas fa-paperclip"></i></button>
+                    
+                <button type="button" onclick="openFileSelector()" class="tool-btn">
+                    <i class="fas fa-paperclip"></i>
+                </button>
                 </div>
             </div>
 
@@ -186,8 +216,10 @@
                 {% if whatsapp_account %}
                 <form method="post"
                     action="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/"
-                    id="whatsappForm">
+                    id="whatsappForm"
+                    enctype="multipart/form-data">
                     {% csrf_token %}
+                    <input type="file" id="imageInputWhatsapp" name="attachments" multiple hidden>
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
                     <input type="hidden" name="to_number" value="{{ conversation.contact.get_display_phone }}">
 
@@ -219,11 +251,13 @@
             <div id="channel-email" class="channel-content {% if conversation.channel != 'email' %}d-none{% endif %}">
                 {% if email_account %}
                 <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
-                    id="emailForm">
+                    id="emailForm" enctype="multipart/form-data">
                     {% csrf_token %}
+                    <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
 
                     <div class="bg-white p-2 rounded border mb-2">
+                        <div id="emailFilePreview" class="mb-2"></div>
                         <div class="mb-2 border-bottom pb-2">
                             <input type="email" name="to_addresses"
                                 class="form-control form-control-sm border-0 px-0 mb-1" placeholder="Para"
@@ -233,8 +267,18 @@
                                 placeholder="Asunto"
                                 value="{% if conversation.subject %}Re: {{ conversation.subject }}{% endif %}" required>
                         </div>
-                        <textarea class="form-control border-0 shadow-none px-0" name="body" rows="3"
-                            placeholder="Escribe el contenido del correo..." required></textarea>
+                        <div class="d-flex align-items-start">
+                            <button type="button" onclick="document.getElementById('imageInputEmail').click()" class="tool-btn me-2 mt-1">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <div class="form-control border-0 shadow-none px-0" 
+                                 contenteditable="true" 
+                                 id="emailBodyDiv"
+                                 style="min-height: 80px; max-height: 300px; overflow-y: auto;"
+                                 placeholder="Escribe el contenido del correo..."
+                                 data-placeholder="Escribe el contenido del correo..."></div>
+                            <input type="hidden" name="body" id="emailBodyInput">
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-end">
@@ -250,8 +294,62 @@
                 {% endif %}
             </div>
         </div>
-
         <script>
+            document.getElementById('imageInputWhatsapp')?.addEventListener('change', function () {
+                console.log(this.files); // podés mostrar preview acá
+            });
+
+            document.getElementById('imageInputEmail')?.addEventListener('change', function () {
+                const files = this.files;
+                console.log('Archivos seleccionados:', files);
+                
+                if (files.length > 0) {
+                    // Mostrar vista previa visual
+                    displayEmailFilePreview(files);
+                    
+                    // Agregar archivos al campo de texto como imágenes/PDF
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    if (emailBodyDiv) {
+                        Array.from(files).forEach(file => {
+                            if (file.type.startsWith('image/')) {
+                                // Para imágenes, mostrar la imagen real
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                   console.log('IMAGE seleccionado:', file.name);
+                                    
+                                };
+                                reader.readAsDataURL(file);
+                            } else if (file.type.includes('pdf')) {
+                                console.log('PDF seleccionado:', file.name);
+                            } else if (
+                                file.type.includes('excel') ||
+                                file.type.includes('spreadsheet') ||
+                                file.name.endsWith('.xlsx') ||
+                                file.name.endsWith('.xls')
+                            ) {
+                                 console.log('EXCEL seleccionado:', file.name);
+                                
+
+                            } else {
+                                 console.log('SPREADSHEET seleccionado:', file.name);
+                                
+                            }
+                        });
+                    }
+                }
+            }); 
+        </script>
+        <script>
+            function openFileSelector() {
+                const whatsappContainer = document.getElementById('channel-whatsapp');
+                const emailContainer = document.getElementById('channel-email');
+
+                if (!whatsappContainer.classList.contains('d-none')) {
+                    document.getElementById('imageInputWhatsapp').click();
+                } else {
+                    document.getElementById('imageInputEmail').click();
+                }
+            }
             function switchChannel(channel) {
                 // Reset buttons
                 document.getElementById('btn-whatsapp').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
@@ -279,22 +377,34 @@
                 const whatsappContainer = document.getElementById('channel-whatsapp');
                 const emailContainer = document.getElementById('channel-email');
 
-                let activeTextarea = null;
-
                 if (!whatsappContainer.classList.contains('d-none')) {
-                    activeTextarea = whatsappContainer.querySelector('textarea[name="message"]');
+                    // WhatsApp usa textarea
+                    const activeTextarea = whatsappContainer.querySelector('textarea[name="message"]');
+                    if (activeTextarea) {
+                        const start = activeTextarea.selectionStart;
+                        const end = activeTextarea.selectionEnd;
+                        const text = activeTextarea.value;
+
+                        activeTextarea.value = text.substring(0, start) + content + text.substring(end);
+                        activeTextarea.selectionStart = activeTextarea.selectionEnd = start + content.length;
+                        activeTextarea.focus();
+                    }
                 } else if (!emailContainer.classList.contains('d-none')) {
-                    activeTextarea = emailContainer.querySelector('textarea[name="body"]');
-                }
-
-                if (activeTextarea) {
-                    const start = activeTextarea.selectionStart;
-                    const end = activeTextarea.selectionEnd;
-                    const text = activeTextarea.value;
-
-                    activeTextarea.value = text.substring(0, start) + content + text.substring(end);
-                    activeTextarea.selectionStart = activeTextarea.selectionEnd = start + content.length;
-                    activeTextarea.focus();
+                    // Email usa div contenteditable
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    if (emailBodyDiv) {
+                        // Simplemente agregar el contenido al final
+                        emailBodyDiv.innerHTML += content;
+                        emailBodyDiv.focus();
+                        
+                        // Poner el cursor al final
+                        const range = document.createRange();
+                        const sel = window.getSelection();
+                        range.selectNodeContents(emailBodyDiv);
+                        range.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
                 }
             }
 
@@ -312,6 +422,118 @@
                 });
             }
 
+            // Funciones para manejo de archivos
+            function displayEmailFilePreview(files) {
+                const preview = document.getElementById('emailFilePreview');
+                preview.innerHTML = '';
+                
+                Array.from(files).forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
+                    fileItem.style.cursor = 'pointer';
+                    fileItem.draggable = true;
+                    
+                    // Formatear tamaño
+                    const size = formatFileSize(file.size);
+                    
+                    if (file.type.startsWith('image/')) {
+                        // Para imágenes, mostrar miniatura real
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            fileItem.innerHTML = `
+                                <div class="d-flex align-items-center flex-grow-1" onclick="handleFileClick(${index})">
+                                    <img src="${e.target.result}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2">
+                                    <div>
+                                        <div class="small fw-bold">${file.name}</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeEmailFile(${index})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        // Para otros archivos, mostrar iconos
+                        let icon = 'fas fa-file text-secondary';
+                        if (file.type.includes('pdf')) {
+                            icon = 'fas fa-file-pdf text-danger';
+                        } else if (file.type.includes('word') || file.type.includes('document')) {
+                            icon = 'fas fa-file-word text-primary';
+                        } else if (file.type.includes('excel') || file.type.includes('spreadsheet')) {
+                            icon = 'fas fa-file-excel text-success';
+                        }
+                        
+                        fileItem.innerHTML = `
+                            <div class="d-flex align-items-center flex-grow-1" onclick="handleFileClick(${index})">
+                                <i class="${icon} me-2"></i>
+                                <div>
+                                    <div class="small fw-bold">${file.name}</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeEmailFile(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                    }
+                    
+                    // Eventos de arrastre
+                    fileItem.addEventListener('dragstart', function(e) {
+                        e.dataTransfer.effectAllowed = 'copy';
+                        e.dataTransfer.setData('text/plain', file.name);
+                        console.log('Arrastrando archivo:', file.name);
+                    });
+                    
+                    preview.appendChild(fileItem);
+                });
+            }
+            
+            function removeEmailFile(index) {
+                console.log('Eliminando archivo en índice:', index);
+                const input = document.getElementById('imageInputEmail');
+                const dt = new DataTransfer();
+                const files = Array.from(input.files);
+                
+                // Agregar todos los archivos excepto el que se quiere eliminar
+                files.forEach((file, i) => {
+                    if (i !== index) {
+                        dt.items.add(file);
+                    }
+                });
+                
+                input.files = dt.files;
+                
+                // Actualizar vista previa
+                if (input.files.length > 0) {
+                    displayEmailFilePreview(input.files);
+                } else {
+                    document.getElementById('emailFilePreview').innerHTML = '';
+                }
+                
+                // No limpiar el campo visual aquí - eso se hace solo al enviar
+                console.log('Archivo eliminado, quedan:', input.files.length);
+            }
+            
+            function handleFileClick(index) {
+                const input = document.getElementById('imageInputEmail');
+                const file = input.files[index];
+                console.log('Clic en archivo:', file.name);
+                
+                // Mostrar información del archivo
+                alert(`Archivo: ${file.name}\nTamaño: ${formatFileSize(file.size)}\nTipo: ${file.type}`);
+            }
+            
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            
             // Handle form submissions
             // In HTMX partials, we don't need DOMContentLoaded as elements are already inserted
             (function () {
@@ -319,6 +541,15 @@
                 const emailForm = document.getElementById('emailForm');
 
                 if (whatsappForm) {
+                    const waTextarea = whatsappForm.querySelector('textarea[name="message"]');
+                    if (waTextarea) {
+                        waTextarea.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                whatsappForm.dispatchEvent(new Event('submit'));
+                            }
+                        });
+                    }
                     whatsappForm.addEventListener('submit', function (e) {
                         e.preventDefault();
                         sendMessage(this, 'whatsapp');
@@ -326,6 +557,15 @@
                 }
 
                 if (emailForm) {
+                    const emailTextarea = emailForm.querySelector('textarea[name="body"]');
+                    if (emailTextarea) {
+                        emailTextarea.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                emailForm.dispatchEvent(new Event('submit'));
+                            }
+                        });
+                    }
                     emailForm.addEventListener('submit', function (e) {
                         e.preventDefault();
                         sendMessage(this, 'email');
@@ -334,9 +574,65 @@
             })();
 
             function sendMessage(form, channel) {
+                // Para email, copiar contenido del div al input hidden
+                if (channel === 'email') {
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    const emailBodyInput = document.getElementById('emailBodyInput');
+                    if (emailBodyDiv && emailBodyInput) {
+                        // Obtener el texto del div, preservando lo que el usuario escribió
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = emailBodyDiv.innerHTML;
+                        
+                        // Eliminar solo las imágenes y divs de archivos (vista previa)
+                        tempDiv.querySelectorAll('img').forEach(img => img.remove());
+                        tempDiv.querySelectorAll('div').forEach(div => {
+                            if (div.innerHTML.includes('fa-file-pdf') || 
+                                div.innerHTML.includes('fa-file-word') || 
+                                div.innerHTML.includes('fa-file-excel') || 
+                                div.innerHTML.includes('fa-file')) {
+                                div.remove();
+                            }
+                        });
+                        
+                        // Obtener el texto limpio pero preservando el contenido del usuario
+                        const textContent = tempDiv.textContent || tempDiv.innerText || '';
+                        
+                        // Si no hay contenido de texto y No hay archivos, No enviar
+                        if (textContent.trim() === '' && document.getElementById('imageInputEmail').files.length === 0) {
+                            alert('Por favor escribe un mensaje o adjunta archivos antes de enviar.');
+                            return;
+                        }
+                        
+                        // Enviar el texto completo con formato HTML (preservar saltos de línea, etc.)
+                        emailBodyInput.value = emailBodyDiv.innerHTML;
+                    }
+                }
+
                 const formData = new FormData(form);
                 const btn = form.querySelector('button[type="submit"]');
                 const originalText = btn.innerHTML;
+
+                // Agregar archivos manualmente al FormData para asegurar que se envíen
+                if (channel === 'email') {
+                    const fileInput = document.getElementById('imageInputEmail');
+                    console.log('Files in input before FormData:', fileInput ? fileInput.files.length : 0);
+                    
+                    if (fileInput && fileInput.files.length > 0) {
+                        // Limpiar archivos existentes del FormData
+                        formData.delete('attachments');
+                        
+                        // Agregar cada archivo individualmente
+                        Array.from(fileInput.files).forEach(file => {
+                            formData.append('attachments', file);
+                            console.log('Archivo agregado:', file.name, 'Tamaño:', file.size);
+                        });
+                        
+                        // Verificar que se agregaron correctamente
+                        const formDataFiles = formData.getAll('attachments');
+                        console.log('Archivos en FormData después de agregar:', formDataFiles.length);
+                        console.log('FormData entries:', Array.from(formData.entries()));
+                    }
+                }
 
                 // Validate to_number for WhatsApp
                 if (channel === 'whatsapp') {
@@ -393,10 +689,23 @@
                     .then(data => {
                         // Clear inputs
                         if (channel === 'whatsapp') {
-                            form.querySelector('textarea[name="message"]').value = '';
+                            const messageTextarea = form.querySelector('textarea[name="message"]');
+                            if (messageTextarea) {
+                                messageTextarea.value = '';
+                            }
                         } else {
-                            form.querySelector('textarea[name="body"]').value = '';
-                            form.querySelector('input[name="subject"]').value = '';
+                            const emailBodyDiv = document.getElementById('emailBodyDiv');
+                            const emailBodyInput = document.getElementById('emailBodyInput');
+                            if (emailBodyDiv) {
+                                emailBodyDiv.innerHTML = '';
+                            }
+                            if (emailBodyInput) {
+                                emailBodyInput.value = '';
+                            }
+                            const subjectInput = form.querySelector('input[name="subject"]');
+                            if (subjectInput) {
+                                subjectInput.value = '';
+                            }
                         }
 
                         // Reload messages area
@@ -442,158 +751,6 @@
                     .catch(err => console.error('Error refreshing messages:', err));
             }
         </script>
-    </div>
-
-    <!-- Right side Details Sidebar -->
-    <div class="omni-chat-details">
-        <div class="p-4 text-center border-bottom bg-white">
-            <div class="omni-avatar bg-warning mx-auto mb-3"
-                style="width: 80px; height: 80px; font-size: 2rem; box-shadow: 0 5px 15px rgba(255,184,34,0.3);">
-                {{ conversation.get_display_name|make_list|first|upper }}
-            </div>
-
-            <h5 class="fw-bold text-dark mb-1">{{ conversation.get_display_name }}</h5>
-            <div class="text-muted small mb-3">Cliente • <span class="omni-badge status-active">ACTIVO</span></div>
-        </div>
-
-        <div class="flex-grow-1 overflow-auto">
-            <div class="details-section">
-                <h6 class="details-title">Datos del Cliente</h6>
-
-                {% if conversation.contact.client %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-building text-center" title="Razón Social / Empresa"></i>
-                    <div>{{conversation.contact.client.business_name|default:conversation.contact.client.name|default:"Sin Empresa" }}</div>
-                </div>
-
-                {% if conversation.contact.client.cuit %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-id-card text-center" title="CUIT"></i>
-                    <div>{{ conversation.contact.client.cuit }}</div>
-                </div>
-                {% endif %}
-
-                {% if conversation.contact.client.address %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-map-marker-alt text-center" title="Dirección Física"></i>
-                    <div>{{ conversation.contact.client.address }}</div>
-                </div>
-                {% endif %}
-
-                {% if conversation.contact.client.fiscal_address %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-file-invoice-dollar text-center" title="Dirección Fiscal"></i>
-                    <div>{{ conversation.contact.client.fiscal_address }}</div>
-                </div>
-                {% endif %}
-
-                {% if conversation.contact.client.job_title %}
-                <div class="detail-item text-dark">
-                    <i class="fas fa-briefcase text-center" title="Cargo"></i>
-                    <div>{{ conversation.contact.client.job_title }}</div>
-                </div>
-                {% endif %}
-                {% else %}
-                <div class="text-muted small mb-3">Sin datos de cliente vinculados.</div>
-                {% endif %}
-
-                <div class="detail-item text-dark">
-                    <i class="far fa-clock text-center" title="Hora Local"></i>
-                    <div>Hora Local: {% now "H:i A" %}</div>
-                </div>
-
-                {% if conversation.contact.client and conversation.contact.client.additional_info %}
-                <div class="mt-2 p-2 bg-light rounded small border">
-                    <strong class="d-block mb-1 text-muted" style="font-size: 0.7rem;">INFO ADICIONAL</strong>
-                    {{ conversation.contact.client.additional_info|linebreaksbr }}
-                </div>
-                {% endif %}
-
-                <!-- Internal Notes Section -->
-                {% if conversation.contact.client %}
-                <div class="mt-3">
-                    <h6 class="details-title mb-2">Notas Internas</h6>
-                    <form hx-post="{% url 'client_update_note' conversation.contact.client.pk %}"
-                        hx-trigger="change delay:500ms, blur" hx-swap="none">
-                        {% csrf_token %}
-                        <textarea name="internal_notes"
-                            class="form-control form-control-sm bg-light border-0 shadow-none" rows="4"
-                            placeholder="Escribe una nota..."
-                            style="font-size: 0.85rem; resize: none;">{{ conversation.contact.client.internal_notes|default:"" }}</textarea>
-                        <div class="text-end mt-1">
-                            <small class="text-muted" style="font-size: 0.7rem;">
-                                <i class="fas fa-save me-1"></i>Guardado automático
-                            </small>
-                        </div>
-                    </form>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="details-section">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="details-title mb-0">Etiquetas</h6>
-                    {% if conversation.contact.client %}
-                    <button class="btn btn-sm btn-light text-primary py-0 px-2"
-                        hx-get="{% url 'client_tag_list_for_client' conversation.contact.client.pk %}"
-                        hx-target="#modal-body" onclick="openModal()" style="font-size: 0.7rem; font-weight: 700;">+
-                        Añadir</button>
-                    {% endif %}
-                </div>
-
-                <div class="tag-list" id="client-tags-container"
-                    hx-get="{% url 'communications:conversation_detail' conversation.id %}"
-                    hx-select="#client-tags-container" hx-trigger="tagsChanged from:body" hx-swap="outerHTML">
-                    {% if conversation.contact.client %}
-                    {% for tag in conversation.contact.client.tags.all %}
-                    <span class="badge rounded-pill me-1 mb-1 border"
-                        style="background-color: {{ tag.color }}20; color: {{ tag.color }}; border-color: {{ tag.color }} !important; font-weight: 500;">
-                        {{ tag.name }}
-                        <i class="fas fa-times ms-1" style="cursor: pointer;"
-                            hx-post="{% url 'client_manage_tags' conversation.contact.client.pk %}"
-                            hx-vals='{"tag_id": "{{ tag.id }}", "action": "remove"}' hx-confirm="¿Quitar etiqueta?"
-                            hx-swap="none"></i>
-                    </span>
-                    {% empty %}
-                    <small class="text-muted fst-italic">Sin etiquetas asignadas</small>
-                    {% endfor %}
-                    {% else %}
-                    <small class="text-muted">Asocie un cliente para gestionar etiquetas</small>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Internal Notes re-purposed as Interacciones or Notes section -->
-            <div class="details-section border-0">
-                <h6 class="details-title">Notas Internas (<span id="notesCount">{{ notes.count }}</span>)</h6>
-                <div class="mb-3" style="max-height: 200px; overflow-y: auto;" id="notesContainer">
-                    {% for n in notes %}
-                    <div class="bg-warning-subtle p-2 rounded mb-2 border border-warning">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="small fw-bold text-dark"><i class="fas fa-user-circle me-1"></i> {{
-                                n.author.username }}</span>
-                            <span class="text-muted" style="font-size: 0.65rem;">{{ n.created_at|date:"d/m H:i"
-                                }}</span>
-                        </div>
-                        <div class="small text-dark">{{ n.content }}</div>
-                    </div>
-                    {% empty %}
-                    <div class="text-muted small text-center my-3">Sin notas internas.</div>
-                    {% endfor %}
-                </div>
-
-                <form method="post" action="/communications/api/notes/" class="mt-2">
-                    {% csrf_token %}
-                    <input type="hidden" name="conversation" value="{{ conversation.id }}">
-                    <div class="input-group input-group-sm mb-2 shadow-sm rounded">
-                        <input type="text" class="form-control border-0" name="content" placeholder="Escribir nota..."
-                            style="background: #fff;">
-                        <button type="submit" class="btn btn-white text-warning border-0" style="background: #fff;"><i
-                                class="fas fa-paper-plane"></i></button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -656,4 +813,14 @@
     }
 
     initPolling();
+</script>
+
+<script>
+function openModal() {
+    document.getElementById("modal").style.display = "block";
+}
+
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
 </script>

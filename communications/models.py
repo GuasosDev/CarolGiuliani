@@ -188,10 +188,7 @@ class Message(models.Model):
             self.read_at = timezone.now()
             self.save()
     
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-
+    
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)

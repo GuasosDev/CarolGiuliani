@@ -200,6 +200,9 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):
         """Send an email"""
+        print("FILES:", request.FILES)
+        print("FILES attachments:", request.FILES.getlist('attachments'))
+        
         account = self.get_object()
         handler = EmailHandler(account)
         
@@ -211,7 +214,9 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         body = request.data.get('body')
         html_body = request.data.get('html_body')
         conversation_id = request.data.get('conversation_id')
-        
+        attachments = request.FILES.getlist('attachments')
+        print("ATTACHMENTS:", attachments)
+        print("Adjuntos:", attachments)
         conversation = None
         if conversation_id:
             conversation = Conversation.objects.get(id=conversation_id)
@@ -221,7 +226,8 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
             subject=subject,
             body=body,
             html_body=html_body,
-            conversation=conversation
+            conversation=conversation,
+            attachments=attachments 
         )
         
         if success:

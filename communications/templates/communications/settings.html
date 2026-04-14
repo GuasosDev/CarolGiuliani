@@ -154,6 +154,86 @@
 
         <!-- Columna Lateral: Áreas y Cuentas -->
         <div class="col-md-4">
+            <div class="card shadow-sm mb-4" data-no-reload="true">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-sliders-h me-2 text-dark"></i>Personalización</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <div class="fw-bold">Modo Oscuro</div>
+                            <div class="text-muted small">Alternar tema</div>
+                        </div>
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" id="settingsDarkModeToggle" name="dark_mode" {% if user.userprofile.dark_mode %}checked{% endif %} hx-post="{% url 'update_personalization' %}" hx-vals='js:{"dark_mode": this.checked}' hx-trigger="change queue:last" hx-swap="none" data-no-reload="true">
+                        </div>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">Tamaño de Fuente</div>
+                            <div class="text-muted small">Ajusta el texto</div>
+                        </div>
+                        <span id="settingsFontSizeValue" class="badge bg-primary rounded-pill">{{ user.userprofile.font_size }}px</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="small">Aa</span>
+                        <input type="range" class="form-range" id="settingsFontSizeSlider" name="font_size" min="12" max="24" step="1" value="{{ user.userprofile.font_size }}" hx-post="{% url 'update_personalization' %}" hx-vals='js:{"font_size": this.value}' hx-trigger="input change delay:300ms queue:last" hx-swap="none" data-no-reload="true">
+                        <span class="fs-4">Aa</span>
+                    </div>
+                    <div id="fontLivePreview" class="mt-3 p-2 border rounded bg-light">
+                        <div class="text-muted small mb-1">Vista previa</div>
+                        <div id="fontLivePreviewText">El zorro salta sobre el perro perezoso – 12345 ABC</div>
+                    </div>
+                </div>
+            </div>
+            <script>
+                (function() {
+                    var slider = document.getElementById('settingsFontSizeSlider');
+                    var badge = document.getElementById('settingsFontSizeValue');
+                    var toggle = document.getElementById('settingsDarkModeToggle');
+                    try {
+                        var fs = localStorage.getItem('gd_font_size');
+                        if (fs && slider) {
+                            slider.value = fs;
+                            badge.textContent = fs + 'px';
+                            document.documentElement.style.setProperty('--global-font-size', fs + 'px');
+                            var pv = document.getElementById('fontLivePreviewText');
+                            if (pv) pv.style.fontSize = fs + 'px';
+                        }
+                        var dm = localStorage.getItem('gd_dark_mode');
+                        if (dm !== null && toggle) {
+                            toggle.checked = (dm === 'true');
+                            if (toggle.checked) document.body.classList.add('dark-mode');
+                            else document.body.classList.remove('dark-mode');
+                        }
+                    } catch (e) {}
+                    if (slider) {
+                        function applySize(v) {
+                            badge.textContent = v + 'px';
+                            document.documentElement.style.setProperty('--global-font-size', v + 'px');
+                            var pv = document.getElementById('fontLivePreviewText');
+                            if (pv) pv.style.fontSize = v + 'px';
+                            try { localStorage.setItem('gd_font_size', v); } catch (e) {}
+                        }
+                        slider.addEventListener('input', function() {
+                            applySize(String(this.value));
+                        });
+                        slider.addEventListener('change', function() {
+                            applySize(String(this.value));
+                        });
+                    }
+                    if (toggle) {
+                        toggle.addEventListener('change', function() {
+                            if (this.checked) {
+                                document.body.classList.add('dark-mode');
+                            } else {
+                                document.body.classList.remove('dark-mode');
+                            }
+                            try { localStorage.setItem('gd_dark_mode', this.checked ? 'true' : 'false'); } catch (e) {}
+                        });
+                    }
+                })();
+            </script>
             <!-- Áreas Laborales -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
