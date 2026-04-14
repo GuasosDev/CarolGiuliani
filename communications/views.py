@@ -832,21 +832,7 @@ class WelcomeMenuDeleteView(LoginRequiredMixin, DeleteView):
         return super().dispatch(request, *args, **kwargs)
 from django.contrib.auth import get_user_model
 
-<<<<<<< HEAD
 from django.contrib.auth import get_user_model
-=======
-User = get_user_model()
-   
-@login_required
-def transfer_conversation_modal(request, pk):
-    conversation = get_object_or_404(Conversation, pk=pk)
-    users = User.objects.filter(is_active=True)
-
-    return render(request, "communications/partials/transfer_modal.html", {
-        "conversation": conversation,
-        "users": users
-    })
->>>>>>> origin/dashboard-martin
 
 User = get_user_model()
    
@@ -900,7 +886,6 @@ def transfer_conversation(request, pk):
     # 🔥 RESPUESTA HTMX (HTML, no JSON)
     return render(request, "communications/partials/transfer_success.html", {
         "message": f"Conversación derivada a {new_user.get_full_name() or new_user.username}"
-<<<<<<< HEAD
     })
 
 @login_required
@@ -938,6 +923,3 @@ def open_client_email(request, client_id):
     return redirect(f'{url}?channel=email&conversation={conversation.pk}')
 
     
-=======
-    })
->>>>>>> origin/dashboard-martin

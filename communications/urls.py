@@ -52,10 +52,6 @@ urlpatterns = [
         transfer_conversation_modal,
         name='transfer_conversation_modal'
     ),
-<<<<<<< HEAD
 
     path('client/<int:client_id>/email/', open_client_email, name='open_client_email'),
-=======
-    
->>>>>>> origin/dashboard-martin
 ]

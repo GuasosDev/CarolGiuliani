@@ -37,7 +37,7 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.5"></script>
-
+    
     <script>
         function getCookie(name) {
             var value = '; ' + document.cookie;
@@ -68,7 +68,26 @@
             }
         });
     </script>
+   <style>
+        .topbar-search {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
 
+        .topbar-search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            pointer-events: none;
+        }
+
+        .topbar-search-input {
+            padding-left: 30px; /* espacio para la lupa */
+        }
+   </style>
     {% if user.is_authenticated %}
     <style id="user-personalization">
         :root {
@@ -105,7 +124,7 @@
     <header class="topbar">
         <div class="topbar-left">
             <a class="topbar-brand" href="{% url 'dashboard' %}">
-                <img class="topbar-brand-img" src="{% static 'communications/images/logo-completo1.jpeg' %}" alt="Logo">
+                <img class="topbar-brand-img" src="{% static 'communications/images/logo-completo1.jpeg' %}" alt="Logo"style="height: 60px; width: auto;">
             </a>
         </div>
         <div class="topbar-center d-none d-md-flex">
