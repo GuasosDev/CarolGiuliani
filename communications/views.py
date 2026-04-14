@@ -22,7 +22,7 @@ from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
 from core.views import GenericCreateView
-
+from django.db.models import Prefetch
 logger = logging.getLogger(__name__)
 
 # communications/views.py
@@ -221,7 +221,8 @@ def change_conversation_status(request, pk):
             else:
                 conversation.status = new_status
                 conversation.save()
-                
+    if request.headers.get('HX-Request'):
+        return HttpResponse(status=204)                 
     return redirect('communications:conversation_detail', pk=conversation.pk)
 
 
@@ -708,34 +709,94 @@ class WelcomeMenuDeleteView(LoginRequiredMixin, DeleteView):
             return redirect('communications:dashboard')
         return super().dispatch(request, *args, **kwargs)
 
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
+   
+@login_required
+def transfer_conversation_modal(request, pk):
+    conversation = get_object_or_404(Conversation, pk=pk)
+    users = User.objects.filter(is_active=True)
+
+    return render(request, "communications/partials/transfer_modal.html", {
+        "conversation": conversation,
+        "users": users
+    })
 @login_required
 @require_http_methods(["POST"])
 def transfer_conversation(request, pk):
-    """Transfer/reassign a conversation to another user"""
     conversation = get_object_or_404(Conversation, pk=pk)
 
-    # Only supervisors, admins, or the assigned agent can transfer
-    if not (request.user.is_superuser or
-            request.user.groups.filter(name='Supervisor').exists() or
-            conversation.assigned_to == request.user):
-        return JsonResponse({'error': 'Sin permiso'}, status=403)
+    # Permisos
+    if not (
+        request.user.is_superuser or
+        request.user.groups.filter(name='Supervisor').exists() or
+        conversation.assigned_to == request.user
+    ):
+        return HttpResponse(
+            "<div class='alert alert-danger'>Sin permiso</div>",
+            status=403
+        )
 
     new_user_id = request.POST.get('user_id')
-    if not new_user_id:
-        return JsonResponse({'error': 'Debe seleccionar un usuario'}, status=400)
 
-    from django.contrib.auth.models import User
+    if not new_user_id:
+        return render(request, "communications/partials/transfer_modal.html", {
+            "conversation": conversation,
+            "users": User.objects.filter(is_active=True),
+            "error": "Debe seleccionar un usuario"
+        })
+
     try:
         new_user = User.objects.get(pk=new_user_id, is_active=True)
+
     except User.DoesNotExist:
-        return JsonResponse({'error': 'Usuario no encontrado'}, status=404)
+        return HttpResponse(
+            "<div class='alert alert-danger'>Usuario no encontrado</div>",
+            status=404
+        )
 
     from .assignment_system import reassign_conversation
     reassign_conversation(conversation, new_user, request.user)
-
-    return JsonResponse({
-        'success': True,
-        'message': f'Conversación derivada a {new_user.get_full_name() or new_user.username}',
-        'new_agent': new_user.get_full_name() or new_user.username,
+    conversation.status = 'closed'
+    conversation.save()
+    # 🔥 RESPUESTA HTMX (HTML, no JSON)
+    return render(request, "communications/partials/transfer_success.html", {
+        "message": f"Conversación derivada a {new_user.get_full_name() or new_user.username}"
     })
+
+@login_required
+def open_client_email(request, client_id):
+    client = get_object_or_404(Client, pk=client_id)
+
+    contact, _ = Contact.objects.get_or_create(
+        client=client,
+        defaults={'preferred_channel': 'email'}
+    )
+
+    conversation = Conversation.objects.filter(
+        contact=contact,
+        channel='email',
+        status__in=['normal', 'pending', 'open', 'assigned']
+    ).first()
+
+    if not conversation:
+        conversation = Conversation.objects.create(
+            contact=contact,
+            channel='email',
+            status='normal',
+            priority='normal',
+            subject=f"Email con {client.name}"
+        )
+
+        assign_conversation_to_agent(
+            conversation,
+            agent=request.user,
+            assigned_by=request.user
+        )
+    from django.urls import reverse
+    url = reverse('communications:dashboard')
+
+    return redirect(f'{url}?channel=email&conversation={conversation.pk}')
+
+    

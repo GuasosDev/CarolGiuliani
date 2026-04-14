@@ -2,7 +2,7 @@
 Email handler for IMAP/SMTP operations
 Handles email synchronization, sending, and threading
 """
-
+import mimetypes
 from email.utils import formataddr, parseaddr, make_msgid
 import uuid
 import imaplib
@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.core.files.base import ContentFile
 from .models import (
     EmailAccount, EmailMessage, EmailThread, Message,
-    Conversation, Contact, EmailAttachment,User
+    Conversation, Contact, EmailAttachment,User,QuickReply
 )
 
 logger = logging.getLogger(__name__)
@@ -137,6 +137,24 @@ class EmailHandler:
             return []
         finally:
             self.disconnect()
+
+    def clean_email_body(self, body):
+        if not body:
+            return body
+
+        separators = [
+            "On ",
+            "El ",
+            "From:",
+            "De:",
+            "-----Original Message-----"
+        ]
+
+        for sep in separators:
+            if sep in body:
+                return body.split(sep)[0].strip()
+
+        return body.strip()
     
     def process_incoming_email(self, email_message):
         """Process an incoming email and create database records"""
@@ -147,6 +165,11 @@ class EmailHandler:
             cc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Cc', [])]
             subject = email_message.get('Subject', '(No Subject)')
             message_id = email_message.get('Message-ID', '')
+            if not message_id:
+               message_id = f"<no-id-{uuid.uuid4()}@local>"
+            if EmailMessage.objects.filter(email_message_id=message_id).exists():
+                logger.warning(f"Duplicate email skipped: {message_id}")
+                return None
             in_reply_to = email_message.get('In-Reply-To', '')
             references = email_message.get('References', '')
             date = email_message.get('Date', '')
@@ -182,12 +205,15 @@ class EmailHandler:
             if conversation.user is None and self.account.user:
                 conversation.user = self.account.user
                 conversation.save()
+            
+            raw_body = plain_body or html_body or '(Empty message)'
+            clean_body = self.clean_email_body(raw_body)
             # Create message
             message = Message.objects.create(
                 conversation=conversation,
                 message_type='email',
                 direction='inbound',
-                content=plain_body or html_body or '(Empty message)',
+                content=clean_body,
                 sender_name=parseaddr(email_message.get('From', ''))[0] or from_address,
                 metadata={'date': date}
             )
@@ -324,6 +350,7 @@ class EmailHandler:
     
     def save_attachment(self, email_message, filename, file_data, mime_type):
         """Save email attachment"""
+        
         try:
             attachment = EmailAttachment.objects.create(
                 email_message=email_message,
@@ -343,14 +370,16 @@ class EmailHandler:
  
 
     def send_email(self, to_addresses, subject, body, html_body=None, cc_addresses=None, 
-                bcc_addresses=None, attachments=None, conversation=None, signature=None):
-        """Send an email and save records in DB"""
+               bcc_addresses=None, attachments=None, conversation=None, signature=None):
+
         if not self.connect_smtp():
             return False, "Failed to connect to SMTP server"
-        
+
         try:
-            # Crear mensaje
-            msg = MIMEMultipart('alternative')
+            # =========================
+            # CREAR MENSAJE
+            # =========================
+            msg = MIMEMultipart('mixed')
             msg['From'] = formataddr((self.account.name, self.account.email_address))
             msg['To'] = ', '.join(to_addresses)
             msg['Subject'] = subject
@@ -358,43 +387,120 @@ class EmailHandler:
             if cc_addresses:
                 msg['Cc'] = ', '.join(cc_addresses)
 
-            # Generar Message-ID si no existe
             msg_id = make_msgid()
             msg['Message-ID'] = msg_id
 
-            # Agregar firma si existe
+            # =========================
+            # FIRMA
+            # =========================
             if signature:
                 if html_body:
                     html_body += f"<br><br>{signature.html_signature}"
                 if body:
                     body += f"\n\n{signature.plain_signature}"
 
-            # Adjuntar cuerpos
-            if body:
-                msg.attach(MIMEText(body, 'plain'))
-            if html_body:
-                msg.attach(MIMEText(html_body, 'html'))
+            # =========================
+            # BODY CORRECTO (IMPORTANTE)
+            # =========================
+            alternative_part = MIMEMultipart('alternative')
 
-            # Adjuntar archivos
+            if body:
+                alternative_part.attach(MIMEText(body, 'plain'))
+
+            if html_body:
+                alternative_part.attach(MIMEText(html_body, 'html'))
+
+            msg.attach(alternative_part)
+
+            # =========================
+            # ATTACHMENTS (FIX)
+            # =========================
             if attachments:
                 for attachment in attachments:
-                    part = MIMEBase('application', 'octet-stream')
-                    part.set_payload(attachment['data'])
+                    filename = attachment.name
+                    data = attachment.read()
+                    attachment.seek(0)  # 🔥 clave
+
+                    mime_type, _ = mimetypes.guess_type(filename)
+                    if mime_type:
+                        main_type, sub_type = mime_type.split('/', 1)
+                    else:
+                        main_type, sub_type = 'application', 'octet-stream'
+
+                    part = MIMEBase(main_type, sub_type)
+                    part.set_payload(data)
                     encoders.encode_base64(part)
-                    part.add_header('Content-Disposition', f'attachment; filename={attachment["filename"]}')
+
+                    part.add_header(
+                        'Content-Disposition',
+                        f'attachment; filename="{filename}"'
+                    )
+
                     msg.attach(part)
 
-            # Enviar
+            # =========================
+            # ENVIAR
+            # =========================
             self.smtp_connection.send_message(msg)
+           
+            # =========================
+            # GUARDAR EN DB
+            # =========================
+            content = body or html_body
 
-            # Guardar en la DB si hay conversación
-            
+            if not content and attachments:
+                content = f"📎 {len(attachments)} archivo(s) adjunto(s)"
 
-            logger.info(f"Email sent: {subject}")
+            if not content:
+                content = '(Empty message)'
+
+            if conversation:
+                message = Message.objects.create(
+                    conversation=conversation,
+                    message_type='email',
+                    direction='outbound',
+                    content = content,
+                    sender_name=self.account.name,
+                    metadata={'message_id': msg_id}
+                )
+
+                email_msg = EmailMessage.objects.create(
+                    message=message,
+                    email_account=self.account,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=body,
+                    email_message_id=msg_id,
+                    to_addresses=to_addresses,
+                    cc_addresses=cc_addresses or [],
+                    from_address=self.account.email_address
+                )
+
+                if attachments:
+                   
+
+                    for attachment in attachments:
+                        try:
+                            file_data = attachment.read()
+                            attachment.seek(0)
+
+                            att = EmailAttachment.objects.create(
+                                email_message=email_msg,
+                                filename=attachment.name,
+                                mime_type=attachment.content_type,
+                                size=attachment.size,
+                            )
+
+                            att.file.save(attachment.name, ContentFile(file_data), save=True)
+
+                        except Exception as e:
+                            logger.warning(f"No se pudo guardar attachment: {str(e)}")
+
             return True, "Email sent successfully"
-
+        
         except Exception as e:
             logger.error(f"Error sending email: {str(e)}")
             return False, str(e)
+
         finally:
             self.disconnect()

@@ -215,7 +215,7 @@ else:
 
 # Email encryption key (generate with: from cryptography.fernet import Fernet; Fernet.generate_key())
 # IMPORTANT: Change this in production and keep it secret!
-EMAIL_ENCRYPTION_KEY = 'aJ88Y47MnpeKl8kVXLB22A3plcDVhc8TbaEXD7w_Ak0='
+EMAIL_ENCRYPTION_KEY = 'XRPu81T5zDC6CjLtQvCWpxGHERMRriQSKs2unfbyUOI='
 
 # WhatsApp Business API Configuration
 WHATSAPP_API_VERSION = 'v18.0'
