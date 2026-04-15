@@ -594,6 +594,7 @@ class EmailQueue(models.Model):
     
     # Related conversation/message
     conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
+    email_message = models.OneToOneField('EmailMessage', on_delete=models.CASCADE, null=True, blank=True, related_name='queued_email')
     
     # Retry logic
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')

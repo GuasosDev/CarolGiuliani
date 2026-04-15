@@ -8,6 +8,7 @@ Celery tasks for background processing
 
 from celery import shared_task
 import logging
+import traceback
 from django.utils import timezone
 from django.db import transaction
 from .models import EmailAccount, EmailQueue, Conversation
@@ -49,7 +50,7 @@ def sync_email_account(account_id):
         logger.error(f"Email account not found: {account_id}")
         return 0
     except Exception as e:
-        logger.error(f"Error syncing email account {account_id}: {str(e)}")
+        logger.error(f"Error syncing email account {account_id}: {str(e)}\n{traceback.format_exc()}")
         return 0
 
 
@@ -90,6 +91,12 @@ def send_queued_email(self, queue_id):
 
         handler = EmailHandler(queued_email.email_account)
 
+        # Retrieve attachments if they exist via email_message
+        attachments = []
+        email_msg = queued_email.email_message
+        if email_msg:
+            attachments = list(email_msg.attachments.all())
+
         success, message = handler.send_email(
             to_addresses=queued_email.to_addresses,
             subject=queued_email.subject,
@@ -97,7 +104,9 @@ def send_queued_email(self, queue_id):
             html_body=queued_email.html_body,
             cc_addresses=queued_email.cc_addresses,
             bcc_addresses=queued_email.bcc_addresses,
-            conversation=queued_email.conversation
+            conversation=queued_email.conversation,
+            attachments=attachments,
+            email_msg=email_msg
         )
 
         if success:

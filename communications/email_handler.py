@@ -14,6 +14,7 @@ from email.mime.base import MIMEBase
 from email import encoders
 from email.utils import parseaddr, formataddr,make_msgid
 import logging
+import traceback
 from django.utils import timezone
 from django.core.files.base import ContentFile
 from .models import (
@@ -32,18 +33,20 @@ class EmailHandler:
         self.imap_connection = None
         self.smtp_connection = None
     
-    def connect_imap(self):
+    def connect_imap(self, timeout=30):
         """Connect to IMAP server"""
         try:
             if self.account.imap_use_ssl:
                 self.imap_connection = imaplib.IMAP4_SSL(
                     self.account.imap_host,
-                    self.account.imap_port
+                    self.account.imap_port,
+                    timeout=timeout
                 )
             else:
                 self.imap_connection = imaplib.IMAP4(
                     self.account.imap_host,
-                    self.account.imap_port
+                    self.account.imap_port,
+                    timeout=timeout
                 )
             
             password = self.account.get_password()
@@ -52,22 +55,24 @@ class EmailHandler:
             return True
             
         except Exception as e:
-            logger.error(f"IMAP connection error: {str(e)}")
+            logger.error(f"IMAP connection error ({self.account.email_address}): {str(e)}\n{traceback.format_exc()}")
             return False
     
-    def connect_smtp(self):
+    def connect_smtp(self, timeout=30):
         """Connect to SMTP server"""
         try:
             if self.account.smtp_use_tls:
                 self.smtp_connection = smtplib.SMTP(
                     self.account.smtp_host,
-                    self.account.smtp_port
+                    self.account.smtp_port,
+                    timeout=timeout
                 )
                 self.smtp_connection.starttls()
             else:
                 self.smtp_connection = smtplib.SMTP_SSL(
                     self.account.smtp_host,
-                    self.account.smtp_port
+                    self.account.smtp_port,
+                    timeout=timeout
                 )
             
             password = self.account.get_password()
@@ -76,7 +81,7 @@ class EmailHandler:
             return True
             
         except Exception as e:
-            logger.error(f"SMTP connection error: {str(e)}")
+            logger.error(f"SMTP connection error ({self.account.email_address}): {str(e)}\n{traceback.format_exc()}")
             return False
     
     def disconnect(self):
@@ -370,7 +375,7 @@ class EmailHandler:
  
 
     def send_email(self, to_addresses, subject, body, html_body=None, cc_addresses=None, 
-               bcc_addresses=None, attachments=None, conversation=None, signature=None):
+               bcc_addresses=None, attachments=None, conversation=None, signature=None, email_msg=None):
 
         if not self.connect_smtp():
             return False, "Failed to connect to SMTP server"
@@ -418,13 +423,22 @@ class EmailHandler:
             if attachments:
                 for attachment in attachments:
                     filename = attachment.name
-                    data = attachment.read()
-                    attachment.seek(0)  # 🔥 clave
+                    if hasattr(attachment, 'read'):
+                        data = attachment.read()
+                        attachment.seek(0)
+                        content_type = getattr(attachment, 'content_type', None)
+                    else:
+                        data = attachment.file.read()
+                        attachment.file.seek(0)
+                        content_type = attachment.mime_type
 
                     mime_type, _ = mimetypes.guess_type(filename)
-                    if mime_type:
+                    if not mime_type:
+                        mime_type = content_type or 'application/octet-stream'
+                    
+                    try:
                         main_type, sub_type = mime_type.split('/', 1)
-                    else:
+                    except ValueError:
                         main_type, sub_type = 'application', 'octet-stream'
 
                     part = MIMEBase(main_type, sub_type)
@@ -454,7 +468,7 @@ class EmailHandler:
             if not content:
                 content = '(Empty message)'
 
-            if conversation:
+            if conversation and not email_msg:
                 message = Message.objects.create(
                     conversation=conversation,
                     message_type='email',
@@ -481,20 +495,29 @@ class EmailHandler:
 
                     for attachment in attachments:
                         try:
-                            file_data = attachment.read()
-                            attachment.seek(0)
+                            if hasattr(attachment, 'read'):
+                                file_data = attachment.read()
+                                attachment.seek(0)
 
-                            att = EmailAttachment.objects.create(
-                                email_message=email_msg,
-                                filename=attachment.name,
-                                mime_type=attachment.content_type,
-                                size=attachment.size,
-                            )
+                                att = EmailAttachment.objects.create(
+                                    email_message=email_msg,
+                                    filename=attachment.name,
+                                    mime_type=getattr(attachment, 'content_type', 'application/octet-stream'),
+                                    size=attachment.size,
+                                )
 
-                            att.file.save(attachment.name, ContentFile(file_data), save=True)
+                                att.file.save(attachment.name, ContentFile(file_data), save=True)
 
                         except Exception as e:
                             logger.warning(f"No se pudo guardar attachment: {str(e)}")
+
+            elif email_msg:
+                # Actualizar el Message ID del mensaje pre-existente
+                email_msg.email_message_id = msg_id
+                email_msg.save()
+                if email_msg.message:
+                    email_msg.message.metadata['message_id'] = msg_id
+                    email_msg.message.save()
 
             return True, "Email sent successfully"
         
