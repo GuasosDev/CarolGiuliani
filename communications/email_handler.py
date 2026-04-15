@@ -81,7 +81,7 @@ class EmailHandler:
             return True
             
         except Exception as e:
-            logger.error(f"SMTP connection error ({self.account.email_address}): {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"SMTP connection error ({self.account.email_address}) on {self.account.smtp_host}:{self.account.smtp_port}: {str(e)}\n{traceback.format_exc()}")
             return False
     
     def disconnect(self):
