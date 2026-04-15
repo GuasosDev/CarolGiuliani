@@ -27,6 +27,34 @@
                 </div>
             </div>
 
+            <div class="detail-item mb-3 d-flex align-items-start">
+                <i class="fas fa-envelope text-primary mt-1 me-3" style="width: 20px;"></i>
+                <div>
+                    <small class="text-muted d-block">Email</small>
+                    <div class="fw-bold">{{ conversation.contact.client.email|default:"Sin email" }}</div>
+                </div>
+            </div>
+
+            {% if conversation.contact.client.phone %}
+            <div class="detail-item mb-3 d-flex align-items-start">
+                <i class="fas fa-phone text-primary mt-1 me-3" style="width: 20px;"></i>
+                <div>
+                    <small class="text-muted d-block">Teléfono</small>
+                    <div class="fw-bold">{{ conversation.contact.client.phone }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if conversation.contact.whatsapp_number %}
+            <div class="detail-item mb-3 d-flex align-items-start">
+                <i class="fab fa-whatsapp text-success mt-1 me-3" style="width: 20px;"></i>
+                <div>
+                    <small class="text-muted d-block">WhatsApp</small>
+                    <div class="fw-bold">{{ conversation.contact.whatsapp_number }}</div>
+                </div>
+            </div>
+            {% endif %}
+
             {% if conversation.contact.client.cuit %}
             <div class="detail-item mb-3 d-flex align-items-start">
                 <i class="fas fa-id-card text-primary mt-1 me-3" style="width: 20px;"></i>
