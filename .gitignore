@@ -131,6 +131,7 @@ celerybeat.pid
 FLUSHALL
 media
 fernet.key
+GDCG/
 venv4/
 venv3/
 .env
