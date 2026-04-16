@@ -422,15 +422,16 @@ class EmailHandler:
             # =========================
             if attachments:
                 for attachment in attachments:
-                    filename = attachment.name
                     if hasattr(attachment, 'read'):
+                        filename = attachment.name
                         data = attachment.read()
                         attachment.seek(0)
                         content_type = getattr(attachment, 'content_type', None)
                     else:
+                        filename = getattr(attachment, 'filename', 'attachment')
                         data = attachment.file.read()
                         attachment.file.seek(0)
-                        content_type = attachment.mime_type
+                        content_type = getattr(attachment, 'mime_type', 'application/octet-stream')
 
                     mime_type, _ = mimetypes.guess_type(filename)
                     if not mime_type:
