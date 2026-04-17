@@ -4,6 +4,7 @@ Handles webhook events and message sending via WhatsApp Business API
 """
 
 import requests
+from django.core.files.base import ContentFile
 import json
 import logging
 from django.conf import settings
@@ -337,6 +338,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             media_data = msg_data.get(message_type, {})
             media_id = media_data.get('id')
             caption = media_data.get('caption', '')
+            mime_type = media_data.get('mime_type')
             content = caption or f"[{message_type.upper()}]"
         elif message_type == 'location':
             location = msg_data.get('location', {})
@@ -418,6 +420,39 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             sender_name=value.get('contacts', [{}])[0].get('profile', {}).get('name', from_number),
             metadata={'from': from_number, 'timestamp': timestamp}
         )
+        # ── Descargar y guardar adjunto ─────────────────────────────
+        if media_id:
+            try:
+                access_token = whatsapp_account.access_token
+
+                # 1. Obtener URL del archivo
+                media_info_url = f"https://graph.facebook.com/v18.0/{media_id}"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                media_response = requests.get(media_info_url, headers=headers)
+                media_json = media_response.json()
+                media_url = media_json.get("url")
+
+                if media_url:
+                    # 2. Descargar archivo
+                    file_response = requests.get(media_url, headers=headers)
+
+                    if file_response.status_code == 200:
+                        extension = ""
+                        if mime_type:
+                            extension = mime_type.split("/")[-1]
+
+                        filename = f"wa_{message_id}.{extension or 'bin'}"
+
+                        # 3. Guardar en el modelo (ajustar campo si no es 'file')
+                        message.file.save(
+                            filename,
+                            ContentFile(file_response.content),
+                            save=True
+                        )
+
+            except Exception as e:
+                logger.error(f"Error downloading media: {str(e)}")
+        # ───────────────────────────────────────────────────────────
         
         # Create WhatsApp-specific message data
         WhatsAppMessage.objects.create(
