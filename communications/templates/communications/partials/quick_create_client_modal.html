@@ -1,0 +1,72 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        <i class="fas fa-user-plus me-2 text-success"></i>Agregar contacto
+    </h5>
+    <button type="button" class="btn-close" onclick="closeModalSecondary()" aria-label="Close"></button>
+</div>
+
+<form hx-post="{% url 'communications:quick_create_client_modal' conversation.id %}"
+      hx-target="#modal-body"
+      hx-swap="innerHTML"
+      hx-on::after-request="if(event.detail.successful){closeModalSecondary()}">
+    {% csrf_token %}
+    <div class="modal-body">
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">{{ form.name.label }}</label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{{ form.business_name.label }}</label>
+                {{ form.business_name }}
+                {% if form.business_name.errors %}<div class="text-danger small">{{ form.business_name.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{{ form.email.label }}</label>
+                {{ form.email }}
+                {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{{ form.phone.label }}</label>
+                {{ form.phone }}
+                {% if form.phone.errors %}<div class="text-danger small">{{ form.phone.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{{ form.cuit.label }}</label>
+                {{ form.cuit }}
+                {% if form.cuit.errors %}<div class="text-danger small">{{ form.cuit.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{{ form.job_title.label }}</label>
+                {{ form.job_title }}
+                {% if form.job_title.errors %}<div class="text-danger small">{{ form.job_title.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{{ form.address.label }}</label>
+                {{ form.address }}
+                {% if form.address.errors %}<div class="text-danger small">{{ form.address.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">{{ form.fiscal_address.label }}</label>
+                {{ form.fiscal_address }}
+                {% if form.fiscal_address.errors %}<div class="text-danger small">{{ form.fiscal_address.errors }}</div>{% endif %}
+            </div>
+            <div class="col-12">
+                <label class="form-label">{{ form.additional_info.label }}</label>
+                {{ form.additional_info }}
+                {% if form.additional_info.errors %}<div class="text-danger small">{{ form.additional_info.errors }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModalSecondary()">Cancelar</button>
+        <button type="submit" class="btn btn-success">
+            <i class="fas fa-user-plus me-2"></i>Guardar contacto
+        </button>
+    </div>
+</form>

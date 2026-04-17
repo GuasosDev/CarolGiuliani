@@ -23,6 +23,7 @@ urlpatterns = [
     path('conversation/<int:pk>/status/', views.change_conversation_status, name='change_conversation_status'),
     path('conversation/<int:conversation_id>/add-note/', views.add_conversation_note, name='add_conversation_note'),
     path('conversation/<int:conversation_id>/details-modal/', views.contact_details_modal, name='contact_details_modal'),
+    path('conversation/<int:conversation_id>/quick-create-client/', views.quick_create_client_modal, name='quick_create_client_modal'),
     path('contact/<int:pk>/', views.contact_360_view, name='contact_360'),
     path('contacts/create/', ContactCreateView.as_view(), name='contact_create'),
     path('supervisor/', views.supervisor_dashboard, name='supervisor_dashboard'),

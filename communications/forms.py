@@ -54,3 +54,35 @@ class EmailAccountAdminForm(forms.ModelForm):
             instance.save()
 
         return instance
+
+
+class ClientQuickCreateForm(forms.ModelForm):
+    email = forms.EmailField(
+        required=False,
+        label="Email",
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email (opcional)'})
+    )
+
+    class Meta:
+        model = Client
+        fields = [
+            'name',
+            'business_name',
+            'email',
+            'phone',
+            'cuit',
+            'job_title',
+            'address',
+            'fiscal_address',
+            'additional_info',
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre'}),
+            'business_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Razón Social'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}),
+            'cuit': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'CUIT'}),
+            'job_title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cargo'}),
+            'address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección'}),
+            'fiscal_address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección Fiscal'}),
+            'additional_info': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Información adicional'}),
+        }

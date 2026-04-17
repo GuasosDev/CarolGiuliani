@@ -9,7 +9,19 @@
             <div class="text-muted small">Cliente • <span class="omni-badge status-active">ACTIVO</span></div>
         </div>
     </div>
-    <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
+    <div class="d-flex align-items-center">
+        {% if not conversation.contact.client %}
+        <button type="button"
+            class="btn btn-sm btn-outline-success me-2"
+            hx-get="{% url 'communications:quick_create_client_modal' conversation.id %}"
+            hx-target="#modal-secondary-body"
+            onclick="openModalSecondary()"
+            title="Agregar contacto">
+            <i class="fas fa-user-plus"></i>
+        </button>
+        {% endif %}
+        <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
+    </div>
 </div>
 
 <div class="modal-body p-0">

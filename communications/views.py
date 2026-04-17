@@ -17,8 +17,9 @@ from xhtml2pdf import pisa
 import json
 import logging
 import re
+import uuid
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
-from .forms import QuickReplyForm, ConversationReportForm
+from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
@@ -289,6 +290,64 @@ def contact_details_modal(request, conversation_id):
     return render(request, 'communications/partials/contact_details_modal.html', {
         'conversation': conversation,
         'notes': notes,
+    })
+
+
+@login_required
+def quick_create_client_modal(request, conversation_id):
+    conversation = get_object_or_404(
+        Conversation.objects.select_related('contact', 'contact__client'),
+        pk=conversation_id
+    )
+
+    if conversation.contact and conversation.contact.client:
+        notes = conversation.internal_notes.all().order_by('-created_at')
+        return render(request, 'communications/partials/contact_details_modal.html', {
+            'conversation': conversation,
+            'notes': notes,
+        })
+
+    phone_guess = ''
+    if conversation.contact:
+        phone_guess = conversation.contact.get_display_phone() or conversation.contact.whatsapp_number or ''
+
+    if request.method == 'POST':
+        form = ClientQuickCreateForm(request.POST)
+        if form.is_valid():
+            client = form.save(commit=False)
+            client.email = (client.email or '').strip()
+
+            if not client.email:
+                while True:
+                    candidate = f"no-email-{uuid.uuid4().hex}@example.invalid"
+                    if not Client.objects.filter(email__iexact=candidate).exists():
+                        client.email = candidate
+                        break
+
+            client.save()
+
+            if conversation.contact:
+                conversation.contact.client = client
+                if not conversation.contact.whatsapp_number and phone_guess:
+                    conversation.contact.whatsapp_number = phone_guess
+                conversation.contact.save(update_fields=['client', 'whatsapp_number'])
+
+            notes = conversation.internal_notes.all().order_by('-created_at')
+            conversation = Conversation.objects.select_related('contact', 'contact__client').get(pk=conversation.pk)
+            return render(request, 'communications/partials/contact_details_modal.html', {
+                'conversation': conversation,
+                'notes': notes,
+            })
+    else:
+        initial = {
+            'name': conversation.get_display_name(),
+            'phone': phone_guess,
+        }
+        form = ClientQuickCreateForm(initial=initial)
+
+    return render(request, 'communications/partials/quick_create_client_modal.html', {
+        'conversation': conversation,
+        'form': form,
     })
 
 
