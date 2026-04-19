@@ -96,7 +96,7 @@ class WhatsAppHandler:
             logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False, str(e)
     
-    def send_media_message(self, to_number, media_type, media_id, caption=None, filename=None, conversation=None):
+    def send_media_message(self, to_number, media_type, media_id, caption=None, filename=None, conversation=None,uploaded_file=None):
         """Send a media message (image, document, audio, video)"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -131,6 +131,12 @@ class WhatsAppHandler:
                     content=caption or f"[{media_type.upper()}]",
                     metadata={'to': to_number, 'media_type': media_type}
                 )
+                if uploaded_file:
+                    message.file.save(
+                        uploaded_file.name,
+                        uploaded_file,
+                        save=True
+                    )
                 
                 WhatsAppMessage.objects.create(
                     message=message,
@@ -158,13 +164,16 @@ class WhatsAppHandler:
             return False, str(e)
 
     def detect_media_type(self, uploaded_file):
-        content_type = (getattr(uploaded_file, 'content_type', None) or '').lower()
-        if content_type.startswith('image/'):
+        content_type = (getattr(uploaded_file, 'content_type', '') or '').lower()
+        name = (getattr(uploaded_file, 'name', '') or '').lower()
+
+        if content_type.startswith('image/') or name.endswith(('.jpg', '.jpeg', '.png', '.webp')):
             return 'image'
-        if content_type.startswith('video/'):
+        if content_type.startswith('video/') or name.endswith(('.mp4', '.mov')):
             return 'video'
-        if content_type.startswith('audio/'):
+        if content_type.startswith('audio/') or name.endswith(('.mp3', '.ogg', '.wav')):
             return 'audio'
+        
         return 'document'
 
     def upload_media(self, uploaded_file):

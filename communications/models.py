@@ -164,6 +164,7 @@ class Message(models.Model):
     content = models.TextField(verbose_name="Contenido")
     metadata = models.JSONField(default=dict, blank=True)  # Store channel-specific data
     
+    file = models.FileField(upload_to='messages/', null=True, blank=True)  # 🔥 agregar esto
     is_read = models.BooleanField(default=False, verbose_name="Leído")
     read_at = models.DateTimeField(null=True, blank=True)
     
