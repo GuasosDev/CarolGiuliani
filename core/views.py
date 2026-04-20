@@ -1,7 +1,8 @@
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.contrib.auth.models import User, Group, Permission
 from .models import CompanySettings, UserProfile, WorkArea, UserRole
@@ -35,7 +36,9 @@ class GenericFormMixin:
         return super().form_valid(form)
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    template_name = 'core/dashboard.html'
+    def get(self, request, *args, **kwargs):
+        # Redirect to the role-based dashboard in communications
+        return redirect('communications:role_dashboard')
 
 class GenericListView(LoginRequiredMixin, ListView):
     template_name = 'core/generic_list.html'
@@ -125,36 +128,387 @@ class UserProfileUpdateView(LoginRequiredMixin, GenericFormMixin, UpdateView):
         
         return super().form_valid(form)
 
+@login_required
+def update_personalization(request):
+    if request.method == 'POST':
+        profile = request.user.userprofile
+        font_size = request.POST.get('font_size')
+        dark_mode = request.POST.get('dark_mode')
+        if font_size:
+            try:
+                fs = int(font_size)
+                if fs < 12:
+                    fs = 12
+                if fs > 24:
+                    fs = 24
+                profile.font_size = fs
+            except Exception:
+                pass
+        if dark_mode is not None:
+            profile.dark_mode = dark_mode in ['true', 'on', '1', 'True', True]
+        profile.save()
+        return HttpResponse(status=204)
+    return HttpResponse(status=405)
+
 class GlobalSearchView(LoginRequiredMixin, TemplateView):
     template_name = 'core/search_results.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        query = self.request.GET.get('q', '')
-        
-        # Import models here to avoid circular dependencies
-        from clients.models import Client
-        from communications.models import Message
-        
-        if query:
-            # Search Clients (distinct to avoid duplicates if multiple fields match)
-            clients = Client.objects.filter(
+        from django.urls import reverse
+        from django.utils.html import escape
+        from django.utils.safestring import mark_safe
+        import re
+
+        query = (self.request.GET.get('q') or '').strip()
+
+        def highlight(text):
+            if not text:
+                return ""
+            safe_text = escape(str(text))
+            if not query:
+                return safe_text
+            safe_query = escape(query)
+            if not safe_query:
+                return safe_text
+            pattern = re.compile(re.escape(safe_query), re.IGNORECASE)
+            return mark_safe(pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", safe_text))
+
+        def snippet(text, limit=200):
+            if not text:
+                return ""
+            raw = str(text).replace("\r", " ").replace("\n", " ").strip()
+            if len(raw) > limit:
+                raw = raw[:limit].rstrip() + "…"
+            return highlight(raw)
+
+        results = []
+
+        if len(query) >= 2:
+            from clients.models import Client, ClientTag
+            from communications.models import Conversation, Message, InternalNote, QuickReply, Contact
+
+            clients_qs = Client.objects.filter(
                 Q(name__icontains=query) |
                 Q(email__icontains=query) |
                 Q(phone__icontains=query) |
                 Q(business_name__icontains=query) |
-                Q(cuit__icontains=query)
-            ).distinct()[:10]
-            
-            # Search Messages
-            messages = Message.objects.filter(
-                content__icontains=query
-            ).select_related('conversation', 'conversation__contact__client').order_by('-created_at')[:20]
-            
-            context['clients'] = clients
-            context['messages'] = messages
-            context['query'] = query
-            
+                Q(cuit__icontains=query) |
+                Q(address__icontains=query) |
+                Q(fiscal_address__icontains=query) |
+                Q(job_title__icontains=query) |
+                Q(additional_info__icontains=query) |
+                Q(internal_notes__icontains=query) |
+                Q(tags__name__icontains=query)
+            ).distinct().prefetch_related('tags')[:12]
+
+            client_items = []
+            for c in clients_qs:
+                parts = []
+                if c.phone:
+                    parts.append(str(c.phone))
+                if c.email:
+                    parts.append(str(c.email))
+                if c.business_name:
+                    parts.append(str(c.business_name))
+                client_items.append({
+                    "title": highlight(c.name),
+                    "subtitle": highlight(" • ".join(parts)),
+                    "snippet": snippet(c.internal_notes or c.additional_info or c.address or ""),
+                    "primary": {
+                        "label": "Ver / Editar",
+                        "hx_get": reverse('client_update', args=[c.pk]),
+                    },
+                    "secondary": {
+                        "label": "Abrir chat",
+                        "href": reverse('communications:open_client_whatsapp', args=[c.pk]),
+                    },
+                    "meta": "Contacto",
+                })
+
+            if client_items:
+                results.append({
+                    "title": "Contactos",
+                    "icon": "fa-user",
+                    "items": client_items,
+                })
+
+            contacts_qs = Contact.objects.filter(
+                Q(whatsapp_number__icontains=query) |
+                Q(notes__icontains=query) |
+                Q(client__name__icontains=query) |
+                Q(client__email__icontains=query) |
+                Q(client__phone__icontains=query)
+            ).select_related('client')[:10]
+
+            contact_items = []
+            for ct in contacts_qs:
+                display = ct.client.name if ct.client else (ct.whatsapp_number or "Contacto")
+                meta = []
+                if ct.whatsapp_number:
+                    meta.append(ct.whatsapp_number)
+                if ct.client and getattr(ct.client, 'email', None):
+                    meta.append(ct.client.email)
+                contact_items.append({
+                    "title": highlight(display),
+                    "subtitle": highlight(" • ".join([m for m in meta if m])),
+                    "snippet": snippet(ct.notes or ""),
+                    "primary": {
+                        "label": "Ver 360°",
+                        "href": reverse('communications:contact_360', args=[ct.pk]),
+                    },
+                    "meta": "Communications",
+                })
+
+            if contact_items:
+                results.append({
+                    "title": "Contactos (Communications)",
+                    "icon": "fa-address-card",
+                    "items": contact_items,
+                })
+
+            conversations_qs = Conversation.objects.filter(
+                Q(subject__icontains=query) |
+                Q(contact__client__name__icontains=query) |
+                Q(contact__client__email__icontains=query) |
+                Q(contact__client__phone__icontains=query) |
+                Q(contact__whatsapp_number__icontains=query) |
+                Q(last_message_preview__icontains=query)
+            ).select_related('contact__client')[:15]
+
+            conversation_items = []
+            for conv in conversations_qs:
+                display_name = conv.get_display_name()
+                conv_url = reverse('communications:dashboard')
+                params = f"?conversation={conv.pk}&channel={conv.channel}"
+                if conv.status:
+                    params += f"&status={conv.status}"
+                conversation_items.append({
+                    "title": highlight(display_name),
+                    "subtitle": highlight(f"{conv.get_channel_display()} • {conv.get_status_display()}"),
+                    "snippet": snippet(conv.subject or conv.last_message_preview or ""),
+                    "primary": {
+                        "label": "Abrir conversación",
+                        "href": f"{conv_url}{params}",
+                    },
+                    "meta": "Conversación",
+                })
+
+            if conversation_items:
+                results.append({
+                    "title": "Conversaciones",
+                    "icon": "fa-comments",
+                    "items": conversation_items,
+                })
+
+            messages_qs = Message.objects.filter(
+                Q(content__icontains=query) |
+                Q(sender_name__icontains=query) |
+                Q(conversation__contact__client__name__icontains=query)
+            ).select_related('conversation', 'conversation__contact__client').order_by('-created_at')[:25]
+
+            message_items = []
+            for msg in messages_qs:
+                conv = msg.conversation
+                display_name = conv.get_display_name()
+                conv_url = reverse('communications:dashboard')
+                params = f"?conversation={conv.pk}&channel={conv.channel}"
+                message_items.append({
+                    "title": highlight(display_name),
+                    "subtitle": highlight(f"{conv.get_channel_display()} • {msg.created_at:%d/%m %H:%M}"),
+                    "snippet": snippet(msg.content),
+                    "primary": {
+                        "label": "Ver en chat",
+                        "href": f"{conv_url}{params}",
+                    },
+                    "meta": "Mensaje",
+                })
+
+            if message_items:
+                results.append({
+                    "title": "Mensajes",
+                    "icon": "fa-message",
+                    "items": message_items,
+                })
+
+            notes_qs = InternalNote.objects.filter(
+                Q(content__icontains=query) |
+                Q(author__username__icontains=query) |
+                Q(conversation__contact__client__name__icontains=query)
+            ).select_related('conversation', 'conversation__contact__client', 'author').order_by('-created_at')[:20]
+
+            note_items = []
+            for n in notes_qs:
+                conv = n.conversation
+                display_name = conv.get_display_name()
+                conv_url = reverse('communications:dashboard')
+                params = f"?conversation={conv.pk}&channel={conv.channel}"
+                note_items.append({
+                    "title": highlight(display_name),
+                    "subtitle": highlight(f"Nota • {n.author.username} • {n.created_at:%d/%m %H:%M}"),
+                    "snippet": snippet(n.content),
+                    "primary": {
+                        "label": "Abrir conversación",
+                        "href": f"{conv_url}{params}",
+                    },
+                    "meta": "Nota interna",
+                })
+
+            if note_items:
+                results.append({
+                    "title": "Notas internas",
+                    "icon": "fa-note-sticky",
+                    "items": note_items,
+                })
+
+            quick_qs = QuickReply.objects.filter(
+                Q(title__icontains=query) |
+                Q(shortcut__icontains=query) |
+                Q(content__icontains=query) |
+                Q(category__icontains=query)
+            ).select_related('created_by').order_by('-usage_count', 'title')[:20]
+
+            quick_items = []
+            for qr in quick_qs:
+                quick_items.append({
+                    "title": highlight(qr.title),
+                    "subtitle": highlight(" • ".join([p for p in [qr.shortcut, qr.category, qr.get_channel_display()] if p])),
+                    "snippet": snippet(qr.content),
+                    "primary": {
+                        "label": "Ver",
+                        "href": reverse('communications:quick_replies'),
+                    },
+                    "meta": "Respuesta rápida",
+                })
+
+            if quick_items:
+                results.append({
+                    "title": "Respuestas rápidas",
+                    "icon": "fa-bolt",
+                    "items": quick_items,
+                })
+
+            tags_qs = ClientTag.objects.filter(name__icontains=query).order_by('name')[:20]
+            tag_items = []
+            for t in tags_qs:
+                tag_items.append({
+                    "title": highlight(t.name),
+                    "subtitle": highlight("Etiqueta"),
+                    "snippet": "",
+                    "primary": {
+                        "label": "Ver etiquetas",
+                        "href": reverse('client_tag_full_list'),
+                    },
+                    "meta": "Clients",
+                })
+
+            if tag_items:
+                results.append({
+                    "title": "Etiquetas",
+                    "icon": "fa-tags",
+                    "items": tag_items,
+                })
+
+            users_qs = User.objects.filter(
+                Q(username__icontains=query) |
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query) |
+                Q(email__icontains=query)
+            ).distinct().order_by('username')[:20]
+
+            user_items = []
+            for u in users_qs:
+                name = (u.get_full_name() or u.username).strip()
+                sub = " • ".join([p for p in [u.username, u.email] if p])
+                user_items.append({
+                    "title": highlight(name),
+                    "subtitle": highlight(sub),
+                    "snippet": "",
+                    "primary": {
+                        "label": "Ver usuario",
+                        "href": reverse('user_management_update', args=[u.pk]),
+                    },
+                    "meta": "Usuarios",
+                })
+
+            if user_items:
+                results.append({
+                    "title": "Usuarios",
+                    "icon": "fa-users",
+                    "items": user_items,
+                })
+
+            roles_qs = UserRole.objects.filter(
+                Q(name__icontains=query) | Q(description__icontains=query)
+            ).order_by('name')[:20]
+            role_items = []
+            for r in roles_qs:
+                role_items.append({
+                    "title": highlight(r.name),
+                    "subtitle": highlight("Rol"),
+                    "snippet": snippet(r.description or "", limit=160),
+                    "primary": {
+                        "label": "Ver roles",
+                        "href": reverse('user_role_list'),
+                    },
+                    "meta": "Core",
+                })
+
+            if role_items:
+                results.append({
+                    "title": "Roles",
+                    "icon": "fa-user-tag",
+                    "items": role_items,
+                })
+
+            work_areas_qs = WorkArea.objects.filter(
+                Q(name__icontains=query) | Q(description__icontains=query)
+            ).order_by('name')[:20]
+            work_items = []
+            for wa in work_areas_qs:
+                work_items.append({
+                    "title": highlight(wa.name),
+                    "subtitle": highlight("Área laboral"),
+                    "snippet": snippet(wa.description or "", limit=160),
+                    "primary": {
+                        "label": "Ver áreas",
+                        "href": reverse('work_area_list'),
+                    },
+                    "meta": "Core",
+                })
+
+            if work_items:
+                results.append({
+                    "title": "Áreas laborales",
+                    "icon": "fa-briefcase",
+                    "items": work_items,
+                })
+
+            groups_qs = Group.objects.filter(name__icontains=query).order_by('name')[:20]
+            group_items = []
+            for g in groups_qs:
+                group_items.append({
+                    "title": highlight(g.name),
+                    "subtitle": highlight("Grupo / privilegio"),
+                    "snippet": "",
+                    "primary": {
+                        "label": "Ver privilegios",
+                        "href": reverse('privilege_list'),
+                    },
+                    "meta": "Core",
+                })
+
+            if group_items:
+                results.append({
+                    "title": "Privilegios",
+                    "icon": "fa-shield-halved",
+                    "items": group_items,
+                })
+
+        context['query'] = query
+        context['results'] = results
+        context['total_results'] = sum(len(section.get('items', [])) for section in results)
+        context['has_query'] = len(query) >= 2
         return context
 
 class GenericCreateView(LoginRequiredMixin, GenericFormMixin, CreateView):

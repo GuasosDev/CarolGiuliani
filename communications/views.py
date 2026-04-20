@@ -16,7 +16,7 @@ from django.template.loader import get_template
 from xhtml2pdf import pisa
 import json
 import logging
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
 from .forms import QuickReplyForm, ConversationReportForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
@@ -25,7 +25,23 @@ from core.views import GenericCreateView
 
 logger = logging.getLogger(__name__)
 
-# communications/views.py
+@login_required
+def add_conversation_note(request, conversation_id):
+    """View to add a note to a conversation and return the notes list partial"""
+    conversation = get_object_or_404(Conversation, pk=conversation_id)
+    if request.method == 'POST':
+        content = request.POST.get('content')
+        if content:
+            InternalNote.objects.create(
+                conversation=conversation,
+                author=request.user,
+                content=content
+            )
+    
+    notes = conversation.internal_notes.all().order_by('-created_at')
+    return render(request, 'communications/partials/notes_list_partial.html', {
+        'notes': notes,
+    })
 
 def get_agent_conversations(user):
     """
@@ -52,6 +68,7 @@ def dashboard(request):
     # Get user's conversations
     status_filter = request.GET.get('status')
     channel_filter = request.GET.get('channel')
+    user_filter = request.GET.get('user')
     
     base_qs = get_agent_conversations(request.user).select_related(
     "contact__client"
@@ -59,6 +76,10 @@ def dashboard(request):
     
     # Base filtering
     conversations = base_qs
+    
+    # Filter by specific user (only for supervisors/admins)
+    if user_filter and (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+        conversations = conversations.filter(assigned_to_id=user_filter)
     
     if channel_filter:
         if channel_filter != 'multichannel':
@@ -120,6 +141,12 @@ def dashboard(request):
 
     clients = Client.objects.all().order_by('name')[:200]
     
+    # Get users for filtering (only for supervisors/admins)
+    from django.contrib.auth.models import User
+    available_users = []
+    if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
+        available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    
     # Get counts using helper
     counts = _get_conversation_counts(request.user)
     
@@ -148,6 +175,8 @@ def dashboard(request):
         'email_percent': email_percent,
         'current_status': status_filter,
         'current_channel': channel_filter,
+        'current_user': user_filter,
+        'available_users': available_users,
         'clients': clients,
         **counts # Unpack counts into context
     }
@@ -174,11 +203,11 @@ def _get_conversation_counts(user):
 
 
 @login_required
-def open_client_whatsapp(request, client_id, channel):
+def open_client_whatsapp(request, client_id, channel='whatsapp'):
     client = get_object_or_404(Client, pk=client_id)
     contact, _ = Contact.objects.get_or_create(
         client=client,
-        defaults={'preferred_channel': 'channel'}
+        defaults={'preferred_channel': channel}
     )
     
     conversation = Conversation.objects.filter(
@@ -199,7 +228,19 @@ def open_client_whatsapp(request, client_id, channel):
     
     from django.urls import reverse
     url = reverse('communications:dashboard')
-    return redirect(f'{url}?channel=whatsapp&conversation={conversation.pk}')
+    return redirect(f'{url}?channel={channel}&conversation={conversation.pk}')
+
+
+@login_required
+def contact_details_modal(request, conversation_id):
+    """View to show contact details in a modal"""
+    conversation = get_object_or_404(Conversation, pk=conversation_id)
+    notes = conversation.internal_notes.all().order_by('-created_at')
+    
+    return render(request, 'communications/partials/contact_details_modal.html', {
+        'conversation': conversation,
+        'notes': notes,
+    })
 
 
 @login_required
@@ -211,7 +252,7 @@ def change_conversation_status(request, pk):
     if not (request.user.is_superuser or 
             request.user.groups.filter(name='Supervisor').exists() or
             conversation.assigned_to == request.user):
-        return HttpResponse('Unauthorized', status=401)
+        return HttpResponse('Unauthorized', status=403)
         
     if request.method == 'POST':
         new_status = request.POST.get('status')
@@ -221,7 +262,8 @@ def change_conversation_status(request, pk):
             else:
                 conversation.status = new_status
                 conversation.save()
-                
+    if request.headers.get('HX-Request'):
+        return HttpResponse(status=204)            
     return redirect('communications:conversation_detail', pk=conversation.pk)
 
 
@@ -341,46 +383,127 @@ from datetime import timedelta
 
 @login_required
 def supervisor_dashboard(request):
+    # Check if user has permission (Supervisor or Superuser)
+    # Also allow manual testing with view_as
+    mode = request.session.get('view_as')
+    is_supervisor = request.user.is_superuser or \
+                    mode == 'supervisor' or \
+                    request.user.groups.filter(name='Supervisor').exists()
 
-    if not (request.user.is_superuser or 
-            request.user.groups.filter(name='Supervisor').exists()):
-        return HttpResponse('Unauthorized', status=401)
+    if not is_supervisor:
+        return redirect('communications:agent_dashboard')
     
     from django.contrib.auth.models import User
     from django.db.models import Count, Q
     
-    # Get all agents
+    # Get filters from request
+    agent_id = request.GET.get('agent')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    channel_filter = request.GET.get('channel')
+    
+    # Get all agents for the filter dropdown
     agents = User.objects.filter(is_staff=True, is_active=True)
     
+    # Base QuerySet for metrics
+    conversations_qs = Conversation.objects.all()
+    
+    # Apply filters to the QuerySet
+    if agent_id:
+        conversations_qs = conversations_qs.filter(assigned_to_id=agent_id)
+    if start_date:
+        conversations_qs = conversations_qs.filter(created_at__date__gte=start_date)
+    if end_date:
+        conversations_qs = conversations_qs.filter(created_at__date__lte=end_date)
+    if channel_filter:
+        conversations_qs = conversations_qs.filter(channel=channel_filter)
+    
     # Get metrics
-    total_conversations = Conversation.objects.count()
-    open_conversations = Conversation.objects.filter(status__in=['normal', 'pending']).count()
-    closed_today = Conversation.objects.filter(
-        status='closed',
-        closed_at__date=timezone.now().date()
-    ).count()
+    total_conversations = conversations_qs.count()
+    open_conversations = conversations_qs.filter(status__in=['normal', 'pending']).count()
+    
+    # Closed today logic (reflecting filters if provided)
+    closed_qs = conversations_qs.filter(status='closed')
+    if not (start_date or end_date):
+        closed_today = closed_qs.filter(closed_at__date=timezone.now().date()).count()
+    else:
+        closed_today = closed_qs.count()
+    
+    # Channel distribution (Filtered)
+    channel_stats = conversations_qs.values('channel').annotate(count=Count('id'))
     
     # Agent workload
     agent_stats = []
-    for agent in agents:
+    # If a specific agent is filtered, we only show that one in the table, otherwise all
+    stat_agents = agents.filter(id=agent_id) if agent_id else agents
+    
+    for agent in stat_agents:
         active_count = Conversation.objects.filter(
             assigned_to=agent,
             status__in=['normal', 'pending']
-        ).count()
+        )
+        # We don't usually filter current workload by historical date, but for consistency:
+        if start_date: active_count = active_count.filter(created_at__date__gte=start_date)
+        if end_date: active_count = active_count.filter(created_at__date__lte=end_date)
         
         agent_stats.append({
             'agent': agent,
-            'active_conversations': active_count
+            'active_conversations': active_count.count()
         })
     
     context = {
         'total_conversations': total_conversations,
         'open_conversations': open_conversations,
         'closed_today': closed_today,
-        
+        'agent_stats': agent_stats,
+        'channel_stats': channel_stats,
+        'agents': agents,
+        'filters': {
+            'agent': agent_id,
+            'start_date': start_date,
+            'end_date': end_date,
+            'channel': channel_filter,
+        }
     }
 
     return render(request, 'communications/supervisor_dashboard.html', context)
+
+
+@login_required
+def agent_dashboard(request):
+    from django.db.models import Count, Q
+    
+    # My specific metrics
+    open_conversations = Conversation.objects.filter(
+        assigned_to=request.user, 
+        status__in=['normal', 'pending']
+    ).count()
+    
+    closed_today = Conversation.objects.filter(
+        assigned_to=request.user,
+        status='closed',
+        closed_at__date=timezone.now().date()
+    ).count()
+    
+    # Recent activity
+    recent_conversations = Conversation.objects.filter(
+        assigned_to=request.user
+    ).select_related('contact').order_by('-updated_at')[:5]
+    
+    context = {
+        'open_conversations': open_conversations,
+        'closed_today': closed_today,
+        'recent_conversations': recent_conversations,
+    }
+    return render(request, 'communications/agent_dashboard.html', context)
+
+
+@login_required
+def role_dashboard(request):
+    mode = request.session.get('view_as')
+    if mode == 'supervisor' or request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
+        return redirect('communications:supervisor_dashboard')
+    return redirect('communications:agent_dashboard')
 
 
 
@@ -707,35 +830,59 @@ class WelcomeMenuDeleteView(LoginRequiredMixin, DeleteView):
             messages.error(request, 'No tenés permiso para acceder a esta sección.')
             return redirect('communications:dashboard')
         return super().dispatch(request, *args, **kwargs)
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
+   
+@login_required
+def transfer_conversation_modal(request, pk):
+    conversation = get_object_or_404(Conversation, pk=pk)
+    users = User.objects.filter(is_active=True)
+
+    return render(request, "communications/partials/transfer_modal.html", {
+        "conversation": conversation,
+        "users": users
+    })
 
 @login_required
 @require_http_methods(["POST"])
 def transfer_conversation(request, pk):
-    """Transfer/reassign a conversation to another user"""
     conversation = get_object_or_404(Conversation, pk=pk)
 
-    # Only supervisors, admins, or the assigned agent can transfer
-    if not (request.user.is_superuser or
-            request.user.groups.filter(name='Supervisor').exists() or
-            conversation.assigned_to == request.user):
-        return JsonResponse({'error': 'Sin permiso'}, status=403)
+    # Permisos
+    if not (
+        request.user.is_superuser or
+        request.user.groups.filter(name='Supervisor').exists() or
+        conversation.assigned_to == request.user
+    ):
+        return HttpResponse(
+            "<div class='alert alert-danger'>Sin permiso</div>",
+            status=403
+        )
 
     new_user_id = request.POST.get('user_id')
-    if not new_user_id:
-        return JsonResponse({'error': 'Debe seleccionar un usuario'}, status=400)
 
-    from django.contrib.auth.models import User
+    if not new_user_id:
+        return render(request, "communications/partials/transfer_modal.html", {
+            "conversation": conversation,
+            "users": User.objects.filter(is_active=True),
+            "error": "Debe seleccionar un usuario"
+        })
+
     try:
         new_user = User.objects.get(pk=new_user_id, is_active=True)
+
     except User.DoesNotExist:
-        return JsonResponse({'error': 'Usuario no encontrado'}, status=404)
+        return HttpResponse(
+            "<div class='alert alert-danger'>Usuario no encontrado</div>",
+            status=404
+        )
 
     from .assignment_system import reassign_conversation
     reassign_conversation(conversation, new_user, request.user)
-
-    return JsonResponse({
-        'success': True,
-        'message': f'Conversación derivada a {new_user.get_full_name() or new_user.username}',
-        'new_agent': new_user.get_full_name() or new_user.username,
+    conversation.status = 'closed'
+    conversation.save()
+    # 🔥 RESPUESTA HTMX (HTML, no JSON)
+    return render(request, "communications/partials/transfer_success.html", {
+        "message": f"Conversación derivada a {new_user.get_full_name() or new_user.username}"
     })

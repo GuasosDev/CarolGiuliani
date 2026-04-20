@@ -34,6 +34,25 @@ class Contact(models.Model):
         client_name = self.client.name if self.client else "Sin cliente"
         return f"{client_name} - {self.preferred_channel}"
 
+    def save(self, *args, **kwargs):
+        if self.whatsapp_number:
+            # Eliminar todo lo que no sea dígito
+            digits = "".join(filter(str.isdigit, str(self.whatsapp_number)))
+            if digits:
+                # Lógica para Argentina (54) + 9 + número
+                if digits.startswith("54"):
+                    if not digits.startswith("549"):
+                        # Insertar el 9 después del 54 (Argentina móvil format para WhatsApp)
+                        digits = "549" + digits[2:]
+                else:
+                    # Si empieza con 0, quitarlo (prefijo local)
+                    if digits.startswith("0"):
+                        digits = digits[1:]
+                    # Si no empieza con 54, asumimos Argentina y agregamos 549
+                    digits = "549" + digits
+                self.whatsapp_number = digits
+        super().save(*args, **kwargs)
+
     def get_display_phone(self):
         """Returns the most relevant phone number, safely."""
         if self.whatsapp_number:
