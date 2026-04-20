@@ -97,27 +97,52 @@
                         {% endif %}
                     </div>
 
-                                <div class="msg-bubble text-break pt-1 d-inline-block text-start">
-                                
-                                        {{ m.content|linebreaksbr }}
+                        <div class="msg-bubble text-break pt-1 d-inline-block text-start">
+    
+                                             {{ m.content|linebreaksbr }}
 
-                                    {% if m.email_data %}
-                                        {% for att in m.email_data.attachments.all %}
-                                            <div style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
-                                                <i class="fas fa-paperclip me-2"></i>
-                                                <a href="{{ att.file.url }}" target="_blank">
-                                                    {{ att.filename }}
-                                                </a>
-                                                <small class="ms-2 text-muted">
-                                                    ({{ att.size|filesizeformat }})
-                                                </small>
-                                                
-                                            </div>
-                                        {% empty %}
-                                            <!-- no attachments -->
-                                        {% endfor %}
-                                    {% endif %}
+                        <!-- 📎 ADJUNTOS WHATSAPP -->
+                        {% if m.file %}
+                            <div class="mt-2">
+                                
+                                {% if ".jpg" in m.file.url or ".png" in m.file.url or ".jpeg" in m.file.url %}
+                                    <img src="{{ m.file.url }}" style="max-width: 200px; border-radius: 8px;">
+                                
+                                {% elif ".mp3" in m.file.url or ".ogg" in m.file.url %}
+                                    <audio controls>
+                                        <source src="{{ m.file.url }}">
+                                    </audio>
+                                
+                                {% elif ".mp4" in m.file.url %}
+                                    <video controls width="250">
+                                        <source src="{{ m.file.url }}">
+                                    </video>
+                                
+                                {% else %}
+                                    <a href="{{ m.file.url }}" target="_blank" class="d-block mt-1"style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
+                                        <i class="fas fa-paperclip"></i>  {{ m.file }}
+                                    </a>
+                                
+                                {% endif %}
+                            
+                            </div>
+                        {% endif %}
+
+                        <!-- 📎 ADJUNTOS EMAIL (ya lo tenías) -->
+                        {% if m.email_data %}
+                            {% for att in m.email_data.attachments.all %}
+                                <div style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
+                                    <i class="fas fa-paperclip me-2"></i>
+                                    <a href="{{ att.file.url }}" target="_blank">
+                                        {{ att.filename }}
+                                    </a>
+                                    <small class="ms-2 text-muted">
+                                        ({{ att.size|filesizeformat }})
+                                    </small>
                                 </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
 
                     <div class="message-meta d-flex justify-content-between">
                         <span>{{ m.created_at|time:"h:i A" }}</span>
@@ -222,7 +247,8 @@
                     <input type="file" id="imageInputWhatsapp" name="attachments" multiple hidden>
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
                     <input type="hidden" name="to_number" value="{{ conversation.contact.get_display_phone }}">
-
+                    <div id="whatsappFilePreview" class="mb-2"></div>
+                    
                     <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary"
                         style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
                         <textarea class="form-control border-0 shadow-none" name="message" rows="1"
@@ -268,9 +294,7 @@
                                 value="{% if conversation.subject %}Re: {{ conversation.subject }}{% endif %}" required>
                         </div>
                         <div class="d-flex align-items-start">
-                            <button type="button" onclick="document.getElementById('imageInputEmail').click()" class="tool-btn me-2 mt-1">
-                                <i class="fas fa-paperclip"></i>
-                            </button>
+                            
                             <div class="form-control border-0 shadow-none px-0" 
                                  contenteditable="true" 
                                  id="emailBodyDiv"
@@ -296,7 +320,11 @@
         </div>
         <script>
             document.getElementById('imageInputWhatsapp')?.addEventListener('change', function () {
-                console.log(this.files); // podés mostrar preview acá
+                const files = this.files;
+
+                if (files.length > 0) {
+                    displayWhatsappFilePreview(files);
+                }
             });
 
             document.getElementById('imageInputEmail')?.addEventListener('change', function () {
@@ -515,7 +543,70 @@
                 // No limpiar el campo visual aquí - eso se hace solo al enviar
                 console.log('Archivo eliminado, quedan:', input.files.length);
             }
-            
+            function displayWhatsappFilePreview(files) {
+                const preview = document.getElementById('whatsappFilePreview');
+                preview.innerHTML = '';
+
+                Array.from(files).forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
+
+                    const size = formatFileSize(file.size);
+
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            fileItem.innerHTML = `
+                                <div class="d-flex align-items-center flex-grow-1">
+                                    <img src="${e.target.result}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2">
+                                    <div>
+                                        <div class="small fw-bold">${file.name}</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        fileItem.innerHTML = `
+                            <div class="d-flex align-items-center flex-grow-1">
+                                <i class="fas fa-file me-2"></i>
+                                <div>
+                                    <div class="small fw-bold">${file.name}</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                    }
+
+                    preview.appendChild(fileItem);
+                });
+            }
+            function removeWhatsappFile(index) {
+                const input = document.getElementById('imageInputWhatsapp');
+                const dt = new DataTransfer();
+                const files = Array.from(input.files);
+
+                files.forEach((file, i) => {
+                    if (i !== index) {
+                        dt.items.add(file);
+                    }
+                });
+
+                input.files = dt.files;
+
+                if (input.files.length > 0) {
+                    displayWhatsappFilePreview(input.files);
+                } else {
+                    document.getElementById('whatsappFilePreview').innerHTML = '';
+                }
+            }
             function handleFileClick(index) {
                 const input = document.getElementById('imageInputEmail');
                 const file = input.files[index];
@@ -633,15 +724,6 @@
                         console.log('FormData entries:', Array.from(formData.entries()));
                     }
                 }
-                if (channel === 'whatsapp') {
-                    const fileInput = document.getElementById('imageInputWhatsapp');
-                    if (fileInput && fileInput.files.length > 0) {
-                        formData.delete('attachments');
-                        Array.from(fileInput.files).forEach(file => {
-                            formData.append('attachments', file);
-                        });
-                    }
-                }
 
                 // Validate to_number for WhatsApp
                 if (channel === 'whatsapp') {
@@ -701,10 +783,6 @@
                             const messageTextarea = form.querySelector('textarea[name="message"]');
                             if (messageTextarea) {
                                 messageTextarea.value = '';
-                            }
-                            const fileInput = document.getElementById('imageInputWhatsapp');
-                            if (fileInput) {
-                                fileInput.value = '';
                             }
                         } else {
                             const emailBodyDiv = document.getElementById('emailBodyDiv');

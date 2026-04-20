@@ -185,6 +185,7 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
 
         message_ids = []
         for idx, f in enumerate(attachments):
+            f.seek(0)
             media_type = handler.detect_media_type(f)
 
             success, media_id_or_error = handler.upload_media(f)
@@ -200,7 +201,8 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
                 media_id=media_id_or_error,
                 caption=caption,
                 filename=filename,
-                conversation=conversation
+                conversation=conversation,
+                uploaded_file=f
             )
             if not success:
                 return Response({'error': msg_id_or_error}, status=status.HTTP_400_BAD_REQUEST)
