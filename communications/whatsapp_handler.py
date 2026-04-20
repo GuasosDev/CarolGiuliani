@@ -20,7 +20,25 @@ logger = logging.getLogger(__name__)
 def normalize_phone_number(number):
     if not number:
         return number
-    digits = ''.join(ch for ch in str(number) if ch.isdigit())
+    
+    # Eliminar todo lo que no sea dígito
+    digits = "".join(filter(str.isdigit, str(number)))
+    
+    if not digits:
+        return ""
+    
+    # Lógica para Argentina (54) + 9 + número
+    if digits.startswith("54"):
+        if not digits.startswith("549"):
+            # Insertar el 9 después del 54
+            digits = "549" + digits[2:]
+    else:
+        # Si empieza con 0, quitarlo
+        if digits.startswith("0"):
+            digits = digits[1:]
+        # Prepend 549
+        digits = "549" + digits
+        
     return digits
 
 
