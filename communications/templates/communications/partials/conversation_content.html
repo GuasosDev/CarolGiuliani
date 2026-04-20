@@ -26,20 +26,17 @@
                 </div>
             </div>
 
-            <div class="chat-header-actions d-flex align-items-center gap-3 ms-3">
-                <button 
+            <div class="chat-header-actions d-flex">
+                 <button 
                     hx-get="{% url 'communications:transfer_conversation_modal' conversation.id %}"
                     hx-target="#modal-body"
                     hx-trigger="click"
                     onclick="openModal()"
-                    class="btn btn-sm btn-outline-primary py-1 px-3">
-                    <i class="fas fa-exchange-alt me-1"></i> Transferir
+                    class="btn btn-sm btn-primary">
+                    Transferir
                 </button>
 
-                <div class="vr mx-1" style="height: 25px;"></div>
-
-                <form 
-                    hx-post="{% url 'communications:change_conversation_status' conversation.id %}"
+                <form hx-post="{% url 'communications:change_conversation_status' conversation.id %}"
                     hx-swap="none"
                     class="mb-0 d-flex gap-2">
                     {% csrf_token %}
@@ -95,12 +92,56 @@
                         {% if m.message_type == 'whatsapp' %}
                         <span class="ms-1 text-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
                         {% else %}
-                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email</span>
+                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email </span><br>
+                        <span class="ms-1 text-primary"><i class="fas fa-tag"></i>Asunto:{{ conversation.subject }}</span>
                         {% endif %}
                     </div>
 
-                    <div class="msg-bubble">
-                        {{ m.content|striptags|linebreaksbr }}
+                        <div class="msg-bubble text-break pt-1 d-inline-block text-start">
+    
+                                             {{ m.content|linebreaksbr }}
+
+                        <!-- 📎 ADJUNTOS WHATSAPP -->
+                        {% if m.file %}
+                            <div class="mt-2">
+                                
+                                {% if ".jpg" in m.file.url or ".png" in m.file.url or ".jpeg" in m.file.url %}
+                                    <img src="{{ m.file.url }}" style="max-width: 200px; border-radius: 8px;">
+                                
+                                {% elif ".mp3" in m.file.url or ".ogg" in m.file.url %}
+                                    <audio controls>
+                                        <source src="{{ m.file.url }}">
+                                    </audio>
+                                
+                                {% elif ".mp4" in m.file.url %}
+                                    <video controls width="250">
+                                        <source src="{{ m.file.url }}">
+                                    </video>
+                                
+                                {% else %}
+                                    <a href="{{ m.file.url }}" target="_blank" class="d-block mt-1"style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
+                                        <i class="fas fa-paperclip"></i>  {{ m.file }}
+                                    </a>
+                                
+                                {% endif %}
+                            
+                            </div>
+                        {% endif %}
+
+                        <!-- 📎 ADJUNTOS EMAIL (ya lo tenías) -->
+                        {% if m.email_data %}
+                            {% for att in m.email_data.attachments.all %}
+                                <div style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
+                                    <i class="fas fa-paperclip me-2"></i>
+                                    <a href="{{ att.file.url }}" target="_blank">
+                                        {{ att.filename }}
+                                    </a>
+                                    <small class="ms-2 text-muted">
+                                        ({{ att.size|filesizeformat }})
+                                    </small>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
 
                     <div class="message-meta d-flex justify-content-between">
@@ -159,13 +200,13 @@
                                     onclick="insertQuickReply(this.dataset.content); return false;"
                                     data-content="{{ reply.content }}">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title
-                                            }}</strong>
-                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{
-                                            reply.shortcut }}</small>{% endif %}
+                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title }}</strong>
+                                            
+                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{  reply.shortcut }}</small>{% endif %}
+                                           
                                     </div>
-                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{
-                                        reply.content }}</small>
+                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{  reply.content }}</small>
+                                       
                                     <div class="d-flex gap-1 mt-1">
                                         {% if reply.channel == 'whatsapp' %}
                                         <i class="fab fa-whatsapp text-success" style="font-size: 0.7rem;"></i>
@@ -187,7 +228,10 @@
                             </div>
                         </div>
                     </div>
-                    <button type="button" class="tool-btn"><i class="fas fa-paperclip"></i></button>
+                    
+                <button type="button" onclick="openFileSelector()" class="tool-btn">
+                    <i class="fas fa-paperclip"></i>
+                </button>
                 </div>
             </div>
 
@@ -197,11 +241,14 @@
                 {% if whatsapp_account %}
                 <form method="post"
                     action="/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_message/"
-                    id="whatsappForm">
+                    id="whatsappForm"
+                    enctype="multipart/form-data">
                     {% csrf_token %}
+                    <input type="file" id="imageInputWhatsapp" name="attachments" multiple hidden>
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
                     <input type="hidden" name="to_number" value="{{ conversation.contact.get_display_phone }}">
-
+                    <div id="whatsappFilePreview" class="mb-2"></div>
+                    
                     <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary"
                         style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
                         <textarea class="form-control border-0 shadow-none" name="message" rows="1"
@@ -230,11 +277,13 @@
             <div id="channel-email" class="channel-content {% if conversation.channel != 'email' %}d-none{% endif %}">
                 {% if email_account %}
                 <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
-                    id="emailForm">
+                    id="emailForm" enctype="multipart/form-data">
                     {% csrf_token %}
+                    <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
 
                     <div class="bg-white p-2 rounded border mb-2">
+                        <div id="emailFilePreview" class="mb-2"></div>
                         <div class="mb-2 border-bottom pb-2">
                             <input type="email" name="to_addresses"
                                 class="form-control form-control-sm border-0 px-0 mb-1" placeholder="Para"
@@ -244,8 +293,16 @@
                                 placeholder="Asunto"
                                 value="{% if conversation.subject %}Re: {{ conversation.subject }}{% endif %}" required>
                         </div>
-                        <textarea class="form-control border-0 shadow-none px-0" name="body" rows="3"
-                            placeholder="Escribe el contenido del correo..." required></textarea>
+                        <div class="d-flex align-items-start">
+                            
+                            <div class="form-control border-0 shadow-none px-0" 
+                                 contenteditable="true" 
+                                 id="emailBodyDiv"
+                                 style="min-height: 80px; max-height: 300px; overflow-y: auto;"
+                                 placeholder="Escribe el contenido del correo..."
+                                 data-placeholder="Escribe el contenido del correo..."></div>
+                            <input type="hidden" name="body" id="emailBodyInput">
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-end">
@@ -261,8 +318,66 @@
                 {% endif %}
             </div>
         </div>
-
         <script>
+            document.getElementById('imageInputWhatsapp')?.addEventListener('change', function () {
+                const files = this.files;
+
+                if (files.length > 0) {
+                    displayWhatsappFilePreview(files);
+                }
+            });
+
+            document.getElementById('imageInputEmail')?.addEventListener('change', function () {
+                const files = this.files;
+                console.log('Archivos seleccionados:', files);
+                
+                if (files.length > 0) {
+                    // Mostrar vista previa visual
+                    displayEmailFilePreview(files);
+                    
+                    // Agregar archivos al campo de texto como imágenes/PDF
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    if (emailBodyDiv) {
+                        Array.from(files).forEach(file => {
+                            if (file.type.startsWith('image/')) {
+                                // Para imágenes, mostrar la imagen real
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                   console.log('IMAGE seleccionado:', file.name);
+                                    
+                                };
+                                reader.readAsDataURL(file);
+                            } else if (file.type.includes('pdf')) {
+                                console.log('PDF seleccionado:', file.name);
+                            } else if (
+                                file.type.includes('excel') ||
+                                file.type.includes('spreadsheet') ||
+                                file.name.endsWith('.xlsx') ||
+                                file.name.endsWith('.xls')
+                            ) {
+                                 console.log('EXCEL seleccionado:', file.name);
+                                
+
+                            } else {
+                                 console.log('SPREADSHEET seleccionado:', file.name);
+                                
+                            }
+                        });
+                    }
+                }
+            }); 
+        </script>
+        <script>
+            function openFileSelector() {
+                const whatsappContainer = document.getElementById('channel-whatsapp');
+                const emailContainer = document.getElementById('channel-email');
+
+                if (!whatsappContainer.classList.contains('d-none')) {
+                    document.getElementById('imageInputWhatsapp').click();
+                } else {
+                    document.getElementById('imageInputEmail').click();
+                }
+            }
             function switchChannel(channel) {
                 // Reset buttons
                 document.getElementById('btn-whatsapp').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
@@ -290,22 +405,34 @@
                 const whatsappContainer = document.getElementById('channel-whatsapp');
                 const emailContainer = document.getElementById('channel-email');
 
-                let activeTextarea = null;
-
                 if (!whatsappContainer.classList.contains('d-none')) {
-                    activeTextarea = whatsappContainer.querySelector('textarea[name="message"]');
+                    // WhatsApp usa textarea
+                    const activeTextarea = whatsappContainer.querySelector('textarea[name="message"]');
+                    if (activeTextarea) {
+                        const start = activeTextarea.selectionStart;
+                        const end = activeTextarea.selectionEnd;
+                        const text = activeTextarea.value;
+
+                        activeTextarea.value = text.substring(0, start) + content + text.substring(end);
+                        activeTextarea.selectionStart = activeTextarea.selectionEnd = start + content.length;
+                        activeTextarea.focus();
+                    }
                 } else if (!emailContainer.classList.contains('d-none')) {
-                    activeTextarea = emailContainer.querySelector('textarea[name="body"]');
-                }
-
-                if (activeTextarea) {
-                    const start = activeTextarea.selectionStart;
-                    const end = activeTextarea.selectionEnd;
-                    const text = activeTextarea.value;
-
-                    activeTextarea.value = text.substring(0, start) + content + text.substring(end);
-                    activeTextarea.selectionStart = activeTextarea.selectionEnd = start + content.length;
-                    activeTextarea.focus();
+                    // Email usa div contenteditable
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    if (emailBodyDiv) {
+                        // Simplemente agregar el contenido al final
+                        emailBodyDiv.innerHTML += content;
+                        emailBodyDiv.focus();
+                        
+                        // Poner el cursor al final
+                        const range = document.createRange();
+                        const sel = window.getSelection();
+                        range.selectNodeContents(emailBodyDiv);
+                        range.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
                 }
             }
 
@@ -323,6 +450,181 @@
                 });
             }
 
+            // Funciones para manejo de archivos
+            function displayEmailFilePreview(files) {
+                const preview = document.getElementById('emailFilePreview');
+                preview.innerHTML = '';
+                
+                Array.from(files).forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
+                    fileItem.style.cursor = 'pointer';
+                    fileItem.draggable = true;
+                    
+                    // Formatear tamaño
+                    const size = formatFileSize(file.size);
+                    
+                    if (file.type.startsWith('image/')) {
+                        // Para imágenes, mostrar miniatura real
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            fileItem.innerHTML = `
+                                <div class="d-flex align-items-center flex-grow-1" onclick="handleFileClick(${index})">
+                                    <img src="${e.target.result}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2">
+                                    <div>
+                                        <div class="small fw-bold">${file.name}</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeEmailFile(${index})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        // Para otros archivos, mostrar iconos
+                        let icon = 'fas fa-file text-secondary';
+                        if (file.type.includes('pdf')) {
+                            icon = 'fas fa-file-pdf text-danger';
+                        } else if (file.type.includes('word') || file.type.includes('document')) {
+                            icon = 'fas fa-file-word text-primary';
+                        } else if (file.type.includes('excel') || file.type.includes('spreadsheet')) {
+                            icon = 'fas fa-file-excel text-success';
+                        }
+                        
+                        fileItem.innerHTML = `
+                            <div class="d-flex align-items-center flex-grow-1" onclick="handleFileClick(${index})">
+                                <i class="${icon} me-2"></i>
+                                <div>
+                                    <div class="small fw-bold">${file.name}</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeEmailFile(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                    }
+                    
+                    // Eventos de arrastre
+                    fileItem.addEventListener('dragstart', function(e) {
+                        e.dataTransfer.effectAllowed = 'copy';
+                        e.dataTransfer.setData('text/plain', file.name);
+                        console.log('Arrastrando archivo:', file.name);
+                    });
+                    
+                    preview.appendChild(fileItem);
+                });
+            }
+            
+            function removeEmailFile(index) {
+                console.log('Eliminando archivo en índice:', index);
+                const input = document.getElementById('imageInputEmail');
+                const dt = new DataTransfer();
+                const files = Array.from(input.files);
+                
+                // Agregar todos los archivos excepto el que se quiere eliminar
+                files.forEach((file, i) => {
+                    if (i !== index) {
+                        dt.items.add(file);
+                    }
+                });
+                
+                input.files = dt.files;
+                
+                // Actualizar vista previa
+                if (input.files.length > 0) {
+                    displayEmailFilePreview(input.files);
+                } else {
+                    document.getElementById('emailFilePreview').innerHTML = '';
+                }
+                
+                // No limpiar el campo visual aquí - eso se hace solo al enviar
+                console.log('Archivo eliminado, quedan:', input.files.length);
+            }
+            function displayWhatsappFilePreview(files) {
+                const preview = document.getElementById('whatsappFilePreview');
+                preview.innerHTML = '';
+
+                Array.from(files).forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
+
+                    const size = formatFileSize(file.size);
+
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            fileItem.innerHTML = `
+                                <div class="d-flex align-items-center flex-grow-1">
+                                    <img src="${e.target.result}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2">
+                                    <div>
+                                        <div class="small fw-bold">${file.name}</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        fileItem.innerHTML = `
+                            <div class="d-flex align-items-center flex-grow-1">
+                                <i class="fas fa-file me-2"></i>
+                                <div>
+                                    <div class="small fw-bold">${file.name}</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                    }
+
+                    preview.appendChild(fileItem);
+                });
+            }
+            function removeWhatsappFile(index) {
+                const input = document.getElementById('imageInputWhatsapp');
+                const dt = new DataTransfer();
+                const files = Array.from(input.files);
+
+                files.forEach((file, i) => {
+                    if (i !== index) {
+                        dt.items.add(file);
+                    }
+                });
+
+                input.files = dt.files;
+
+                if (input.files.length > 0) {
+                    displayWhatsappFilePreview(input.files);
+                } else {
+                    document.getElementById('whatsappFilePreview').innerHTML = '';
+                }
+            }
+            function handleFileClick(index) {
+                const input = document.getElementById('imageInputEmail');
+                const file = input.files[index];
+                console.log('Clic en archivo:', file.name);
+                
+                // Mostrar información del archivo
+                alert(`Archivo: ${file.name}\nTamaño: ${formatFileSize(file.size)}\nTipo: ${file.type}`);
+            }
+            
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            
             // Handle form submissions
             // In HTMX partials, we don't need DOMContentLoaded as elements are already inserted
             (function () {
@@ -363,9 +665,65 @@
             })();
 
             function sendMessage(form, channel) {
+                // Para email, copiar contenido del div al input hidden
+                if (channel === 'email') {
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    const emailBodyInput = document.getElementById('emailBodyInput');
+                    if (emailBodyDiv && emailBodyInput) {
+                        // Obtener el texto del div, preservando lo que el usuario escribió
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = emailBodyDiv.innerHTML;
+                        
+                        // Eliminar solo las imágenes y divs de archivos (vista previa)
+                        tempDiv.querySelectorAll('img').forEach(img => img.remove());
+                        tempDiv.querySelectorAll('div').forEach(div => {
+                            if (div.innerHTML.includes('fa-file-pdf') || 
+                                div.innerHTML.includes('fa-file-word') || 
+                                div.innerHTML.includes('fa-file-excel') || 
+                                div.innerHTML.includes('fa-file')) {
+                                div.remove();
+                            }
+                        });
+                        
+                        // Obtener el texto limpio pero preservando el contenido del usuario
+                        const textContent = tempDiv.textContent || tempDiv.innerText || '';
+                        
+                        // Si no hay contenido de texto y No hay archivos, No enviar
+                        if (textContent.trim() === '' && document.getElementById('imageInputEmail').files.length === 0) {
+                            alert('Por favor escribe un mensaje o adjunta archivos antes de enviar.');
+                            return;
+                        }
+                        
+                        // Enviar el texto completo con formato HTML (preservar saltos de línea, etc.)
+                        emailBodyInput.value = emailBodyDiv.innerHTML;
+                    }
+                }
+
                 const formData = new FormData(form);
                 const btn = form.querySelector('button[type="submit"]');
                 const originalText = btn.innerHTML;
+
+                // Agregar archivos manualmente al FormData para asegurar que se envíen
+                if (channel === 'email') {
+                    const fileInput = document.getElementById('imageInputEmail');
+                    console.log('Files in input before FormData:', fileInput ? fileInput.files.length : 0);
+                    
+                    if (fileInput && fileInput.files.length > 0) {
+                        // Limpiar archivos existentes del FormData
+                        formData.delete('attachments');
+                        
+                        // Agregar cada archivo individualmente
+                        Array.from(fileInput.files).forEach(file => {
+                            formData.append('attachments', file);
+                            console.log('Archivo agregado:', file.name, 'Tamaño:', file.size);
+                        });
+                        
+                        // Verificar que se agregaron correctamente
+                        const formDataFiles = formData.getAll('attachments');
+                        console.log('Archivos en FormData después de agregar:', formDataFiles.length);
+                        console.log('FormData entries:', Array.from(formData.entries()));
+                    }
+                }
 
                 // Validate to_number for WhatsApp
                 if (channel === 'whatsapp') {
@@ -422,10 +780,23 @@
                     .then(data => {
                         // Clear inputs
                         if (channel === 'whatsapp') {
-                            form.querySelector('textarea[name="message"]').value = '';
+                            const messageTextarea = form.querySelector('textarea[name="message"]');
+                            if (messageTextarea) {
+                                messageTextarea.value = '';
+                            }
                         } else {
-                            form.querySelector('textarea[name="body"]').value = '';
-                            form.querySelector('input[name="subject"]').value = '';
+                            const emailBodyDiv = document.getElementById('emailBodyDiv');
+                            const emailBodyInput = document.getElementById('emailBodyInput');
+                            if (emailBodyDiv) {
+                                emailBodyDiv.innerHTML = '';
+                            }
+                            if (emailBodyInput) {
+                                emailBodyInput.value = '';
+                            }
+                            const subjectInput = form.querySelector('input[name="subject"]');
+                            if (subjectInput) {
+                                subjectInput.value = '';
+                            }
                         }
 
                         // Reload messages area

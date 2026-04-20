@@ -1,19 +1,28 @@
-<h5>Transferir conversación</h5>
+<div class="p-3">
+    <h5 class="mb-3 fw-semibold">Transferir conversación</h5>
 
-<form 
-    hx-post="{% url 'communications:transfer_conversation' conversation.id %}"
-    hx-target="#modal-body"
-    hx-swap="innerHTML">
+    <form 
+        hx-post="{% url 'communications:transfer_conversation' conversation.id %}"
+        hx-target="#modal-body"
+        hx-swap="innerHTML"
+        class="d-flex flex-column gap-3">
 
-    <select name="user_id" class="form-control mb-2">
-        {% for user in users %}
-            <option value="{{ user.id }}">
-                {{ user.get_full_name|default:user.username }}
-            </option>
-        {% endfor %}
-    </select>
+        <div>
+            <label class="form-label small text-muted">Seleccionar usuario</label>
+            <select name="user_id" class="form-select">
+                {% for user in users %}
+                    <option value="{{ user.id }}">
+                        {{ user.get_full_name|default:user.username }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
 
-    <button type="submit" class="btn btn-success">
-        Confirmar
-    </button>
-</form>
+        <div class="d-flex justify-content-end">
+            <button type="submit" class="btn btn-success px-4">
+                Confirmar
+            </button>
+        </div>
+
+    </form>
+</div>

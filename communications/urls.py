@@ -4,7 +4,7 @@ Main URL configuration for communications app
 
 from django.urls import path, include
 from . import views
-from .views import ContactCreateView, open_client_whatsapp, WelcomeMenuListView, WelcomeMenuCreateView, WelcomeMenuUpdateView, WelcomeMenuDeleteView, transfer_conversation,transfer_conversation_modal
+from .views import ContactCreateView, open_client_whatsapp, WelcomeMenuListView, WelcomeMenuCreateView, WelcomeMenuUpdateView, WelcomeMenuDeleteView, transfer_conversation, transfer_conversation_modal,open_client_email
 
 app_name = 'communications'
 
@@ -52,5 +52,6 @@ urlpatterns = [
         transfer_conversation_modal,
         name='transfer_conversation_modal'
     ),
-    
+
+    path('client/<int:client_id>/email/', open_client_email, name='open_client_email'),
 ]

@@ -4,6 +4,7 @@ Handles webhook events and message sending via WhatsApp Business API
 """
 
 import requests
+from django.core.files.base import ContentFile
 import json
 import logging
 from django.conf import settings
@@ -113,7 +114,7 @@ class WhatsAppHandler:
             logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False, str(e)
     
-    def send_media_message(self, to_number, media_type, media_id, caption=None, conversation=None):
+    def send_media_message(self, to_number, media_type, media_id, caption=None, filename=None, conversation=None,uploaded_file=None):
         """Send a media message (image, document, audio, video)"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -130,6 +131,8 @@ class WhatsAppHandler:
         
         if caption and media_type in ['image', 'document', 'video']:
             payload[media_type]['caption'] = caption
+        if filename and media_type == 'document':
+            payload[media_type]['filename'] = filename
         
         try:
             response = requests.post(url, headers=self.headers, json=payload)
@@ -146,6 +149,12 @@ class WhatsAppHandler:
                     content=caption or f"[{media_type.upper()}]",
                     metadata={'to': to_number, 'media_type': media_type}
                 )
+                if uploaded_file:
+                    message.file.save(
+                        uploaded_file.name,
+                        uploaded_file,
+                        save=True
+                    )
                 
                 WhatsAppMessage.objects.create(
                     message=message,
@@ -170,6 +179,51 @@ class WhatsAppHandler:
             return False, error_body
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending WhatsApp media message: {str(e)}")
+            return False, str(e)
+
+    def detect_media_type(self, uploaded_file):
+        content_type = (getattr(uploaded_file, 'content_type', '') or '').lower()
+        name = (getattr(uploaded_file, 'name', '') or '').lower()
+
+        if content_type.startswith('image/') or name.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            return 'image'
+        if content_type.startswith('video/') or name.endswith(('.mp4', '.mov')):
+            return 'video'
+        if content_type.startswith('audio/') or name.endswith(('.mp3', '.ogg', '.wav')):
+            return 'audio'
+        
+        return 'document'
+
+    def upload_media(self, uploaded_file):
+        url = f"{self.api_url}/{self.account.phone_number_id}/media"
+        headers = {
+            'Authorization': f'Bearer {self.account.access_token}',
+        }
+
+        file_handle = getattr(uploaded_file, 'file', uploaded_file)
+        content_type = getattr(uploaded_file, 'content_type', None)
+        filename = getattr(uploaded_file, 'name', 'attachment')
+
+        files = {
+            'file': (filename, file_handle, content_type) if content_type else (filename, file_handle)
+        }
+        data = {
+            'messaging_product': 'whatsapp'
+        }
+
+        try:
+            response = requests.post(url, headers=headers, files=files, data=data)
+            response.raise_for_status()
+            media_id = response.json().get('id')
+            if not media_id:
+                return False, response.json()
+            return True, media_id
+        except requests.exceptions.HTTPError:
+            try:
+                return False, response.json()
+            except Exception:
+                return False, response.text
+        except requests.exceptions.RequestException as e:
             return False, str(e)
     
     def send_template_message(self, to_number, template_name, language_code, components=None):
@@ -311,6 +365,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             media_data = msg_data.get(message_type, {})
             media_id = media_data.get('id')
             caption = media_data.get('caption', '')
+            mime_type = media_data.get('mime_type')
             content = caption or f"[{message_type.upper()}]"
         elif message_type == 'location':
             location = msg_data.get('location', {})
@@ -392,6 +447,39 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             sender_name=value.get('contacts', [{}])[0].get('profile', {}).get('name', from_number),
             metadata={'from': from_number, 'timestamp': timestamp}
         )
+        # ── Descargar y guardar adjunto ─────────────────────────────
+        if media_id:
+            try:
+                access_token = whatsapp_account.access_token
+
+                # 1. Obtener URL del archivo
+                media_info_url = f"https://graph.facebook.com/v18.0/{media_id}"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                media_response = requests.get(media_info_url, headers=headers)
+                media_json = media_response.json()
+                media_url = media_json.get("url")
+
+                if media_url:
+                    # 2. Descargar archivo
+                    file_response = requests.get(media_url, headers=headers)
+
+                    if file_response.status_code == 200:
+                        extension = ""
+                        if mime_type:
+                            extension = mime_type.split("/")[-1]
+
+                        filename = f"wa_{message_id}.{extension or 'bin'}"
+
+                        # 3. Guardar en el modelo (ajustar campo si no es 'file')
+                        message.file.save(
+                            filename,
+                            ContentFile(file_response.content),
+                            save=True
+                        )
+
+            except Exception as e:
+                logger.error(f"Error downloading media: {str(e)}")
+        # ───────────────────────────────────────────────────────────
         
         # Create WhatsApp-specific message data
         WhatsAppMessage.objects.create(
@@ -424,68 +512,152 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         logger.error(f"Error processing incoming message: {str(e)}")
         return False
 
+import unicodedata
+
+def normalize_text(text):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    ).lower()
 
 def _handle_welcome_menu(handler, contact, conversation, text):
-    """
-    Check if the incoming text matches a welcome menu trigger keyword or
-    is a menu selection response. Handles auto-response and conversation routing.
-    """
-    text_stripped = text.strip().lower()
+    text_stripped = normalize_text(text or "")
 
-    # 1. Check if contact is waiting to select from a previously sent menu
+    # ─────────────────────────────────────────
+    # 1. RESPUESTA A MENÚ (NO TOCAR)
+    # ─────────────────────────────────────────
     try:
         menu_state = ContactMenuState.objects.select_related('menu').get(contact=contact)
-        # Try to parse as a number
+
         try:
             chosen_number = int(text_stripped)
             item = menu_state.menu.items.filter(number=chosen_number).first()
+
             if item:
-                # Assign to the item's user
                 if item.assigned_user:
                     from .assignment_system import reassign_conversation
                     reassign_conversation(conversation, item.assigned_user, item.assigned_user)
                     confirmation = f"✅ Te hemos conectado con {item.label}. En breve te atenderán."
                 else:
                     confirmation = f"✅ Seleccionaste {item.label}. En breve te atenderán."
+
                 handler.send_text_message(
                     contact.whatsapp_number,
                     confirmation,
                     conversation=conversation
                 )
+
                 menu_state.delete()
-                logger.info(f"Menu selection {chosen_number} by contact {contact.pk}: assigned to {item.assigned_user}")
+                logger.info(f"Menu selection {chosen_number} by contact {contact.pk}")
                 return
+
             else:
-                # Invalid option – resend the menu
                 invalid_msg = f"Opción no válida. Por favor elija un número del menú:\n\n{menu_state.menu.build_message_text()}"
                 handler.send_text_message(contact.whatsapp_number, invalid_msg, conversation=conversation)
                 return
+
         except ValueError:
-            # Not a number – treat as a new keyword check, clear state
             menu_state.delete()
+
     except ContactMenuState.DoesNotExist:
         pass
 
-    # 2. Check if the text is a trigger keyword for any active menu
-    active_menu = WelcomeMenu.objects.filter(is_active=True).first()
-    if not active_menu:
+    # ─────────────────────────────────────────
+    # 2. ENVÍO DE MENÚ AUTOMÁTICO
+    # ─────────────────────────────────────────
+
+    menu = _get_matching_menu(text_stripped)
+
+    if not menu:
         return
 
-    keywords = [kw.strip().lower() for kw in active_menu.trigger_keywords if kw.strip()]
-    if text_stripped in keywords:
-        menu_text = active_menu.build_message_text()
-        handler.send_text_message(
-            contact.whatsapp_number,
-            menu_text,
-            conversation=conversation
-        )
-        # Save state so we know this contact is expecting a selection
-        ContactMenuState.objects.update_or_create(
-            contact=contact,
-            defaults={'menu': active_menu}
-        )
-        logger.info(f"Sent welcome menu '{active_menu.name}' to contact {contact.pk}")
+    if not _should_send_menu(conversation):
+        return
+    
+    # 🔥 Asignación directa (nombre + label en una sola pasada)
+    for item in menu.items.select_related("assigned_user").all():
+        user = item.assigned_user
+        label = normalize_text(item.label or "")
 
+        first_name = normalize_text(user.first_name or "") if user else ""
+        username = normalize_text(user.username or "") if user else ""
+
+        # Match por nombre
+        if user and (
+            (first_name and first_name in text_stripped) or
+            (username and username in text_stripped)
+        ):
+            from .assignment_system import reassign_conversation
+            reassign_conversation(conversation, user, user)
+
+            handler.send_text_message(
+                contact.whatsapp_number,
+                f"✅ Te comunicás con {user.first_name or user.username}. En breve te atenderán.",
+                conversation=conversation
+            )
+
+            logger.info(f"Direct assignment by name '{text_stripped}' → {user}")
+            return
+
+        # Match por label
+        if label and (label in text_stripped or text_stripped in label):
+            if user:
+                from .assignment_system import reassign_conversation
+                reassign_conversation(conversation, user, user)
+
+                handler.send_text_message(
+                    contact.whatsapp_number,
+                    f"✅ Te comunicás con {item.label}. En breve te atenderán.",
+                    conversation=conversation
+                )
+
+                logger.info(f"Direct assignment by label '{text_stripped}' → {item.label}")
+                return
+    menu_text = menu.build_message_text()
+
+    handler.send_text_message(
+        contact.whatsapp_number,
+        menu_text,
+        conversation=conversation
+    )
+
+    ContactMenuState.objects.update_or_create(
+        contact=contact,
+        defaults={'menu': menu}
+    )
+
+    logger.info(f"Sent welcome menu '{menu.name}' to contact {contact.pk}")
+
+from django.utils import timezone
+from datetime import timedelta
+
+
+def _get_matching_menu(text):
+    text = text.lower()
+    menus = WelcomeMenu.objects.filter(is_active=True).prefetch_related('items')
+
+    fallback = None
+
+    for menu in menus:
+        keywords = [kw.strip().lower() for kw in menu.trigger_keywords if kw.strip()]
+
+        if "*" in keywords:
+            fallback = menu
+
+        for kw in keywords:
+            if kw != "*" and kw in text:
+                return menu
+
+    return fallback
+
+
+def _should_send_menu(conversation):
+    last_msg = conversation.messages.order_by('-created_at').first()
+
+    if not last_msg:
+        return True
+
+    return timezone.now() - last_msg.created_at > timedelta(hours=24)
 
 def process_status_update(status_data):
     """Process message status update (sent, delivered, read, failed)"""

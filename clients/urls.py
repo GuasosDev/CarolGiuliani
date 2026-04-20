@@ -24,4 +24,6 @@ urlpatterns = [
     # For when accessing tag manager from a specific client context
     path('tags/client/<int:client_id>/', ClientTagListView.as_view(), name='client_tag_list_for_client'),
     path('tags/create/client/<int:client_id>/', ClientTagCreateView.as_view(), name='client_tag_create_for_client'),
+    
+
 ]

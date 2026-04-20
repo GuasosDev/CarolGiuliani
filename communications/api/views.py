@@ -166,19 +166,49 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         handler = WhatsAppHandler(account)
         
         to_number = request.data.get('to_number')
-        message_text = request.data.get('message')
+        message_text = (request.data.get('message') or '').strip()
         conversation_id = request.data.get('conversation_id')
+        attachments = request.FILES.getlist('attachments')
         
         conversation = None
         if conversation_id:
             conversation = Conversation.objects.get(id=conversation_id)
-        
-        success, result = handler.send_text_message(to_number, message_text, conversation)
-        
-        if success:
-            return Response({'status': 'sent', 'message_id': result})
-        else:
+
+        if not attachments:
+            if not message_text:
+                return Response({'error': 'Por favor escribe un mensaje o adjunta archivos antes de enviar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            success, result = handler.send_text_message(to_number, message_text, conversation)
+            if success:
+                return Response({'status': 'sent', 'message_id': result})
             return Response({'error': result}, status=status.HTTP_400_BAD_REQUEST)
+
+        message_ids = []
+        for idx, f in enumerate(attachments):
+            f.seek(0)
+            media_type = handler.detect_media_type(f)
+
+            success, media_id_or_error = handler.upload_media(f)
+            if not success:
+                return Response({'error': media_id_or_error}, status=status.HTTP_400_BAD_REQUEST)
+
+            caption = message_text if (idx == 0 and message_text) else None
+            filename = getattr(f, 'name', None) if media_type == 'document' else None
+
+            success, msg_id_or_error = handler.send_media_message(
+                to_number=to_number,
+                media_type=media_type,
+                media_id=media_id_or_error,
+                caption=caption,
+                filename=filename,
+                conversation=conversation,
+                uploaded_file=f
+            )
+            if not success:
+                return Response({'error': msg_id_or_error}, status=status.HTTP_400_BAD_REQUEST)
+            message_ids.append(msg_id_or_error)
+
+        return Response({'status': 'sent', 'message_ids': message_ids})
 
 
 class EmailAccountViewSet(viewsets.ModelViewSet):
@@ -199,35 +229,98 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):
-        """Send an email"""
+        """Send an email asynchronously"""
         account = self.get_object()
-        handler = EmailHandler(account)
         
         to_addresses = request.data.get('to_addresses', [])
         if isinstance(to_addresses, str):
             to_addresses = [addr.strip() for addr in to_addresses.split(',') if addr.strip()]
         
-        subject = request.data.get('subject')
-        body = request.data.get('body')
-        html_body = request.data.get('html_body')
+        if not to_addresses:
+            return Response({'error': 'Recipient addresses are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        subject = request.data.get('subject') or '(Sin asunto)'
+        body = request.data.get('body', '')
+        html_body = request.data.get('html_body', '')
         conversation_id = request.data.get('conversation_id')
+        attachments = request.FILES.getlist('attachments')
         
         conversation = None
         if conversation_id:
-            conversation = Conversation.objects.get(id=conversation_id)
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+            except Conversation.DoesNotExist:
+                pass
         
-        success, message = handler.send_email(
-            to_addresses=to_addresses,
-            subject=subject,
-            body=body,
-            html_body=html_body,
-            conversation=conversation
-        )
-        
-        if success:
-            return Response({'status': 'sent'})
-        else:
-            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+        from django.db import transaction
+        from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
+        from django.core.files.base import ContentFile
+        from ..tasks import send_queued_email
+
+        try:
+            with transaction.atomic():
+                # 1. Create base Message
+                content = body or html_body
+                if not content and attachments:
+                    content = f"📎 {len(attachments)} archivo(s) adjunto(s)"
+                if not content:
+                    content = '(Empty message)'
+
+                msg = Message.objects.create(
+                    conversation=conversation,
+                    message_type='email',
+                    direction='outbound',
+                    content=content,
+                    sender_name=account.name,
+                    metadata={'status': 'queued'}
+                )
+
+                # 2. Create EmailMessage (as draft)
+                email_msg = EmailMessage.objects.create(
+                    message=msg,
+                    email_account=account,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=body,
+                    email_message_id=f"pending-{msg.id}", # Will be updated by handler
+                    to_addresses=to_addresses,
+                    cc_addresses=request.data.get('cc_addresses', []),
+                    from_address=account.email_address
+                )
+
+                # 3. Save attachments
+                for attachment in attachments:
+                    file_data = attachment.read()
+                    attachment.seek(0)
+                    att = EmailAttachment.objects.create(
+                        email_message=email_msg,
+                        filename=attachment.name,
+                        mime_type=getattr(attachment, 'content_type', 'application/octet-stream'),
+                        size=attachment.size,
+                    )
+                    att.file.save(attachment.name, ContentFile(file_data), save=True)
+
+                # 4. Create Queue entry
+                queue_entry = EmailQueue.objects.create(
+                    email_account=account,
+                    to_addresses=to_addresses,
+                    subject=subject,
+                    html_body=html_body,
+                    plain_body=body,
+                    conversation=conversation,
+                    email_message=email_msg,
+                    status='pending'
+                )
+
+            # 5. Trigger task
+            send_queued_email.apply_async(args=[queue_entry.id])
+            
+            return Response({'status': 'queued', 'queue_id': queue_entry.id}, status=status.HTTP_202_ACCEPTED)
+
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class EmailTemplateViewSet(viewsets.ModelViewSet):

@@ -183,6 +183,7 @@ class Message(models.Model):
     content = models.TextField(verbose_name="Contenido")
     metadata = models.JSONField(default=dict, blank=True)  # Store channel-specific data
     
+    file = models.FileField(upload_to='messages/', null=True, blank=True)  # 🔥 agregar esto
     is_read = models.BooleanField(default=False, verbose_name="Leído")
     read_at = models.DateTimeField(null=True, blank=True)
     
@@ -207,10 +208,7 @@ class Message(models.Model):
             self.read_at = timezone.now()
             self.save()
     
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-
+    
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
@@ -616,6 +614,7 @@ class EmailQueue(models.Model):
     
     # Related conversation/message
     conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
+    email_message = models.OneToOneField('EmailMessage', on_delete=models.CASCADE, null=True, blank=True, related_name='queued_email')
     
     # Retry logic
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
