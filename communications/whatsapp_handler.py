@@ -512,152 +512,68 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         logger.error(f"Error processing incoming message: {str(e)}")
         return False
 
-import unicodedata
-
-def normalize_text(text):
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', text)
-        if unicodedata.category(c) != 'Mn'
-    ).lower()
 
 def _handle_welcome_menu(handler, contact, conversation, text):
-    text_stripped = normalize_text(text or "")
+    """
+    Check if the incoming text matches a welcome menu trigger keyword or
+    is a menu selection response. Handles auto-response and conversation routing.
+    """
+    text_stripped = text.strip().lower()
 
-    # ─────────────────────────────────────────
-    # 1. RESPUESTA A MENÚ (NO TOCAR)
-    # ─────────────────────────────────────────
+    # 1. Check if contact is waiting to select from a previously sent menu
     try:
         menu_state = ContactMenuState.objects.select_related('menu').get(contact=contact)
-
+        # Try to parse as a number
         try:
             chosen_number = int(text_stripped)
             item = menu_state.menu.items.filter(number=chosen_number).first()
-
             if item:
+                # Assign to the item's user
                 if item.assigned_user:
                     from .assignment_system import reassign_conversation
                     reassign_conversation(conversation, item.assigned_user, item.assigned_user)
                     confirmation = f"✅ Te hemos conectado con {item.label}. En breve te atenderán."
                 else:
                     confirmation = f"✅ Seleccionaste {item.label}. En breve te atenderán."
-
                 handler.send_text_message(
                     contact.whatsapp_number,
                     confirmation,
                     conversation=conversation
                 )
-
                 menu_state.delete()
-                logger.info(f"Menu selection {chosen_number} by contact {contact.pk}")
+                logger.info(f"Menu selection {chosen_number} by contact {contact.pk}: assigned to {item.assigned_user}")
                 return
-
             else:
+                # Invalid option – resend the menu
                 invalid_msg = f"Opción no válida. Por favor elija un número del menú:\n\n{menu_state.menu.build_message_text()}"
                 handler.send_text_message(contact.whatsapp_number, invalid_msg, conversation=conversation)
                 return
-
         except ValueError:
+            # Not a number – treat as a new keyword check, clear state
             menu_state.delete()
-
     except ContactMenuState.DoesNotExist:
         pass
 
-    # ─────────────────────────────────────────
-    # 2. ENVÍO DE MENÚ AUTOMÁTICO
-    # ─────────────────────────────────────────
-
-    menu = _get_matching_menu(text_stripped)
-
-    if not menu:
+    # 2. Check if the text is a trigger keyword for any active menu
+    active_menu = WelcomeMenu.objects.filter(is_active=True).first()
+    if not active_menu:
         return
 
-    if not _should_send_menu(conversation):
-        return
-    
-    # 🔥 Asignación directa (nombre + label en una sola pasada)
-    for item in menu.items.select_related("assigned_user").all():
-        user = item.assigned_user
-        label = normalize_text(item.label or "")
+    keywords = [kw.strip().lower() for kw in active_menu.trigger_keywords if kw.strip()]
+    if text_stripped in keywords:
+        menu_text = active_menu.build_message_text()
+        handler.send_text_message(
+            contact.whatsapp_number,
+            menu_text,
+            conversation=conversation
+        )
+        # Save state so we know this contact is expecting a selection
+        ContactMenuState.objects.update_or_create(
+            contact=contact,
+            defaults={'menu': active_menu}
+        )
+        logger.info(f"Sent welcome menu '{active_menu.name}' to contact {contact.pk}")
 
-        first_name = normalize_text(user.first_name or "") if user else ""
-        username = normalize_text(user.username or "") if user else ""
-
-        # Match por nombre
-        if user and (
-            (first_name and first_name in text_stripped) or
-            (username and username in text_stripped)
-        ):
-            from .assignment_system import reassign_conversation
-            reassign_conversation(conversation, user, user)
-
-            handler.send_text_message(
-                contact.whatsapp_number,
-                f"✅ Te comunicás con {user.first_name or user.username}. En breve te atenderán.",
-                conversation=conversation
-            )
-
-            logger.info(f"Direct assignment by name '{text_stripped}' → {user}")
-            return
-
-        # Match por label
-        if label and (label in text_stripped or text_stripped in label):
-            if user:
-                from .assignment_system import reassign_conversation
-                reassign_conversation(conversation, user, user)
-
-                handler.send_text_message(
-                    contact.whatsapp_number,
-                    f"✅ Te comunicás con {item.label}. En breve te atenderán.",
-                    conversation=conversation
-                )
-
-                logger.info(f"Direct assignment by label '{text_stripped}' → {item.label}")
-                return
-    menu_text = menu.build_message_text()
-
-    handler.send_text_message(
-        contact.whatsapp_number,
-        menu_text,
-        conversation=conversation
-    )
-
-    ContactMenuState.objects.update_or_create(
-        contact=contact,
-        defaults={'menu': menu}
-    )
-
-    logger.info(f"Sent welcome menu '{menu.name}' to contact {contact.pk}")
-
-from django.utils import timezone
-from datetime import timedelta
-
-
-def _get_matching_menu(text):
-    text = text.lower()
-    menus = WelcomeMenu.objects.filter(is_active=True).prefetch_related('items')
-
-    fallback = None
-
-    for menu in menus:
-        keywords = [kw.strip().lower() for kw in menu.trigger_keywords if kw.strip()]
-
-        if "*" in keywords:
-            fallback = menu
-
-        for kw in keywords:
-            if kw != "*" and kw in text:
-                return menu
-
-    return fallback
-
-
-def _should_send_menu(conversation):
-    last_msg = conversation.messages.order_by('-created_at').first()
-
-    if not last_msg:
-        return True
-
-    return timezone.now() - last_msg.created_at > timedelta(hours=24)
 
 def process_status_update(status_data):
     """Process message status update (sent, delivered, read, failed)"""
