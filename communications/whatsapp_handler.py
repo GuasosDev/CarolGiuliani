@@ -200,7 +200,12 @@ class WhatsAppHandler:
         return 'document'
 
     def _convert_webm_to_ogg(self, uploaded_file):
-        ffmpeg = shutil.which('ffmpeg')
+        ffmpeg = os.getenv('FFMPEG_BINARY', '').strip() or shutil.which('ffmpeg')
+        if not ffmpeg:
+            for candidate in ('/usr/bin/ffmpeg', '/bin/ffmpeg', '/usr/local/bin/ffmpeg'):
+                if os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                    ffmpeg = candidate
+                    break
         if not ffmpeg:
             return False, 'No se encontró ffmpeg en el servidor. Instalá ffmpeg o usá un navegador que grabe en audio/ogg o audio/mp4.'
 
