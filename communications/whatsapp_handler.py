@@ -568,6 +568,9 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         if message_type == 'audio' and message.file:
             try:
                 from .tasks import transcribe_whatsapp_audio
+                message.metadata = message.metadata or {}
+                message.metadata['transcription_status'] = 'queued'
+                message.save(update_fields=['metadata'])
                 transcribe_whatsapp_audio.delay(message.pk)
             except Exception as e:
                 logger.error(f"Error queuing audio transcription: {str(e)}")

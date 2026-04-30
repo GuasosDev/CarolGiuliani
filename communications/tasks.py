@@ -209,6 +209,22 @@ def transcribe_whatsapp_audio(self, message_id):
     try:
         message.file.open('rb')
         filename = os.path.basename(message.file.name) or 'audio'
+        mime_type = (metadata.get('media_mime_type') or '').split(';')[0].strip().lower()
+        if not mime_type:
+            if filename.lower().endswith('.ogg') or filename.lower().endswith('.opus'):
+                mime_type = 'audio/ogg'
+            elif filename.lower().endswith('.mp3'):
+                mime_type = 'audio/mpeg'
+            elif filename.lower().endswith('.m4a'):
+                mime_type = 'audio/mp4'
+            else:
+                mime_type = 'application/octet-stream'
+
+        try:
+            message.file.file.seek(0)
+        except Exception:
+            pass
+
         url = 'https://api.openai.com/v1/audio/transcriptions'
         headers = {
             'Authorization': f'Bearer {api_key}',
@@ -219,7 +235,7 @@ def transcribe_whatsapp_audio(self, message_id):
             'language': 'es',
         }
         files = {
-            'file': (filename, message.file.file),
+            'file': (filename, message.file.file, mime_type),
         }
 
         response = requests.post(url, headers=headers, data=data, files=files, timeout=120)

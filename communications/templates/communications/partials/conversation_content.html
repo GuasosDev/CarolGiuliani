@@ -118,6 +118,12 @@
                                         </div>
                                     {% elif m.metadata.transcription_status == "processing" %}
                                         <div class="mt-2 text-muted small fst-italic">Transcribiendo audio...</div>
+                                    {% elif m.metadata.transcription_status == "queued" %}
+                                        <div class="mt-2 text-muted small fst-italic">Audio en cola para transcripción...</div>
+                                    {% elif m.metadata.transcription_status == "missing_api_key" %}
+                                        <div class="mt-2 text-danger small">Transcripción desactivada: falta configurar OPENAI_API_KEY en el worker.</div>
+                                    {% elif m.metadata.transcription_status == "error" %}
+                                        <div class="mt-2 text-danger small">No se pudo transcribir este audio.</div>
                                     {% endif %}
                                 
                                 {% elif ".mp4" in m.file.url %}
