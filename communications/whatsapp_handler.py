@@ -204,6 +204,12 @@ class WhatsAppHandler:
         content_type = getattr(uploaded_file, 'content_type', None)
         filename = getattr(uploaded_file, 'name', 'attachment')
 
+        normalized_ct = (content_type or '').split(';')[0].strip().lower()
+        if normalized_ct == 'audio/webm':
+            content_type = 'audio/ogg'
+            if isinstance(filename, str) and filename.lower().endswith('.webm'):
+                filename = filename[:-5] + '.ogg'
+
         files = {
             'file': (filename, file_handle, content_type) if content_type else (filename, file_handle)
         }
