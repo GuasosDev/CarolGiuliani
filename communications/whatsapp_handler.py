@@ -358,6 +358,8 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         media_id = None
         media_url = None
         caption = None
+        resolved_mime_type = None
+        mime_type = None
         
         if message_type == 'text':
             content = msg_data.get('text', {}).get('body', '')
@@ -366,6 +368,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             media_id = media_data.get('id')
             caption = media_data.get('caption', '')
             mime_type = media_data.get('mime_type')
+            resolved_mime_type = mime_type
             content = caption or f"[{message_type.upper()}]"
         elif message_type == 'location':
             location = msg_data.get('location', {})
@@ -439,36 +442,48 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             assign_conversation_to_agent(conversation)
         
         # Create message
+        base_metadata = {'from': from_number, 'timestamp': timestamp}
+        if media_id:
+            base_metadata.update({'media_type': message_type, 'media_id': media_id})
+
         message = Message.objects.create(
             conversation=conversation,
             message_type='whatsapp',
             direction='inbound',
             content=content,
             sender_name=value.get('contacts', [{}])[0].get('profile', {}).get('name', from_number),
-            metadata={'from': from_number, 'timestamp': timestamp}
+            metadata=base_metadata
         )
         # ── Descargar y guardar adjunto ─────────────────────────────
         if media_id:
             try:
                 access_token = whatsapp_account.access_token
+                resolved_mime_type = (mime_type or "").strip()
 
                 # 1. Obtener URL del archivo
-                media_info_url = f"https://graph.facebook.com/v18.0/{media_id}"
+                media_info_url = f"{settings.WHATSAPP_API_URL}/{settings.WHATSAPP_API_VERSION}/{media_id}"
                 headers = {"Authorization": f"Bearer {access_token}"}
                 media_response = requests.get(media_info_url, headers=headers)
                 media_json = media_response.json()
                 media_url = media_json.get("url")
+                resolved_mime_type = (media_json.get("mime_type") or mime_type or "").strip()
+                normalized_mime = resolved_mime_type.split(";")[0].strip().lower()
 
                 if media_url:
                     # 2. Descargar archivo
                     file_response = requests.get(media_url, headers=headers)
 
                     if file_response.status_code == 200:
-                        extension = ""
-                        if mime_type:
-                            extension = mime_type.split("/")[-1]
+                        extension = "bin"
+                        if normalized_mime:
+                            if normalized_mime == "audio/mpeg":
+                                extension = "mp3"
+                            elif normalized_mime == "audio/mp4":
+                                extension = "m4a"
+                            elif "/" in normalized_mime:
+                                extension = normalized_mime.split("/")[-1] or "bin"
 
-                        filename = f"wa_{message_id}.{extension or 'bin'}"
+                        filename = f"wa_{message_id}.{extension}"
 
                         # 3. Guardar en el modelo (ajustar campo si no es 'file')
                         message.file.save(
@@ -476,6 +491,9 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                             ContentFile(file_response.content),
                             save=True
                         )
+                        message.metadata['media_mime_type'] = resolved_mime_type or normalized_mime
+                        message.metadata['media_url'] = media_url
+                        message.save(update_fields=['metadata'])
 
             except Exception as e:
                 logger.error(f"Error downloading media: {str(e)}")
@@ -488,9 +506,18 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             whatsapp_message_id=message_id,
             wa_message_type=message_type,
             media_id=media_id,
+            media_url=media_url,
+            media_mime_type=resolved_mime_type,
             caption=caption,
             delivery_status='delivered'
         )
+
+        if message_type == 'audio' and message.file:
+            try:
+                from .tasks import transcribe_whatsapp_audio
+                transcribe_whatsapp_audio.delay(message.pk)
+            except Exception as e:
+                logger.error(f"Error queuing audio transcription: {str(e)}")
         
         # Mark as read
         handler = WhatsAppHandler(whatsapp_account)

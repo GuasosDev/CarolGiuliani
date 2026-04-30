@@ -108,10 +108,17 @@
                                 {% if ".jpg" in m.file.url or ".png" in m.file.url or ".jpeg" in m.file.url %}
                                     <img src="{{ m.file.url }}" style="max-width: 200px; border-radius: 8px;">
                                 
-                                {% elif ".mp3" in m.file.url or ".ogg" in m.file.url %}
+                                {% elif ".mp3" in m.file.url or ".ogg" in m.file.url or ".opus" in m.file.url or ".m4a" in m.file.url or ".wav" in m.file.url or ".webm" in m.file.url %}
                                     <audio controls>
                                         <source src="{{ m.file.url }}">
                                     </audio>
+                                    {% if m.metadata.transcription %}
+                                        <div class="mt-2 p-2 bg-light rounded small">
+                                            <strong>Transcripción:</strong> {{ m.metadata.transcription }}
+                                        </div>
+                                    {% elif m.metadata.transcription_status == "processing" %}
+                                        <div class="mt-2 text-muted small fst-italic">Transcribiendo audio...</div>
+                                    {% endif %}
                                 
                                 {% elif ".mp4" in m.file.url %}
                                     <video controls width="250">
@@ -232,6 +239,9 @@
                 <button type="button" onclick="openFileSelector()" class="tool-btn">
                     <i class="fas fa-paperclip"></i>
                 </button>
+                <button type="button" onclick="toggleWhatsappVoiceRecording()" class="tool-btn" id="whatsappMicBtn" title="Enviar audio">
+                    <i class="fas fa-microphone"></i>
+                </button>
                 </div>
             </div>
 
@@ -248,6 +258,7 @@
                     <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
                     <input type="hidden" name="to_number" value="{{ conversation.contact.get_display_phone }}">
                     <div id="whatsappFilePreview" class="mb-2"></div>
+                    <div id="whatsappVoicePreview" class="mb-2 d-none"></div>
                     
                     <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary"
                         style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
@@ -377,6 +388,161 @@
                 } else {
                     document.getElementById('imageInputEmail').click();
                 }
+            }
+
+            (function () {
+                if (!window.whatsappVoiceState) {
+                    window.whatsappVoiceState = {
+                        recording: false,
+                        recorder: null,
+                        chunks: [],
+                        blob: null,
+                        url: null,
+                        mimeType: null,
+                        stream: null
+                    };
+                }
+            })();
+
+            function isWhatsappChannelActive() {
+                const whatsappContainer = document.getElementById('channel-whatsapp');
+                return whatsappContainer && !whatsappContainer.classList.contains('d-none');
+            }
+
+            function setMicButtonRecording(isRecording) {
+                const btn = document.getElementById('whatsappMicBtn');
+                if (!btn) return;
+                btn.innerHTML = isRecording ? '<i class="fas fa-stop-circle text-danger"></i>' : '<i class="fas fa-microphone"></i>';
+            }
+
+            async function toggleWhatsappVoiceRecording() {
+                if (!isWhatsappChannelActive()) {
+                    alert('Para grabar audio, primero selecciona el canal WhatsApp.');
+                    return;
+                }
+
+                const state = window.whatsappVoiceState;
+                if (!state) return;
+
+                if (state.recording) {
+                    stopWhatsappVoiceRecording();
+                    return;
+                }
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    alert('Tu navegador no soporta grabación de audio.');
+                    return;
+                }
+                if (typeof MediaRecorder === 'undefined') {
+                    alert('Tu navegador no soporta MediaRecorder para grabar audio.');
+                    return;
+                }
+
+                clearWhatsappVoiceNote();
+
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                state.stream = stream;
+
+                const preferredMimeTypes = [
+                    'audio/ogg;codecs=opus',
+                    'audio/webm;codecs=opus',
+                    'audio/mp4'
+                ];
+
+                let selectedMime = '';
+                for (const mt of preferredMimeTypes) {
+                    if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) {
+                        selectedMime = mt;
+                        break;
+                    }
+                }
+
+                const recorder = selectedMime ? new MediaRecorder(stream, { mimeType: selectedMime }) : new MediaRecorder(stream);
+                state.recorder = recorder;
+                state.mimeType = recorder.mimeType || selectedMime || '';
+                state.chunks = [];
+                state.recording = true;
+                setMicButtonRecording(true);
+
+                recorder.addEventListener('dataavailable', function (evt) {
+                    if (evt.data && evt.data.size > 0) {
+                        state.chunks.push(evt.data);
+                    }
+                });
+
+                recorder.addEventListener('stop', function () {
+                    state.recording = false;
+                    setMicButtonRecording(false);
+
+                    try {
+                        if (state.stream) {
+                            state.stream.getTracks().forEach(t => t.stop());
+                        }
+                    } catch (e) {}
+                    state.stream = null;
+
+                    const blobType = state.mimeType || 'audio/ogg';
+                    state.blob = new Blob(state.chunks, { type: blobType });
+                    state.url = URL.createObjectURL(state.blob);
+                    renderWhatsappVoicePreview();
+                });
+
+                recorder.start();
+            }
+
+            function stopWhatsappVoiceRecording() {
+                const state = window.whatsappVoiceState;
+                if (!state || !state.recorder) return;
+                if (state.recorder.state === 'inactive') return;
+                state.recorder.stop();
+            }
+
+            function renderWhatsappVoicePreview() {
+                const state = window.whatsappVoiceState;
+                const el = document.getElementById('whatsappVoicePreview');
+                if (!state || !el) return;
+                if (!state.url) return;
+
+                el.classList.remove('d-none');
+                el.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded">
+                        <audio controls style="max-width: 260px;">
+                            <source src="${state.url}">
+                        </audio>
+                        <div class="d-flex gap-2 ms-2">
+                            <button type="button" class="btn btn-sm btn-success" onclick="sendWhatsappVoiceNote()">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearWhatsappVoiceNote()">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function clearWhatsappVoiceNote() {
+                const state = window.whatsappVoiceState;
+                if (!state) return;
+                if (state.url) {
+                    try { URL.revokeObjectURL(state.url); } catch (e) {}
+                }
+                state.blob = null;
+                state.url = null;
+                state.chunks = [];
+                state.mimeType = null;
+
+                const el = document.getElementById('whatsappVoicePreview');
+                if (el) {
+                    el.innerHTML = '';
+                    el.classList.add('d-none');
+                }
+            }
+
+            function sendWhatsappVoiceNote() {
+                const form = document.getElementById('whatsappForm');
+                if (!form) return;
+                sendMessage(form, 'whatsapp');
             }
             function switchChannel(channel) {
                 // Reset buttons
@@ -724,6 +890,38 @@
                         console.log('FormData entries:', Array.from(formData.entries()));
                     }
                 }
+                if (channel === 'whatsapp') {
+                    const fileInput = document.getElementById('imageInputWhatsapp');
+                    const voiceBlob = window.whatsappVoiceState && window.whatsappVoiceState.blob ? window.whatsappVoiceState.blob : null;
+                    const messageText = (form.querySelector('textarea[name="message"]')?.value || '').trim();
+                    const hasFiles = !!(fileInput && fileInput.files && fileInput.files.length > 0);
+
+                    if (!messageText && !hasFiles && !voiceBlob) {
+                        alert('Por favor escribe un mensaje, adjunta un archivo o graba un audio antes de enviar.');
+                        return;
+                    }
+
+                    formData.delete('attachments');
+
+                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        Array.from(fileInput.files).forEach(file => {
+                            formData.append('attachments', file);
+                        });
+                    }
+
+                    if (voiceBlob) {
+                        const mime = voiceBlob.type || 'audio/ogg';
+                        let ext = 'ogg';
+                        if (mime.includes('mpeg')) ext = 'mp3';
+                        else if (mime.includes('mp4')) ext = 'm4a';
+                        else if (mime.includes('webm')) ext = 'webm';
+                        else if (mime.includes('opus')) ext = 'opus';
+                        else if (mime.includes('ogg')) ext = 'ogg';
+
+                        const voiceFile = new File([voiceBlob], `voice.${ext}`, { type: mime });
+                        formData.append('attachments', voiceFile);
+                    }
+                }
 
                 // Validate to_number for WhatsApp
                 if (channel === 'whatsapp') {
@@ -784,6 +982,15 @@
                             if (messageTextarea) {
                                 messageTextarea.value = '';
                             }
+                            const fileInput = document.getElementById('imageInputWhatsapp');
+                            if (fileInput) {
+                                fileInput.value = '';
+                            }
+                            const preview = document.getElementById('whatsappFilePreview');
+                            if (preview) {
+                                preview.innerHTML = '';
+                            }
+                            clearWhatsappVoiceNote();
                         } else {
                             const emailBodyDiv = document.getElementById('emailBodyDiv');
                             const emailBodyInput = document.getElementById('emailBodyInput');

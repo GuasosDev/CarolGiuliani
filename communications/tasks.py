@@ -9,9 +9,11 @@ Celery tasks for background processing
 from celery import shared_task
 import logging
 import traceback
+import os
+import requests
 from django.utils import timezone
 from django.db import transaction
-from .models import EmailAccount, EmailQueue, Conversation
+from .models import EmailAccount, EmailQueue, Conversation, Message
 from .email_handler import EmailHandler
 from datetime import timedelta
 
@@ -170,3 +172,85 @@ def close_inactive_conversations():
 
     logger.info(f"Closed {count} inactive conversations")
     return count
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60, rate_limit='30/m')
+def transcribe_whatsapp_audio(self, message_id):
+    try:
+        message = Message.objects.get(pk=message_id)
+    except Message.DoesNotExist:
+        return False
+
+    if message.message_type != 'whatsapp':
+        return False
+
+    media_type = (message.metadata or {}).get('media_type')
+    if media_type != 'audio':
+        return False
+
+    if not message.file:
+        return False
+
+    metadata = message.metadata or {}
+    if metadata.get('transcription'):
+        return True
+
+    api_key = os.getenv('OPENAI_API_KEY', '').strip()
+    if not api_key:
+        metadata['transcription_status'] = 'missing_api_key'
+        message.metadata = metadata
+        message.save(update_fields=['metadata'])
+        return False
+
+    metadata['transcription_status'] = 'processing'
+    message.metadata = metadata
+    message.save(update_fields=['metadata'])
+
+    try:
+        message.file.open('rb')
+        filename = os.path.basename(message.file.name) or 'audio'
+        url = 'https://api.openai.com/v1/audio/transcriptions'
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+        }
+        data = {
+            'model': 'whisper-1',
+            'response_format': 'json',
+            'language': 'es',
+        }
+        files = {
+            'file': (filename, message.file.file),
+        }
+
+        response = requests.post(url, headers=headers, data=data, files=files, timeout=120)
+        if response.status_code >= 400:
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+            metadata['transcription_status'] = 'error'
+            metadata['transcription_error'] = error_body
+            message.metadata = metadata
+            message.save(update_fields=['metadata'])
+            return False
+
+        result = response.json()
+        text = (result.get('text') or '').strip()
+
+        metadata['transcription'] = text
+        metadata['transcription_status'] = 'done'
+        message.metadata = metadata
+        message.save(update_fields=['metadata'])
+        return True
+
+    except Exception as e:
+        metadata['transcription_status'] = 'error'
+        metadata['transcription_error'] = str(e)
+        message.metadata = metadata
+        message.save(update_fields=['metadata'])
+        raise self.retry(exc=e)
+    finally:
+        try:
+            message.file.close()
+        except Exception:
+            pass
