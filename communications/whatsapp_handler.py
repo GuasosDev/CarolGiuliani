@@ -7,6 +7,11 @@ import requests
 from django.core.files.base import ContentFile
 import json
 import logging
+import io
+import os
+import shutil
+import subprocess
+import tempfile
 from django.conf import settings
 from django.utils import timezone
 from .models import (
@@ -189,10 +194,45 @@ class WhatsAppHandler:
             return 'image'
         if content_type.startswith('video/') or name.endswith(('.mp4', '.mov')):
             return 'video'
-        if content_type.startswith('audio/') or name.endswith(('.mp3', '.ogg', '.wav')):
+        if content_type.startswith('audio/') or name.endswith(('.mp3', '.ogg', '.wav', '.webm', '.opus', '.m4a')):
             return 'audio'
         
         return 'document'
+
+    def _convert_webm_to_ogg(self, uploaded_file):
+        ffmpeg = shutil.which('ffmpeg')
+        if not ffmpeg:
+            return False, 'No se encontró ffmpeg en el servidor. Instalá ffmpeg o usá un navegador que grabe en audio/ogg o audio/mp4.'
+
+        original_name = getattr(uploaded_file, 'name', 'voice.webm')
+        base, _ext = os.path.splitext(original_name)
+        out_name = f"{base}.ogg"
+
+        raw = uploaded_file.read()
+        try:
+            uploaded_file.seek(0)
+        except Exception:
+            pass
+
+        with tempfile.TemporaryDirectory() as tmp:
+            in_path = os.path.join(tmp, 'input.webm')
+            out_path = os.path.join(tmp, 'output.ogg')
+            with open(in_path, 'wb') as f:
+                f.write(raw)
+
+            proc = subprocess.run(
+                [ffmpeg, '-y', '-i', in_path, '-c:a', 'libopus', out_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            if proc.returncode != 0 or not os.path.exists(out_path):
+                return False, proc.stderr or 'ffmpeg error'
+
+            with open(out_path, 'rb') as f:
+                converted = f.read()
+
+        return True, (out_name, io.BytesIO(converted), 'audio/ogg')
 
     def upload_media(self, uploaded_file):
         url = f"{self.api_url}/{self.account.phone_number_id}/media"
@@ -200,15 +240,17 @@ class WhatsAppHandler:
             'Authorization': f'Bearer {self.account.access_token}',
         }
 
-        file_handle = getattr(uploaded_file, 'file', uploaded_file)
         content_type = getattr(uploaded_file, 'content_type', None)
         filename = getattr(uploaded_file, 'name', 'attachment')
 
         normalized_ct = (content_type or '').split(';')[0].strip().lower()
-        if normalized_ct == 'audio/webm':
-            content_type = 'audio/ogg'
-            if isinstance(filename, str) and filename.lower().endswith('.webm'):
-                filename = filename[:-5] + '.ogg'
+        if normalized_ct == 'audio/webm' or (isinstance(filename, str) and filename.lower().endswith('.webm')):
+            ok, converted = self._convert_webm_to_ogg(uploaded_file)
+            if not ok:
+                return False, {'error': {'message': str(converted)}}
+            filename, file_handle, content_type = converted
+        else:
+            file_handle = getattr(uploaded_file, 'file', uploaded_file)
 
         files = {
             'file': (filename, file_handle, content_type) if content_type else (filename, file_handle)

@@ -915,8 +915,8 @@
                         let ext = 'ogg';
 
                         if (mime.includes('webm')) {
-                            mime = 'audio/ogg';
-                            ext = 'ogg';
+                            mime = rawMime || 'audio/webm';
+                            ext = 'webm';
                         } else if (mime.includes('mpeg')) {
                             ext = 'mp3';
                         } else if (mime.includes('mp4')) {
