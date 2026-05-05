@@ -19,6 +19,7 @@ import logging
 import re
 import uuid
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
+from .models import InternalChatMessage
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
@@ -373,6 +374,39 @@ def change_conversation_status(request, pk):
     if request.headers.get('HX-Request'):
         return HttpResponse(status=204)                 
     return redirect('communications:conversation_detail', pk=conversation.pk)
+
+
+@login_required
+def internal_chat(request):
+    counts = _get_conversation_counts(request.user)
+    messages = InternalChatMessage.objects.select_related('author').order_by('-created_at')[:200]
+    messages = reversed(list(messages))
+
+    return render(request, 'communications/internal_chat.html', {
+        **counts,
+        'current_channel': 'internal',
+        'messages': messages,
+    })
+
+
+@login_required
+def internal_chat_messages_partial(request):
+    messages = InternalChatMessage.objects.select_related('author').order_by('-created_at')[:200]
+    messages = reversed(list(messages))
+    return render(request, 'communications/partials/internal_chat_messages.html', {
+        'messages': messages,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def internal_chat_send(request):
+    content = (request.POST.get('content') or '').strip()
+    if not content:
+        return JsonResponse({'error': 'Mensaje vacío'}, status=400)
+
+    InternalChatMessage.objects.create(author=request.user, content=content)
+    return JsonResponse({'status': 'sent'})
 
 
 class ContactCreateView(GenericCreateView):
