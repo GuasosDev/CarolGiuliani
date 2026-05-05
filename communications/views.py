@@ -309,7 +309,7 @@ def quick_create_client_modal(request, conversation_id):
 
     phone_guess = ''
     if conversation.contact:
-        phone_guess = conversation.contact.get_display_phone() or conversation.contact.whatsapp_number or ''
+        phone_guess = conversation.contact.whatsapp_number or conversation.contact.get_display_phone() or ''
 
     if request.method == 'POST':
         form = ClientQuickCreateForm(request.POST)
@@ -341,7 +341,7 @@ def quick_create_client_modal(request, conversation_id):
     else:
         initial = {
             'name': conversation.get_display_name(),
-            'phone': phone_guess,
+            'phone': (phone_guess or '').strip(),
         }
         form = ClientQuickCreateForm(initial=initial)
 

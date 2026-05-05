@@ -10,12 +10,12 @@
         </div>
     </div>
     <div class="d-flex align-items-center">
-        {% if not conversation.contact.client %}
+        {% if not conversation.contact.client and conversation.channel == 'whatsapp' %}
         <button type="button"
             class="btn btn-sm btn-outline-success me-2"
             hx-get="{% url 'communications:quick_create_client_modal' conversation.id %}"
             hx-target="#modal-secondary-body"
-            onclick="openModalSecondary()"
+            hx-on:htmx:after-request="openModalSecondary()"
             title="Agregar contacto">
             <i class="fas fa-user-plus"></i>
         </button>
