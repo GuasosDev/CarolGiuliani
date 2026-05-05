@@ -1,0 +1,19 @@
+{% for m in messages %}
+<div class="omni-msg-row inbound">
+    <div class="omni-avatar bg-secondary msg-avatar">{{ m.author.username|make_list|first|upper }}</div>
+    <div class="msg-content-wrapper">
+        <div class="msg-header">
+            <span class="fw-bold text-dark">{{ m.author.username }}</span>
+        </div>
+        <div class="msg-bubble text-break pt-1 d-inline-block text-start">
+            {{ m.content|linebreaksbr }}
+        </div>
+        <div class="message-meta d-flex justify-content-between">
+            <span>{{ m.created_at|time:"h:i A" }}</span>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="text-center text-muted my-auto w-100">No hay mensajes en el chat interno.</div>
+{% endfor %}
+

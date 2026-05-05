@@ -1,0 +1,107 @@
+{% extends "communications/communications_base.html" %}
+{% load static %}
+
+{% block title %}Chat Interno{% endblock %}
+
+{% block comm_content %}
+<div class="omni-chat-wrapper d-flex flex-row h-100 flex-grow-1 border-0 shadow-none rounded-0 w-100" style="min-height: 100%;">
+    <div class="omni-chat-main">
+        <div class="omni-chat-header bg-white py-3 px-3">
+            <div class="d-flex align-items-center flex-grow-1" style="min-width: 0;">
+                <div class="omni-avatar bg-secondary me-2" style="width: 40px; height: 40px; font-size: 1.1rem; flex-shrink: 0;">
+                    I
+                </div>
+                <div class="text-truncate">
+                    <h6 class="mb-0 fw-bold text-dark text-truncate">Chat Interno</h6>
+                    <div class="small text-muted" style="font-size: 0.8rem;">Solo usuarios del sistema</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="omni-messages-area" id="internalChatMessagesArea"></div>
+
+        <div class="omni-chat-input-area">
+            <form id="internalChatForm" method="post" action="{% url 'communications:internal_chat_send' %}">
+                {% csrf_token %}
+                <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary" style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                    <textarea class="form-control border-0 shadow-none" name="content" rows="1" placeholder="Escribe un mensaje interno..."></textarea>
+                    <button type="submit" class="btn-send ms-2" style="border:none;">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="d-flex justify-content-between px-2 mt-2">
+                    <div class="small text-muted" style="font-size: 0.7rem;">Enter para enviar, Shift+Enter para nueva línea.</div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const form = document.getElementById('internalChatForm');
+        const area = document.getElementById('internalChatMessagesArea');
+        const url = "{% url 'communications:internal_chat_messages' %}";
+
+        function scrollToBottom() {
+            if (area) area.scrollTop = area.scrollHeight;
+        }
+
+        function refresh() {
+            fetch(url, { headers: { 'HX-Request': 'true' } })
+                .then(r => r.text())
+                .then(html => {
+                    if (!area) return;
+                    area.innerHTML = html;
+                    scrollToBottom();
+                })
+                .catch(() => {});
+        }
+
+        if (form) {
+            const textarea = form.querySelector('textarea[name="content"]');
+            if (textarea) {
+                textarea.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        form.dispatchEvent(new Event('submit'));
+                    }
+                });
+            }
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const formData = new FormData(form);
+                const btn = form.querySelector('button[type="submit"]');
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+                }).then(async (r) => {
+                    if (!r.ok) {
+                        const data = await r.json().catch(() => ({}));
+                        throw new Error(data.error || 'Error al enviar');
+                    }
+                    if (textarea) textarea.value = '';
+                    refresh();
+                }).catch((err) => {
+                    alert(err.message);
+                }).finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                });
+            });
+        }
+
+        refresh();
+        setTimeout(scrollToBottom, 200);
+        if (window.internalChatPollInterval) clearInterval(window.internalChatPollInterval);
+        window.internalChatPollInterval = setInterval(refresh, 5000);
+    })();
+</script>
+{% endblock %}
+

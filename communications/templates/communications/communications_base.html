@@ -88,6 +88,9 @@
                 <span class="badge rounded-pill bg-danger">{{ total_channel_count }}</span>
                 {% endif %}
             </a>
+            <a href="{% url 'communications:internal_chat' %}" class="comm-nav-link text-dark {% if current_channel == 'internal' %}active-link{% endif %}">
+                <span><i class="fas fa-comments text-secondary me-2"></i> Interno</span>
+            </a>
         </div>
 
         <div class="comm-nav-section mt-4">
