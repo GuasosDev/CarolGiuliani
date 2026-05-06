@@ -18,6 +18,7 @@ import json
 import logging
 import re
 import uuid
+from django.contrib.auth.models import User
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
 from .models import InternalChatMessage
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
@@ -310,7 +311,7 @@ def quick_create_client_modal(request, conversation_id):
 
     phone_guess = ''
     if conversation.contact:
-        phone_guess = conversation.contact.get_display_phone() or conversation.contact.whatsapp_number or ''
+        phone_guess = conversation.contact.whatsapp_number or conversation.contact.get_display_phone() or ''
 
     if request.method == 'POST':
         form = ClientQuickCreateForm(request.POST)
@@ -342,7 +343,7 @@ def quick_create_client_modal(request, conversation_id):
     else:
         initial = {
             'name': conversation.get_display_name(),
-            'phone': phone_guess,
+            'phone': (phone_guess or '').strip(),
         }
         form = ClientQuickCreateForm(initial=initial)
 
@@ -350,6 +351,92 @@ def quick_create_client_modal(request, conversation_id):
         'conversation': conversation,
         'form': form,
     })
+
+
+@login_required
+def internal_chat(request):
+    counts = _get_conversation_counts(request.user)
+    return render(request, 'communications/internal_chat.html', {
+        **counts,
+        'current_channel': 'internal',
+    })
+
+
+@login_required
+def internal_chat_messages_partial(request):
+    messages = InternalChatMessage.objects.select_related('author').order_by('-created_at')[:200]
+    messages = reversed(list(messages))
+    return render(request, 'communications/partials/internal_chat_messages.html', {
+        'messages': messages,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def internal_chat_send(request):
+    content = (request.POST.get('content') or '').strip()
+    if not content:
+        return JsonResponse({'error': 'Mensaje vacío'}, status=400)
+
+    InternalChatMessage.objects.create(author=request.user, content=content)
+    return JsonResponse({'status': 'sent'})
+
+
+@login_required
+def forward_messages_modal(request, conversation_id):
+    conversation = get_object_or_404(Conversation, pk=conversation_id)
+    raw_ids = (request.GET.get('message_ids') or '').strip()
+    ids = [int(x) for x in raw_ids.split(',') if x.strip().isdigit()]
+    messages = Message.objects.filter(conversation=conversation, id__in=ids).order_by('created_at')
+
+    users = User.objects.filter(is_active=True).exclude(pk=request.user.pk).order_by('first_name', 'username')
+
+    return render(request, 'communications/partials/forward_messages_modal.html', {
+        'conversation': conversation,
+        'message_ids': ','.join(str(m.id) for m in messages),
+        'messages_count': messages.count(),
+        'users': users,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def forward_messages_send(request, conversation_id):
+    conversation = get_object_or_404(Conversation, pk=conversation_id)
+
+    recipient_id = request.POST.get('recipient_id')
+    try:
+        recipient = User.objects.get(pk=recipient_id, is_active=True)
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'Usuario inválido'}, status=400)
+
+    raw_ids = (request.POST.get('message_ids') or '').strip()
+    ids = [int(x) for x in raw_ids.split(',') if x.strip().isdigit()]
+    if not ids:
+        return JsonResponse({'error': 'No hay mensajes seleccionados'}, status=400)
+
+    selected = list(Message.objects.filter(conversation=conversation, id__in=ids).order_by('created_at'))
+    if not selected:
+        return JsonResponse({'error': 'No hay mensajes para reenviar'}, status=400)
+
+    lines = []
+    lines.append(f"Para @{recipient.username}")
+    lines.append(f"Reenviado de {conversation.get_display_name()} (#{conversation.id})")
+    lines.append("")
+
+    for m in selected:
+        who = "Cliente" if m.direction == 'inbound' else (m.sender.username if m.sender else "Sistema")
+        ts = m.created_at.strftime("%d/%m %H:%M")
+        lines.append(f"[{ts}] {who}: {m.content}")
+        if m.file:
+            try:
+                lines.append(m.file.url)
+            except Exception:
+                pass
+        lines.append("")
+
+    InternalChatMessage.objects.create(author=request.user, content="\n".join(lines).strip())
+    return JsonResponse({'status': 'sent'})
 
 
 @login_required

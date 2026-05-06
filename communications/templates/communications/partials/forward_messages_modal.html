@@ -1,0 +1,24 @@
+<div class="modal-header">
+    <h5 class="modal-title"><i class="fas fa-share me-2"></i>Reenviar mensajes</h5>
+    <button type="button" class="btn-close" onclick="closeModalSecondary()" aria-label="Close"></button>
+</div>
+
+<div class="modal-body">
+    <div class="mb-3">
+        <label class="form-label">Enviar a</label>
+        <select class="form-select" id="forwardRecipient">
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <input type="hidden" id="forwardMessageIds" value="{{ message_ids }}">
+    <div class="text-muted small">Se reenviarán {{ messages_count }} mensaje(s).</div>
+</div>
+
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" onclick="closeModalSecondary()">Cancelar</button>
+    <button type="button" class="btn btn-primary" onclick="submitForwardMessages({{ conversation.id }})">
+        <i class="fas fa-paper-plane me-2"></i>Enviar
+    </button>
+</div>

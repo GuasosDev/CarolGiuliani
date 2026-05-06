@@ -18,9 +18,7 @@
             </div>
         </div>
 
-        <div class="omni-messages-area" id="internalChatMessagesArea">
-            {% include "communications/partials/internal_chat_messages.html" %}
-        </div>
+        <div class="omni-messages-area" id="internalChatMessagesArea"></div>
 
         <div class="omni-chat-input-area">
             <form id="internalChatForm" method="post" action="{% url 'communications:internal_chat_send' %}">
@@ -46,9 +44,7 @@
         const url = "{% url 'communications:internal_chat_messages' %}";
 
         function scrollToBottom() {
-            if (area) {
-                area.scrollTop = area.scrollHeight;
-            }
+            if (area) area.scrollTop = area.scrollHeight;
         }
 
         function refresh() {
@@ -101,7 +97,8 @@
             });
         }
 
-        setTimeout(scrollToBottom, 50);
+        refresh();
+        setTimeout(scrollToBottom, 200);
         if (window.internalChatPollInterval) clearInterval(window.internalChatPollInterval);
         window.internalChatPollInterval = setInterval(refresh, 5000);
     })();

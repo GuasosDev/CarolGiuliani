@@ -1,6 +1,6 @@
+from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
-from django.conf import settings
 
 
 class Migration(migrations.Migration):
@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='internalchatmessage',
-            index=models.Index(fields=['created_at'], name='communicati_created__9c0c6d_idx'),
+            index=models.Index(fields=['created_at'], name='communications_created_at_idx'),
         ),
     ]
 
