@@ -1226,16 +1226,25 @@
         }
 
         const ids = Array.from(window.selectedChatMessageIds).join(',');
-        const url = `/communications/conversation/${conversationId}/forward-messages-modal/?message_ids=${encodeURIComponent(ids)}`;
+        const baseUrl = "{% url 'communications:forward_messages_modal' conversation.id %}";
+        const url = `${baseUrl}?message_ids=${encodeURIComponent(ids)}`;
 
         fetch(url, { headers: { 'HX-Request': 'true' } })
-            .then(r => r.text())
-            .then(html => {
+            .then(async (r) => {
+                const html = await r.text();
+                if (!r.ok) {
+                    throw new Error(html || `HTTP ${r.status}`);
+                }
                 const target = document.getElementById('modal-secondary-body');
                 if (target) target.innerHTML = html;
-                openModalSecondary();
+                if (typeof openModalSecondary === 'function') {
+                    openModalSecondary();
+                } else {
+                    const el = document.getElementById('modal-secondary');
+                    if (el) el.style.display = 'block';
+                }
             })
-            .catch(() => alert('No se pudo abrir el reenviado.'));
+            .catch((err) => alert('No se pudo abrir el reenviado: ' + (err?.message || 'Error desconocido')));
     }
 
     function submitForwardMessages(conversationId) {
@@ -1253,7 +1262,7 @@
         formData.append('message_ids', messageIds);
         formData.append('csrfmiddlewaretoken', csrf || '');
 
-        fetch(`/communications/conversation/${conversationId}/forward-messages-send/`, {
+        fetch("{% url 'communications:forward_messages_send' conversation.id %}", {
             method: 'POST',
             body: formData,
             headers: csrf ? { 'X-CSRFToken': csrf } : {}
