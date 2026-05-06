@@ -7,6 +7,30 @@
         </div>
         <div class="msg-bubble text-break pt-1 d-inline-block text-start">
             {{ m.content|linebreaksbr }}
+
+            {% if m.file %}
+                {% with mt=m.mime_type|default:'' %}
+                    {% if mt|slice:":6" == "image/" %}
+                        <div class="mt-2">
+                            <a href="{{ m.file.url }}" target="_blank" class="d-block">
+                                <img src="{{ m.file.url }}" alt="{{ m.original_filename|default:'Imagen' }}" style="max-width: 280px; height: auto; border-radius: 8px;">
+                            </a>
+                        </div>
+                    {% elif mt|slice:":6" == "audio/" %}
+                        <div class="mt-2">
+                            <audio controls style="width: 280px;">
+                                <source src="{{ m.file.url }}" type="{{ mt }}">
+                            </audio>
+                        </div>
+                    {% else %}
+                        <div class="mt-2">
+                            <a href="{{ m.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-paperclip me-2"></i>{{ m.original_filename|default:"Adjunto" }}
+                            </a>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            {% endif %}
         </div>
         <div class="message-meta d-flex justify-content-between">
             <span>{{ m.created_at|time:"h:i A" }}</span>

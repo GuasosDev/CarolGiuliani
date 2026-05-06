@@ -1143,6 +1143,17 @@
 
 <script>
     (function () {
+        window.openModalSecondary = window.openModalSecondary || function () {
+            const el = document.getElementById('modal-secondary');
+            if (el) el.style.display = 'block';
+        };
+        window.closeModalSecondary = window.closeModalSecondary || function () {
+            const el = document.getElementById('modal-secondary');
+            if (el) el.style.display = 'none';
+            const body = document.getElementById('modal-secondary-body');
+            if (body) body.innerHTML = '';
+        };
+
         if (typeof window.chatSelectMode === 'undefined') {
             window.chatSelectMode = false;
         }
@@ -1272,7 +1283,7 @@
                     const data = await r.json().catch(() => ({}));
                     throw new Error(data.error || 'Error al reenviar');
                 }
-                closeModalSecondary();
+                window.closeModalSecondary();
                 clearChatSelection();
                 toggleChatSelectMode();
             })

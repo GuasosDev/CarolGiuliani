@@ -640,6 +640,9 @@ class EmailQueue(models.Model):
 class InternalChatMessage(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_chat_messages')
     content = models.TextField()
+    file = models.FileField(upload_to='internal_chat/', null=True, blank=True)
+    original_filename = models.CharField(max_length=255, null=True, blank=True)
+    mime_type = models.CharField(max_length=120, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -650,6 +653,19 @@ class InternalChatMessage(models.Model):
 
     def __str__(self):
         return f"{self.author.username} - {self.created_at}"
+
+
+class InternalChatReadState(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='internal_chat_read_state')
+    last_read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['last_read_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.last_read_at}"
 
 
 # ============================================================================

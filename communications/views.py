@@ -18,9 +18,12 @@ import json
 import logging
 import re
 import uuid
+import os
+import mimetypes
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
-from .models import InternalChatMessage
+from .models import InternalChatMessage, InternalChatReadState
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
@@ -194,6 +197,12 @@ def _get_conversation_counts(user):
     
     whatsapp_count = base_qs.filter(channel='whatsapp').count()
     email_count = base_qs.filter(channel='email').count()
+    read_state, _ = InternalChatReadState.objects.get_or_create(user=user)
+    last_read_at = read_state.last_read_at
+    internal_unread_count = InternalChatMessage.objects.exclude(author=user)
+    if last_read_at:
+        internal_unread_count = internal_unread_count.filter(created_at__gt=last_read_at)
+    internal_unread_count = internal_unread_count.count()
     
     return {
         'normal_count': base_qs.filter(status='normal').count(),
@@ -203,6 +212,7 @@ def _get_conversation_counts(user):
         'whatsapp_count': whatsapp_count,
         'email_count': email_count,
         'total_channel_count': whatsapp_count + email_count,
+        'internal_unread_count': internal_unread_count,
     }
 
 
@@ -355,15 +365,20 @@ def quick_create_client_modal(request, conversation_id):
 
 @login_required
 def internal_chat(request):
+    InternalChatReadState.objects.update_or_create(
+        user=request.user,
+        defaults={'last_read_at': timezone.now()}
+    )
     counts = _get_conversation_counts(request.user)
-    return render(request, 'communications/internal_chat.html', {
-        **counts,
-        'current_channel': 'internal',
-    })
+    return render(request, 'communications/internal_chat.html', {**counts, 'current_channel': 'internal'})
 
 
 @login_required
 def internal_chat_messages_partial(request):
+    InternalChatReadState.objects.update_or_create(
+        user=request.user,
+        defaults={'last_read_at': timezone.now()}
+    )
     messages = InternalChatMessage.objects.select_related('author').order_by('-created_at')[:200]
     messages = reversed(list(messages))
     return render(request, 'communications/partials/internal_chat_messages.html', {
@@ -379,6 +394,10 @@ def internal_chat_send(request):
         return JsonResponse({'error': 'Mensaje vacío'}, status=400)
 
     InternalChatMessage.objects.create(author=request.user, content=content)
+    InternalChatReadState.objects.update_or_create(
+        user=request.user,
+        defaults={'last_read_at': timezone.now()}
+    )
     return JsonResponse({'status': 'sent'})
 
 
@@ -419,23 +438,40 @@ def forward_messages_send(request, conversation_id):
     if not selected:
         return JsonResponse({'error': 'No hay mensajes para reenviar'}, status=400)
 
-    lines = []
-    lines.append(f"Para @{recipient.username}")
-    lines.append(f"Reenviado de {conversation.get_display_name()} (#{conversation.id})")
-    lines.append("")
+    InternalChatMessage.objects.create(
+        author=request.user,
+        content=f"Para @{recipient.username}\nReenviado de {conversation.get_display_name()} (#{conversation.id})"
+    )
 
     for m in selected:
         who = "Cliente" if m.direction == 'inbound' else (m.sender.username if m.sender else "Sistema")
         ts = m.created_at.strftime("%d/%m %H:%M")
-        lines.append(f"[{ts}] {who}: {m.content}")
+        msg = InternalChatMessage(
+            author=request.user,
+            content=f"[{ts}] {who}: {m.content}".strip()
+        )
+
         if m.file:
             try:
-                lines.append(m.file.url)
-            except Exception:
-                pass
-        lines.append("")
+                m.file.open('rb')
+                data = m.file.read()
+                m.file.close()
 
-    InternalChatMessage.objects.create(author=request.user, content="\n".join(lines).strip())
+                original_name = os.path.basename(getattr(m.file, 'name', '') or 'adjunto')
+                mime_type = (m.metadata or {}).get('media_mime_type') or mimetypes.guess_type(original_name)[0] or ''
+                normalized_mime = (mime_type or '').split(';')[0].strip().lower()
+
+                msg.original_filename = original_name
+                msg.mime_type = normalized_mime or mime_type
+                msg.file.save(original_name, ContentFile(data), save=False)
+            except Exception:
+                try:
+                    m.file.close()
+                except Exception:
+                    pass
+
+        msg.save()
+
     return JsonResponse({'status': 'sent'})
 
 
@@ -461,39 +497,6 @@ def change_conversation_status(request, pk):
     if request.headers.get('HX-Request'):
         return HttpResponse(status=204)                 
     return redirect('communications:conversation_detail', pk=conversation.pk)
-
-
-@login_required
-def internal_chat(request):
-    counts = _get_conversation_counts(request.user)
-    messages = InternalChatMessage.objects.select_related('author').order_by('-created_at')[:200]
-    messages = reversed(list(messages))
-
-    return render(request, 'communications/internal_chat.html', {
-        **counts,
-        'current_channel': 'internal',
-        'messages': messages,
-    })
-
-
-@login_required
-def internal_chat_messages_partial(request):
-    messages = InternalChatMessage.objects.select_related('author').order_by('-created_at')[:200]
-    messages = reversed(list(messages))
-    return render(request, 'communications/partials/internal_chat_messages.html', {
-        'messages': messages,
-    })
-
-
-@login_required
-@require_http_methods(["POST"])
-def internal_chat_send(request):
-    content = (request.POST.get('content') or '').strip()
-    if not content:
-        return JsonResponse({'error': 'Mensaje vacío'}, status=400)
-
-    InternalChatMessage.objects.create(author=request.user, content=content)
-    return JsonResponse({'status': 'sent'})
 
 
 class ContactCreateView(GenericCreateView):
