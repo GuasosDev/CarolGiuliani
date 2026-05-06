@@ -1086,6 +1086,44 @@
         clearInterval(window.conversationPollInterval);
     }
 
+    function getLastInboundMessageIdFromElement(containerEl) {
+        if (!containerEl) return null;
+        const inboundRows = containerEl.querySelectorAll('.omni-msg-row.inbound[data-message-id]');
+        let maxId = null;
+        inboundRows.forEach((row) => {
+            const raw = row.getAttribute('data-message-id');
+            const id = parseInt(raw, 10);
+            if (!Number.isNaN(id)) {
+                if (maxId === null || id > maxId) maxId = id;
+            }
+        });
+        return maxId;
+    }
+
+    function playIncomingMessageSound() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = window._commAudioCtx || new AudioCtx();
+            window._commAudioCtx = ctx;
+
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sine';
+            o.frequency.value = 880;
+            g.gain.value = 0.06;
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start();
+            o.stop(ctx.currentTime + 0.12);
+        } catch (e) {
+        }
+    }
+
     // Scroll chat to bottom on load
     setTimeout(function () {
         var chatArea = document.getElementById("chatMessagesArea");
@@ -1093,6 +1131,8 @@
             chatArea.scrollTop = chatArea.scrollHeight;
         }
     }, 100);
+
+    window._lastInboundMessageId = getLastInboundMessageIdFromElement(document.getElementById("chatMessagesArea"));
 
     // Auto-refresh implementation (Polling)
     function initPolling() {
@@ -1125,12 +1165,19 @@
                     const newContent = doc.getElementById('chatMessagesArea');
 
                     if (newContent && chatArea) {
+                        const previousLastInbound = window._lastInboundMessageId;
+                        const newLastInbound = getLastInboundMessageIdFromElement(newContent);
                         const isAtBottom = chatArea.scrollHeight - chatArea.scrollTop <= chatArea.clientHeight + 100;
                         chatArea.innerHTML = newContent.innerHTML;
 
                         if (isAtBottom) {
                             chatArea.scrollTop = chatArea.scrollHeight;
                         }
+
+                        if (previousLastInbound !== null && newLastInbound !== null && newLastInbound > previousLastInbound) {
+                            playIncomingMessageSound();
+                        }
+                        window._lastInboundMessageId = newLastInbound;
                     }
                 })
                 .catch(err => console.error('Polling error:', err));
