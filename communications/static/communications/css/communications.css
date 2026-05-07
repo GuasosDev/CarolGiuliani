@@ -4,15 +4,15 @@
     --omni-sidebar-color: #a2a3b7;
     --omni-sidebar-color-hover: #ffffff;
     --omni-sidebar-title: #6c7293;
-    --omni-primary: #5867dd;
-    --omni-primary-hover: #384ad7;
+    --omni-primary: #25D366;
+    --omni-primary-hover: #1da04c;
     --omni-card-shadow: 0px 0px 13px 0px rgba(82, 63, 105, 0.05);
-    --omni-border: #ebedf2;
-    --omni-text: #48465b;
-    --omni-text-muted: #74788d;
-    --chat-bubble-out: #5867dd;
+    --omni-border: #e2e7f1;
+    --omni-text: #343a40;
+    --omni-text-muted: #6c757d;
+    --chat-bubble-out: #dcf8c6;
     --chat-bubble-in: #ffffff;
-    --omni-success: #1dc9b7;
+    --omni-success: #1abc9c;
     --omni-warning: #ffb822;
     --omni-info: #5578eb;
     --omni-danger: #fd3995;
@@ -558,7 +558,7 @@ body.dark-mode #conversation-detail-panel { background-color: #1f2327 !important
 
 .omni-conv-item {
     display: flex;
-    padding: 15px 20px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--omni-border);
     cursor: pointer;
     transition: background 0.2s;
@@ -632,7 +632,7 @@ body.dark-mode #conversation-detail-panel { background-color: #1f2327 !important
 
 .omni-messages-area {
     flex: 1;
-    padding: 25px;
+    padding: 10px 15px;
     overflow-y: auto;
     background: #fcfcfc;
     display: flex;
@@ -641,7 +641,7 @@ body.dark-mode #conversation-detail-panel { background-color: #1f2327 !important
 
 .date-divider {
     text-align: center;
-    margin: 15px 0;
+    margin: 10px 0;
     position: relative;
 }
 
@@ -670,8 +670,8 @@ body.dark-mode #conversation-detail-panel { background-color: #1f2327 !important
 /* Chat bubble styling */
 .omni-msg-row {
     display: flex;
-    margin-bottom: 20px;
-    max-width: 85%;
+    margin-bottom: 4px;
+    max-width: 95%;
     width: fit-content;
 }
 
@@ -685,23 +685,27 @@ body.dark-mode #conversation-detail-panel { background-color: #1f2327 !important
 }
 
 .msg-avatar {
-    width: 35px;
-    height: 35px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    margin: 0 10px;
+    margin: 0 6px;
     flex-shrink: 0;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .msg-content-wrapper {
     display: flex;
     flex-direction: column;
-    max-width: 70%;
+    max-width: 85%;
     width: fit-content;
 }
 
 .msg-header {
-    margin-bottom: 5px;
-    font-size: 0.8rem;
+    margin-bottom: 1px;
+    font-size: 0.7rem;
     color: var(--omni-text-muted);
 }
 
@@ -715,42 +719,49 @@ body.dark-mode #conversation-detail-panel { background-color: #1f2327 !important
 
 
 .msg-bubble {
-    display: inline-block;    /* La burbuja solo ocupa lo que mide el texto */
-    max-width: 80%;           /* Evita que toque los bordes en pantallas chicas */
-    text-align: center;         /* Asegura que el texto no esté centrado */
-    padding-top: 1px;       /* Elimina el espacio de arriba */
-    padding-bottom: 5px;   /* Espacio abajo */
-    padding-left: 10px;    /* Espacio izquierda */
-    padding-right: 10px;   /* Espacio derecha */         /* Espaciado interno */
-    border-radius: 15px;      /* Estética de burbuja */
+    display: inline-block;
+    max-width: 100%;
+    text-align: left;
+    padding: 4px 10px;
+    border-radius: 10px;
     word-wrap: break-word;
-   
+    font-size: 0.9rem;
+}
+
+.message-meta {
+    font-size: 0.65rem;
+    color: var(--omni-text-muted);
+    margin-top: 1px;
+    opacity: 0.8;
 }
 
 .inbound .msg-bubble {
-    background: var(--chat-bubble-in);
-    border: 1px solid var(--omni-border);
+    background: #ffffff;
+    border: 1px solid #e2e7f1;
     border-top-left-radius: 0;
-    color: var(--omni-text);
+    color: #343a40;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
 }
 
 .outbound .msg-bubble {
-    background: var(--omni-primary);
+    background: #dcf8c6;
+    border: 1px solid #c5e1a5;
     border-top-right-radius: 0;
-    color: #fff;
+    color: #303030;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
 }
 
 /* Chat Input */
 .omni-chat-input-area {
-    padding: 20px;
+    padding: 15px;
     border-top: 1px solid var(--omni-border);
     background: #fff;
 }
 
 .chat-input-tools {
     display: flex;
-    gap: 15px;
-    margin-bottom: 10px;
+    gap: 10px;
+    margin-bottom: 5px;
     padding: 0 10px;
 }
 
