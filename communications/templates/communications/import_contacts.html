@@ -1,0 +1,107 @@
+{% extends "communications/communications_base.html" %}
+{% load static %}
+
+{% block comm_content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-header bg-primary text-white p-4 rounded-top-4">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-white bg-opacity-25 rounded-circle p-3 me-3">
+                            <i class="fas fa-file-csv fa-2x"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-0 fw-bold">Importar Contactos</h4>
+                            <p class="mb-0 opacity-75">Carga masiva vía archivo CSV</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4 p-lg-5">
+                    <form method="post" enctype="multipart/form-data" id="importForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="csv_file" class="form-label fw-bold text-dark">Selecciona tu archivo .csv</label>
+                            <div class="upload-area border-2 border-dashed border-primary rounded-4 p-5 text-center bg-light cursor-pointer" id="dropZone">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                                <h5 class="text-dark">Arrastra tu archivo aquí</h5>
+                                <p class="text-muted small">O haz clic para buscar en tu computadora</p>
+                                <input type="file" name="csv_file" id="csv_file" class="d-none" accept=".csv" required>
+                                <div id="fileNameDisplay" class="mt-3 fw-bold text-success d-none"></div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info border-0 shadow-sm rounded-3 small">
+                            <h6 class="alert-heading fw-bold"><i class="fas fa-info-circle me-2"></i>Formato sugerido:</h6>
+                            <p class="mb-1">El archivo debe contener las siguientes columnas (encabezados):</p>
+                            <ul class="mb-0">
+                                <li><code>nombre</code> (Obligatorio)</li>
+                                <li><code>email</code> o <code>telefono</code> (Al menos uno)</li>
+                                <li><code>whatsapp</code> (Opcional, si es distinto al teléfono)</li>
+                                <li><code>razon_social</code> (Opcional)</li>
+                            </ul>
+                            <hr>
+                            <p class="mb-0 text-muted">Acepta separadores de coma (,) o punto y coma (;).</p>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm py-3 fw-bold">
+                                <i class="fas fa-upload me-2"></i> Iniciar Importación
+                            </button>
+                            <a href="{% url 'communications:dashboard' %}" class="btn btn-link text-muted text-decoration-none">
+                                Cancelar y volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cursor-pointer { cursor: pointer; }
+    .border-dashed { border-style: dashed !important; }
+    .upload-area { transition: all 0.3s ease; }
+    .upload-area:hover { background-color: #e9ecef !important; border-color: #0d6efd !important; }
+    .upload-area.dragover { background-color: #cfe2ff !important; border-style: solid !important; }
+</style>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('csv_file');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+    dropZone.onclick = () => fileInput.click();
+
+    fileInput.onchange = (e) => {
+        if (fileInput.files.length > 0) {
+            showFileName(fileInput.files[0].name);
+        }
+    };
+
+    dropZone.ondragover = (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    };
+
+    dropZone.ondragleave = () => {
+        dropZone.classList.remove('dragover');
+    };
+
+    dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            showFileName(e.dataTransfer.files[0].name);
+        }
+    };
+
+    function showFileName(name) {
+        fileNameDisplay.textContent = "Archivo seleccionado: " + name;
+        fileNameDisplay.classList.remove('d-none');
+    }
+</script>
+{% endblock %}

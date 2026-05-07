@@ -55,4 +55,5 @@ urlpatterns = [
     ),
 
     path('client/<int:client_id>/email/', open_client_email, name='open_client_email'),
+    path('contacts/import/', views.import_contacts_csv, name='import_contacts_csv'),
 ]
