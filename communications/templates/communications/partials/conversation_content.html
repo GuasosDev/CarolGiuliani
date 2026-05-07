@@ -640,6 +640,26 @@
                                 whatsappForm.dispatchEvent(new Event('submit'));
                             }
                         });
+
+                        // Soporte para pegar imágenes (Ctrl+V)
+                        waTextarea.addEventListener('paste', function(e) {
+                            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                            for (let index in items) {
+                                const item = items[index];
+                                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                                    const blob = item.getAsFile();
+                                    const file = new File([blob], `screenshot_${new Date().getTime()}.png`, {type: blob.type});
+                                    
+                                    const input = document.getElementById('imageInputWhatsapp');
+                                    const dt = new DataTransfer();
+                                    Array.from(input.files).forEach(f => dt.items.add(f));
+                                    dt.items.add(file);
+                                    input.files = dt.files;
+                                    
+                                    displayWhatsappFilePreview(input.files);
+                                }
+                            }
+                        });
                     }
                     whatsappForm.addEventListener('submit', function (e) {
                         e.preventDefault();
@@ -648,12 +668,31 @@
                 }
 
                 if (emailForm) {
-                    const emailTextarea = emailForm.querySelector('textarea[name="body"]');
-                    if (emailTextarea) {
-                        emailTextarea.addEventListener('keydown', function(e) {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                emailForm.dispatchEvent(new Event('submit'));
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    if (emailBodyDiv) {
+                        emailBodyDiv.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                                // No enviar en Enter para email, ya que es un div editable y Enter es común para párrafos
+                            }
+                        });
+
+                        // Soporte para pegar imágenes (Ctrl+V)
+                        emailBodyDiv.addEventListener('paste', function(e) {
+                            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                            for (let index in items) {
+                                const item = items[index];
+                                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                                    const blob = item.getAsFile();
+                                    const file = new File([blob], `screenshot_${new Date().getTime()}.png`, {type: blob.type});
+                                    
+                                    const input = document.getElementById('imageInputEmail');
+                                    const dt = new DataTransfer();
+                                    Array.from(input.files).forEach(f => dt.items.add(f));
+                                    dt.items.add(file);
+                                    input.files = dt.files;
+                                    
+                                    displayEmailFilePreview(input.files);
+                                }
                             }
                         });
                     }
