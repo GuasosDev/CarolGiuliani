@@ -92,8 +92,8 @@
                         {% if m.message_type == 'whatsapp' %}
                         <span class="ms-1 text-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
                         {% else %}
-                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email </span><br>
-                        <span class="ms-1 text-primary"><i class="fas fa-tag"></i>Asunto:{{ conversation.subject }}</span>
+                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email</span>
+                        <span class="ms-1 text-muted" style="font-size: 0.65rem;">| Asunto: {{ conversation.subject|truncatechars:30 }}</span>
                         {% endif %}
                     </div>
 
@@ -128,15 +128,15 @@
                             </div>
                         {% endif %}
 
-                        <!-- 📎 ADJUNTOS EMAIL (ya lo tenías) -->
+                        <!-- 📎 ADJUNTOS EMAIL -->
                         {% if m.email_data %}
                             {% for att in m.email_data.attachments.all %}
-                                <div style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
-                                    <i class="fas fa-paperclip me-2"></i>
-                                    <a href="{{ att.file.url }}" target="_blank">
+                                <div style="display:flex; align-items:center; margin:2px 0; padding:4px 8px; background:#f8f9fa; border-radius:6px; font-size: 0.8rem;">
+                                    <i class="fas fa-paperclip me-2" style="font-size: 0.7rem;"></i>
+                                    <a href="{{ att.file.url }}" target="_blank" class="text-truncate" style="max-width: 150px;">
                                         {{ att.filename }}
                                     </a>
-                                    <small class="ms-2 text-muted">
+                                    <small class="ms-2 text-muted" style="font-size: 0.65rem;">
                                         ({{ att.size|filesizeformat }})
                                     </small>
                                 </div>
