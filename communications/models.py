@@ -641,6 +641,21 @@ class EmailQueue(models.Model):
         return f"{self.subject} - {self.get_status_display()}"
 
 
+class InternalChatMessage(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_chat_messages')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.author.username} - {self.created_at}"
+
+
 # ============================================================================
 # WELCOME MENU MODELS
 # ============================================================================

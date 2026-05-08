@@ -45,6 +45,16 @@
             </div>
 
             <div class="chat-header-actions d-flex">
+                {% if conversation.channel == 'whatsapp' %}
+                <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="toggleSelectBtn"
+                    onclick="toggleChatSelectMode()" title="Seleccionar mensajes">
+                    <i class="fas fa-check-square"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary me-2 d-none" id="forwardSelectedBtn"
+                    onclick="openForwardSelectedMessages({{ conversation.id }})" title="Reenviar a un usuario">
+                    <i class="fas fa-share"></i>
+                </button>
+                {% endif %}
                  <button 
                     hx-get="{% url 'communications:transfer_conversation_modal' conversation.id %}"
                     hx-target="#modal-body"
@@ -88,6 +98,9 @@
 
             {% for m in messages %}
             <div class="omni-msg-row {% if m.direction == 'outbound' %}outbound{% else %}inbound{% endif %}" data-message-id="{{ m.id }}">
+                <div class="msg-select">
+                    <input type="checkbox" class="form-check-input" onchange="toggleChatMessageSelection({{ m.id }}, this.checked)">
+                </div>
                 <div
                     class="omni-avatar {% if m.direction == 'inbound' %}bg-secondary{% else %}bg-primary{% endif %} msg-avatar">
                     {% if m.direction == 'inbound' %}
@@ -115,7 +128,7 @@
                         {% endif %}
                     </div>
 
-                        <div class="msg-bubble text-break pt-1 d-inline-block text-start">
+                        <div class="msg-bubble text-break pt-1 d-inline-block text-start" onclick="onChatMessageClick(event, {{ m.id }})">
     
                                     {{ m.render_content|safe }}   
                              
@@ -1797,6 +1810,136 @@
     }
 
     initPolling();
+</script>
+
+<script>
+    (function () {
+        if (typeof window.chatSelectMode === 'undefined') {
+            window.chatSelectMode = false;
+        }
+        if (!window.selectedChatMessageIds) {
+            window.selectedChatMessageIds = new Set();
+        }
+    })();
+
+    function toggleChatSelectMode() {
+        const chatArea = document.getElementById('chatMessagesArea');
+        const btnForward = document.getElementById('forwardSelectedBtn');
+        const btnToggle = document.getElementById('toggleSelectBtn');
+
+        window.chatSelectMode = !window.chatSelectMode;
+
+        if (chatArea) {
+            if (window.chatSelectMode) {
+                chatArea.classList.add('select-mode');
+            } else {
+                chatArea.classList.remove('select-mode');
+            }
+        }
+
+        if (!window.chatSelectMode) {
+            clearChatSelection();
+        }
+
+        if (btnForward) {
+            btnForward.classList.toggle('d-none', !window.chatSelectMode);
+        }
+        if (btnToggle) {
+            btnToggle.classList.toggle('btn-outline-secondary', !window.chatSelectMode);
+            btnToggle.classList.toggle('btn-secondary', window.chatSelectMode);
+        }
+    }
+
+    function onChatMessageClick(e, messageId) {
+        if (!window.chatSelectMode) return;
+        e.preventDefault();
+        toggleChatMessageSelection(messageId);
+    }
+
+    function toggleChatMessageSelection(messageId, forced) {
+        if (!window.chatSelectMode) return;
+
+        const id = String(messageId);
+        const row = document.querySelector(`[data-message-id="${id}"]`);
+        const checkbox = row ? row.querySelector('.msg-select input[type="checkbox"]') : null;
+
+        const currentlySelected = window.selectedChatMessageIds.has(id);
+        const shouldSelect = typeof forced === 'boolean' ? forced : !currentlySelected;
+
+        if (shouldSelect) {
+            window.selectedChatMessageIds.add(id);
+        } else {
+            window.selectedChatMessageIds.delete(id);
+        }
+
+        if (row) {
+            row.classList.toggle('selected', shouldSelect);
+        }
+        if (checkbox) {
+            checkbox.checked = shouldSelect;
+        }
+    }
+
+    function clearChatSelection() {
+        const rows = document.querySelectorAll('#chatMessagesArea [data-message-id].selected');
+        rows.forEach(r => {
+            r.classList.remove('selected');
+            const checkbox = r.querySelector('.msg-select input[type="checkbox"]');
+            if (checkbox) checkbox.checked = false;
+        });
+        window.selectedChatMessageIds = new Set();
+    }
+
+    function openForwardSelectedMessages(conversationId) {
+        if (!window.selectedChatMessageIds || window.selectedChatMessageIds.size === 0) {
+            alert('Seleccioná uno o más mensajes para reenviar.');
+            return;
+        }
+
+        const ids = Array.from(window.selectedChatMessageIds).join(',');
+        const url = `/communications/conversation/${conversationId}/forward-messages-modal/?message_ids=${encodeURIComponent(ids)}`;
+
+        fetch(url, { headers: { 'HX-Request': 'true' } })
+            .then(r => r.text())
+            .then(html => {
+                const target = document.getElementById('modal-secondary-body');
+                if (target) target.innerHTML = html;
+                openModalSecondary();
+            })
+            .catch(() => alert('No se pudo abrir el reenviado.'));
+    }
+
+    function submitForwardMessages(conversationId) {
+        const recipientEl = document.getElementById('forwardRecipient');
+        const idsEl = document.getElementById('forwardMessageIds');
+        const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+
+        if (!recipientEl || !idsEl) return;
+
+        const recipientId = recipientEl.value;
+        const messageIds = idsEl.value;
+
+        const formData = new FormData();
+        formData.append('recipient_id', recipientId);
+        formData.append('message_ids', messageIds);
+        formData.append('csrfmiddlewaretoken', csrf || '');
+
+        fetch(`/communications/conversation/${conversationId}/forward-messages-send/`, {
+            method: 'POST',
+            body: formData,
+            headers: csrf ? { 'X-CSRFToken': csrf } : {}
+        })
+            .then(async (r) => {
+                if (!r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    throw new Error(data.error || 'Error al reenviar');
+                }
+                closeModalSecondary();
+                clearChatSelection();
+                toggleChatSelectMode();
+            })
+            .catch(err => alert(err.message));
+    }
 </script>
 
 <script>
