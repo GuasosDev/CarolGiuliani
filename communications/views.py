@@ -28,7 +28,12 @@ from .assignment_system import get_agent_conversations, assign_conversation_to_a
 from clients.models import Client
 from core.views import GenericCreateView
 from django.db.models import Prefetch
+from .utils.html_cleaner import limpiar_email_html
+from django.http import JsonResponse
+
+
 logger = logging.getLogger(__name__)
+
 
 @login_required
 def import_contacts_csv(request):
@@ -503,6 +508,14 @@ def conversation_detail(request, pk):
         conversation.messages.filter(direction='inbound', is_read=False).update(is_read=True, read_at=timezone.now())
     
         messages = conversation.messages.all().order_by('created_at')
+        
+        from .utils.html_cleaner import limpiar_email_html
+
+        for m in messages:
+            if conversation.channel == 'email':
+                m.render_content = limpiar_email_html(m.content)
+            else:
+                m.render_content = m.content
         notes = conversation.internal_notes.all()
         
         # Sidebar conversations (filtered by current conversation's status or default to normal)
