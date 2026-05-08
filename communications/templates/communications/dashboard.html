@@ -97,7 +97,7 @@
 
                     {% for conv in group.conversations %}
                     <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
                         data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
                         <div class="d-flex justify-content-between mb-1">
@@ -130,10 +130,10 @@
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted text-truncate d-block" style="max-width: 100%;">
+                            <small class="text-muted text-truncate d-block" style="max-width: 100%; font-size: 0.75rem;">
                                 {% with last_msg=conv.messages.last %}
                                 {% if last_msg %}
-                                {{ last_msg.content|truncatechars:35 }}
+                                {{ last_msg.content|truncatechars:50 }}
                                 {% else %}
                                 <span class="fst-italic text-muted">Sin mensajes...</span>
                                 {% endif %}
@@ -149,7 +149,7 @@
                     {% else %}
                     {% for conv in conversations %}
                     <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-3 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
                         data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
                         <div class="d-flex justify-content-between mb-1">

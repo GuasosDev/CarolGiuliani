@@ -2,7 +2,7 @@
     style="min-height: 100%;">
   <!--Main Chat Workspace --> 
     <div class="omni-chat-main">
-        <div class="omni-chat-header bg-white py-3 px-3">
+        <div class="omni-chat-header bg-white py-2 px-3">
             <div class="d-flex align-items-center flex-grow-1" 
                  hx-get="{% url 'communications:contact_details_modal' conversation.id %}" 
                  hx-target="#modal-body" 
@@ -92,8 +92,8 @@
                         {% if m.message_type == 'whatsapp' %}
                         <span class="ms-1 text-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
                         {% else %}
-                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email </span><br>
-                        <span class="ms-1 text-primary"><i class="fas fa-tag"></i>Asunto:{{ conversation.subject }}</span>
+                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email</span>
+                        <span class="ms-1 text-muted" style="font-size: 0.65rem;">| Asunto: {{ conversation.subject|truncatechars:30 }}</span>
                         {% endif %}
                     </div>
 
@@ -141,15 +141,15 @@
                             </div>
                         {% endif %}
 
-                        <!-- 📎 ADJUNTOS EMAIL (ya lo tenías) -->
+                        <!-- 📎 ADJUNTOS EMAIL -->
                         {% if m.email_data %}
                             {% for att in m.email_data.attachments.all %}
-                                <div style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
-                                    <i class="fas fa-paperclip me-2"></i>
-                                    <a href="{{ att.file.url }}" target="_blank">
+                                <div style="display:flex; align-items:center; margin:2px 0; padding:4px 8px; background:#f8f9fa; border-radius:6px; font-size: 0.8rem;">
+                                    <i class="fas fa-paperclip me-2" style="font-size: 0.7rem;"></i>
+                                    <a href="{{ att.file.url }}" target="_blank" class="text-truncate" style="max-width: 150px;">
                                         {{ att.filename }}
                                     </a>
-                                    <small class="ms-2 text-muted">
+                                    <small class="ms-2 text-muted" style="font-size: 0.65rem;">
                                         ({{ att.size|filesizeformat }})
                                     </small>
                                 </div>
@@ -181,7 +181,7 @@
             
         </div>
 
-        <div class="omni-chat-input-area">
+        <div class="omni-chat-input-area p-2 border-top bg-white">
             <!-- Channel Selection Tabs -->
             <div class="chat-input-tools d-flex justify-content-between align-items-center mb-2">
                 <div class="d-flex gap-1 bg-light rounded-pill p-1">
@@ -812,6 +812,26 @@
                                 whatsappForm.dispatchEvent(new Event('submit'));
                             }
                         });
+
+                        // Soporte para pegar imágenes (Ctrl+V)
+                        waTextarea.addEventListener('paste', function(e) {
+                            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                            for (let index in items) {
+                                const item = items[index];
+                                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                                    const blob = item.getAsFile();
+                                    const file = new File([blob], `screenshot_${new Date().getTime()}.png`, {type: blob.type});
+                                    
+                                    const input = document.getElementById('imageInputWhatsapp');
+                                    const dt = new DataTransfer();
+                                    Array.from(input.files).forEach(f => dt.items.add(f));
+                                    dt.items.add(file);
+                                    input.files = dt.files;
+                                    
+                                    displayWhatsappFilePreview(input.files);
+                                }
+                            }
+                        });
                     }
                     whatsappForm.addEventListener('submit', function (e) {
                         e.preventDefault();
@@ -820,12 +840,31 @@
                 }
 
                 if (emailForm) {
-                    const emailTextarea = emailForm.querySelector('textarea[name="body"]');
-                    if (emailTextarea) {
-                        emailTextarea.addEventListener('keydown', function(e) {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                emailForm.dispatchEvent(new Event('submit'));
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    if (emailBodyDiv) {
+                        emailBodyDiv.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                                // No enviar en Enter para email, ya que es un div editable y Enter es común para párrafos
+                            }
+                        });
+
+                        // Soporte para pegar imágenes (Ctrl+V)
+                        emailBodyDiv.addEventListener('paste', function(e) {
+                            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                            for (let index in items) {
+                                const item = items[index];
+                                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                                    const blob = item.getAsFile();
+                                    const file = new File([blob], `screenshot_${new Date().getTime()}.png`, {type: blob.type});
+                                    
+                                    const input = document.getElementById('imageInputEmail');
+                                    const dt = new DataTransfer();
+                                    Array.from(input.files).forEach(f => dt.items.add(f));
+                                    dt.items.add(file);
+                                    input.files = dt.files;
+                                    
+                                    displayEmailFilePreview(input.files);
+                                }
                             }
                         });
                     }

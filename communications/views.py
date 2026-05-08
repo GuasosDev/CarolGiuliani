@@ -18,6 +18,9 @@ import json
 import logging
 import re
 import uuid
+import csv
+import io
+from django.contrib import messages
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
@@ -26,6 +29,103 @@ from clients.models import Client
 from core.views import GenericCreateView
 from django.db.models import Prefetch
 logger = logging.getLogger(__name__)
+
+@login_required
+def import_contacts_csv(request):
+    """View to import contacts from a CSV file"""
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'El archivo debe ser un CSV.')
+            return redirect('communications:import_contacts_csv')
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8-sig')
+            io_string = io.StringIO(decoded_file)
+            
+            # Detect delimiter
+            content_snippet = decoded_file[:1024]
+            dialect_delimiter = ';' if content_snippet.count(';') > content_snippet.count(',') else ','
+            
+            reader = csv.DictReader(io_string, delimiter=dialect_delimiter)
+            
+            success_count = 0
+            error_count = 0
+
+            # Get field names to check if headers exist
+            fieldnames = reader.fieldnames
+            
+            # Helper to check if a row looks like it has headers
+            has_headers = any(f.lower() in ['nombre', 'name', 'email', 'correo', 'telefono', 'phone'] for f in (fieldnames or []))
+
+            if not has_headers:
+                io_string.seek(0)
+                raw_reader = csv.reader(io_string, delimiter=dialect_delimiter)
+                data_rows = list(raw_reader)
+            else:
+                data_rows = list(reader)
+
+            for row in data_rows:
+                try:
+                    if isinstance(row, dict):
+                        # It's a DictReader row with headers
+                        name = row.get('nombre') or row.get('name')
+                        email = row.get('email') or row.get('correo')
+                        phone = row.get('telefono') or row.get('phone') or row.get('celular')
+                        whatsapp = row.get('whatsapp') or phone
+                        business_name = row.get('razon_social') or row.get('empresa')
+                    else:
+                        # It's a raw list (no headers)
+                        # Expecting: martin,martinberon@gmail,3584117755,MPC
+                        name = row[0] if len(row) > 0 else None
+                        email = row[1] if len(row) > 1 else None
+                        phone = row[2] if len(row) > 2 else None
+                        whatsapp = phone
+                        business_name = row[3] if len(row) > 3 else None
+
+                    if not name:
+                        continue
+
+                    # Basic cleaning
+                    if name: name = name.strip()
+                    if email: email = email.strip()
+                    if phone: phone = str(phone).strip()
+                    if business_name: business_name = business_name.strip()
+
+                    # Create or update Client
+                    # If email is invalid or missing, use a placeholder
+                    final_email = email if (email and '@' in email) else f"imported_{uuid.uuid4().hex[:8]}@noemail.com"
+                    
+                    client, created = Client.objects.update_or_create(
+                        email=final_email,
+                        defaults={
+                            'name': name,
+                            'phone': phone,
+                            'business_name': business_name,
+                        }
+                    )
+
+                    # Create or update Contact in Communications
+                    Contact.objects.update_or_create(
+                        client=client,
+                        defaults={
+                            'whatsapp_number': whatsapp,
+                            'preferred_channel': 'whatsapp' if whatsapp else 'email'
+                        }
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"Error importing row {row}: {e}")
+                    error_count += 1
+
+            messages.success(request, f'Importación completada: {success_count} contactos creados/actualizados. Errores: {error_count}.')
+            return redirect('communications:dashboard')
+
+        except Exception as e:
+            messages.error(request, f'Error al procesar el archivo: {str(e)}')
+            return redirect('communications:import_contacts_csv')
+
+    return render(request, 'communications/import_contacts.html')
 
 @login_required
 def add_conversation_note(request, conversation_id):
