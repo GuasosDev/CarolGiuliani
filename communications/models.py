@@ -5,7 +5,6 @@ from django.utils import timezone
 from cryptography.fernet import Fernet
 from django.conf import settings
 import json
-from .utils.html_utils import procesar_contenido_mensaje
 
 # ============================================================================
 # CORE MODELS
@@ -231,9 +230,7 @@ class Message(models.Model):
             'updated_at'
         ])
 
-    @property
-    def render_data(self):
-        return procesar_contenido_mensaje(self.content)
+    
 
 class InternalNote(models.Model):
     """Agent notes on conversations"""

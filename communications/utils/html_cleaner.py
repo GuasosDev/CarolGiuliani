@@ -1,5 +1,6 @@
+import re
 import bleach
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 
 ALLOWED_TAGS = [
     'b', 'strong',
@@ -9,37 +10,49 @@ ALLOWED_TAGS = [
     'br',
     'ul', 'ol', 'li',
     'a',
-    'blockquote'
+    'blockquote',
 ]
 
 ALLOWED_ATTRIBUTES = {
-    'a': ['href', 'title', 'target'],
+    'a': ['href', 'title', 'target', 'rel'],
 }
 
 def limpiar_email_html(html):
-    """
-    Limpia HTML de emails/copiados desde Gmail/ChatGPT/etc.
-    """
 
     if not html:
         return ""
 
-    # Parsear HTML
     soup = BeautifulSoup(html, "html.parser")
 
-    # ❌ eliminar scripts/styles
+    # Eliminar comentarios
+    for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+        comment.extract()
+
+    # Eliminar tags peligrosos
     for tag in soup(['script', 'style', 'head', 'meta']):
         tag.decompose()
 
-    # ✅ obtener body si existe
-    content = soup.body.decode_contents() if soup.body else str(soup)
+    # Configurar links
+    for a in soup.find_all("a"):
+        href = a.get("href")
 
-    # ✅ limpiar atributos basura
+        if href:
+            a["target"] = "_blank"
+            a["rel"] = "noopener noreferrer"
+
+    # Obtener HTML limpio
+    content = str(soup)
+
+    # Sanitizar
     cleaned = bleach.clean(
         content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
+        protocols=['http', 'https', 'mailto'],
         strip=True
     )
 
-    return cleaned
+    # Opcional: limpiar espacios excesivos
+    cleaned = re.sub(r'\n\s*\n+', '\n\n', cleaned)
+
+    return cleaned.strip()
