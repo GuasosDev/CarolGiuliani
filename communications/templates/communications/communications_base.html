@@ -4,6 +4,25 @@
 {% block title %}Comunicaciones{% endblock %}
 
 {% block navbar_tools %}
+<!-- Summary Status Badges -->
+<div class="d-flex gap-2 me-4 border-end pe-4 align-items-center">
+    <a href="{% url 'communications:dashboard' %}?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+       class="status-summary-box text-decoration-none {% if current_status == 'normal' or not current_status %}active{% endif %}" title="Filtrar Activas">
+        <div class="status-icon-circle bg-success"><i class="fas fa-check"></i></div>
+        <span class="status-count" id="count-active">{{ active_count|default:"0" }}</span>
+    </a>
+    <a href="{% url 'communications:dashboard' %}?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+       class="status-summary-box text-decoration-none {% if current_status == 'pending' %}active{% endif %}" title="Filtrar Pendientes">
+        <div class="status-icon-circle bg-warning"><i class="fas fa-hourglass-half"></i></div>
+        <span class="status-count" id="count-pending">{{ pending_count|default:"0" }}</span>
+    </a>
+    <a href="{% url 'communications:dashboard' %}?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+       class="status-summary-box text-decoration-none {% if current_status == 'closed' %}active{% endif %}" title="Filtrar Cerradas">
+        <div class="status-icon-circle bg-danger"><i class="fas fa-times"></i></div>
+        <span class="status-count" id="count-closed">{{ closed_count|default:"0" }}</span>
+    </a>
+</div>
+
 <!-- Action Buttons Group -->
 <div class="btn-group me-3 shadow-sm">
     <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
@@ -106,7 +125,7 @@
 
         <!-- Tools Section -->
         <a href="{% url 'communications:quick_replies' %}" 
-           class="comm-nav-link-vertical {% if request.resolver_match.url_name|slice:':13' == 'quick_reply' %}active-link{% endif %}"
+           class="comm-nav-link-vertical {% if 'quick-replies' in request.path %}active-link{% endif %}"
            title="Respuestas Rápidas">
             <i class="fas fa-bolt text-warning"></i>
             <div class="comm-nav-label-wrapper">
@@ -123,7 +142,9 @@
             </div>
         </a>
 
-        <a href="#" class="comm-nav-link-vertical" title="Plantillas">
+        <a href="{% url 'communications:email_templates' %}" 
+           class="comm-nav-link-vertical {% if 'templates' in request.path %}active-link{% endif %}" 
+           title="Plantillas">
             <i class="fas fa-file-alt text-secondary"></i>
             <div class="comm-nav-label-wrapper">
                 <span class="nav-label">Plantillas</span>
@@ -139,7 +160,13 @@
             </div>
         </a>
 
-        <a href="#" class="comm-nav-link-vertical" title="Reportes">
+        <a hx-get="{% url 'communications:conversation_report' %}" 
+           hx-target="#modal-body"
+           hx-trigger="click"
+           onclick="openModal()"
+           class="comm-nav-link-vertical {% if 'reports' in request.path %}active-link{% endif %}" 
+           style="cursor: pointer;"
+           title="Reportes">
             <i class="fas fa-chart-bar text-success"></i>
             <div class="comm-nav-label-wrapper">
                 <span class="nav-label">Reportes</span>

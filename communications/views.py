@@ -22,7 +22,7 @@ import csv
 import io
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote, EmailTemplate
 from .models import InternalChatMessage
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
@@ -964,6 +964,46 @@ class ConversationReportView(LoginRequiredMixin, View):
             return render_pdf_view('communications/reports/conversation_pdf.html', context)
         
         return render(request, 'communications/report_modal.html', {'form': form})
+
+# ============================================================================
+# EMAIL TEMPLATE MANAGEMENT
+# ============================================================================
+
+class EmailTemplateListView(LoginRequiredMixin, ListView):
+    model = EmailTemplate
+    template_name = 'communications/email_templates/list.html'
+    context_object_name = 'templates'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            from django.contrib import messages
+            messages.error(request, 'No tenés permiso para acceder a esta sección.')
+            return redirect('communications:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return EmailTemplate.objects.all().order_by('-is_global', 'name')
+
+class EmailTemplateCreateView(LoginRequiredMixin, CreateView):
+    model = EmailTemplate
+    fields = ['name', 'description', 'subject_template', 'body_template', 'category', 'is_global']
+    template_name = 'communications/email_templates/form.html'
+    success_url = reverse_lazy('communications:email_templates')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+class EmailTemplateUpdateView(LoginRequiredMixin, UpdateView):
+    model = EmailTemplate
+    fields = ['name', 'description', 'subject_template', 'body_template', 'category', 'is_global']
+    template_name = 'communications/email_templates/form.html'
+    success_url = reverse_lazy('communications:email_templates')
+
+class EmailTemplateDeleteView(LoginRequiredMixin, DeleteView):
+    model = EmailTemplate
+    template_name = 'communications/email_templates/confirm_delete.html'
+    success_url = reverse_lazy('communications:email_templates')
 
 class QuickReplyDeleteView(LoginRequiredMixin, DeleteView):
     model = QuickReply
