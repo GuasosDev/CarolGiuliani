@@ -171,16 +171,6 @@
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item" href="{% url 'user_role_list' %}">
-                                <i class="fas fa-user-tag me-2"></i> Roles de Usuario
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'work_area_list' %}">
-                                <i class="fas fa-briefcase me-2"></i> Áreas Laborales
-                            </a>
-                        </li>
-                        <li>
                             <button class="dropdown-item" hx-get="{% url 'company_settings' %}" hx-target="#modal-body"
                                 onclick="openModal()">
                                 <i class="fas fa-cog me-2"></i> Configuración Empresa
