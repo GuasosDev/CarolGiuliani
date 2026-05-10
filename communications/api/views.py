@@ -170,21 +170,7 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
         agent_name = request.user.get_full_name() or request.user.username
-        direction = 'inbound'
-
-        if direction == 'inbound':
-            if body:
-                body += f"\n\n---\n{agent_name}"
-
-            if html_body:
-                html_body += f"""
-                <br><br>
-                <hr>
-                <p>
-                    <b>{agent_name}</b><br>
-                    {account.name}
-                </p>
-                """
+        
         conversation = None
         if conversation_id:
             conversation = Conversation.objects.get(id=conversation_id)
@@ -260,22 +246,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
         agent_name = request.user.get_full_name() or request.user.username
-        direction = 'inbound'
-
-        if direction == 'inbound':
-            if body:
-                body += f"\n\n---\n{agent_name}"
-
-            if html_body:
-                html_body += f"""
-                <br><br>
-                <hr>
-                <p>
-                    <b>{agent_name}</b><br>
-                    {account.name}
-                </p>
-                """
-             
+        
         if conversation_id:
             try:
                 conversation = Conversation.objects.get(id=conversation_id)
