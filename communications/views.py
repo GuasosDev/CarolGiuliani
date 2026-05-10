@@ -193,7 +193,7 @@ def dashboard(request):
     else:
         # Default behavior (no channel filter)
         if not status_filter:
-            status_filter = 'pending' # Cambiado de 'normal' a 'pending' por pedido del usuario
+            status_filter = 'normal' # Default status
             
         if status_filter == 'inbox':
             # Inbox logic: Group by client
@@ -249,8 +249,8 @@ def dashboard(request):
     if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
         available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
     
-    # Get counts using helper (now with channel awareness)
-    counts = _get_conversation_counts(request.user, channel=channel_filter)
+    # Get counts using helper
+    counts = _get_conversation_counts(request.user)
     
     # Calculate percentages for donut chart
     whatsapp_count = counts['whatsapp_count']
@@ -286,28 +286,21 @@ def dashboard(request):
     return render(request, 'communications/dashboard.html', context)
 
 
-def _get_conversation_counts(user, channel=None):
-    """Helper to get conversation counts for the sidebar, optionally filtered by channel"""
+def _get_conversation_counts(user):
+    """Helper to get conversation counts for the sidebar"""
     base_qs = get_agent_conversations(user)
     
-    # Global channel counts (now showing only PENDING per user request)
-    whatsapp_pending_count = base_qs.filter(channel='whatsapp', status='pending').count()
-    email_pending_count = base_qs.filter(channel='email', status='pending').count()
-    
-    # Counts for status boxes (filtered by channel if provided)
-    status_qs = base_qs
-    if channel and channel != 'multichannel':
-        status_qs = base_qs.filter(channel=channel)
+    whatsapp_count = base_qs.filter(channel='whatsapp').count()
+    email_count = base_qs.filter(channel='email').count()
     
     return {
-        'normal_count': status_qs.filter(status='normal').count(),
-        'pending_count': status_qs.filter(status='pending').count(),
-        'closed_count': status_qs.filter(status='closed').count(),
-        'total_count': status_qs.count(), # Nueva variable para el total según canal
-        'unread_count': status_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
-        'whatsapp_count': whatsapp_pending_count,
-        'email_count': email_pending_count,
-        'total_channel_count': whatsapp_pending_count + email_pending_count,
+        'normal_count': base_qs.filter(status='normal').count(),
+        'pending_count': base_qs.filter(status='pending').count(),
+        'closed_count': base_qs.filter(status='closed').count(),
+        'unread_count': base_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
+        'whatsapp_count': whatsapp_count,
+        'email_count': email_count,
+        'total_channel_count': whatsapp_count + email_count,
     }
 
 
