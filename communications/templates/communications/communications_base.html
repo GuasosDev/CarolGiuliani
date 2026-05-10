@@ -6,13 +6,18 @@
 {% block navbar_tools %}
 <!-- Summary Status Badges -->
 <div class="d-flex gap-2 me-4 border-end pe-4 align-items-center">
+    <a href="{% url 'communications:dashboard' %}?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+       class="status-summary-box text-decoration-none {% if current_status == 'all' %}active-all{% endif %}" title="Ver Todas">
+        <div class="status-icon-circle bg-dark" style="background-color: #003366 !important;"><i class="fas fa-list text-white"></i></div>
+        <span class="status-count" id="count-total">{{ total_count|default:"0" }}</span>
+    </a>
     <a href="{% url 'communications:dashboard' %}?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-       class="status-summary-box text-decoration-none {% if current_status == 'normal' or not current_status %}active{% endif %}" title="Filtrar Activas">
+       class="status-summary-box text-decoration-none {% if current_status == 'normal' %}active{% endif %}" title="Filtrar Activas">
         <div class="status-icon-circle bg-success"><i class="fas fa-check"></i></div>
-        <span class="status-count" id="count-active">{{ active_count|default:"0" }}</span>
+        <span class="status-count" id="count-active">{{ normal_count|default:"0" }}</span>
     </a>
     <a href="{% url 'communications:dashboard' %}?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-       class="status-summary-box text-decoration-none {% if current_status == 'pending' %}active{% endif %}" title="Filtrar Pendientes">
+       class="status-summary-box text-decoration-none {% if current_status == 'pending' or not current_status %}active{% endif %}" title="Filtrar Pendientes">
         <div class="status-icon-circle bg-warning"><i class="fas fa-hourglass-half"></i></div>
         <span class="status-count" id="count-pending">{{ pending_count|default:"0" }}</span>
     </a>
@@ -76,7 +81,7 @@
     <div class="comm-sidebar-nav bg-white border rounded-4 shadow-sm h-100 overflow-y-auto flex-shrink-0" style="width: 110px;">
         
         <!-- Channels Section -->
-        <a href="{% url 'communications:dashboard' %}?channel=whatsapp" 
+        <a href="{% url 'communications:dashboard' %}?channel=whatsapp&status=pending" 
            class="comm-nav-link-vertical {% if current_channel == 'whatsapp' %}active-link{% endif %}"
            title="WhatsApp">
             <i class="fab fa-whatsapp text-success"></i>
@@ -84,23 +89,23 @@
                 <span class="nav-label">WhatsApp</span>
             </div>
             {% if whatsapp_count > 0 %}
-            <span class="badge rounded-pill bg-secondary">{{ whatsapp_count }}</span>
+            <span class="badge rounded-pill bg-warning text-dark">{{ whatsapp_count }}</span>
             {% endif %}
         </a>
 
-        <a href="{% url 'communications:dashboard' %}?channel=email" 
+        <a href="{% url 'communications:dashboard' %}?channel=email&status=pending" 
            class="comm-nav-link-vertical {% if current_channel == 'email' %}active-link{% endif %}"
            title="Email">
-            <i class="fas fa-envelope-open-text text-primary"></i>
+            <i class="fas fa-envelope-open-text" style="color: #3383FF !important;"></i>
             <div class="comm-nav-label-wrapper">
                 <span class="nav-label">Email</span>
             </div>
             {% if email_count > 0 %}
-            <span class="badge rounded-pill bg-secondary">{{ email_count }}</span>
+            <span class="badge rounded-pill bg-warning text-dark">{{ email_count }}</span>
             {% endif %}
         </a>
 
-        <a href="{% url 'communications:dashboard' %}?channel=multichannel" 
+        <a href="{% url 'communications:dashboard' %}?channel=multichannel&status=pending" 
            class="comm-nav-link-vertical {% if current_channel == 'multichannel' %}active-link{% endif %}"
            title="Multicanal">
             <i class="fas fa-sync-alt text-info"></i>
@@ -108,7 +113,7 @@
                 <span class="nav-label">Multi</span>
             </div>
             {% if total_channel_count > 0 %}
-            <span class="badge rounded-pill bg-danger">{{ total_channel_count }}</span>
+            <span class="badge rounded-pill bg-warning text-dark">{{ total_channel_count }}</span>
             {% endif %}
         </a>
 
