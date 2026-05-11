@@ -13,7 +13,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.utils import timezone
 from django.template.loader import get_template
-from xhtml2pdf import pisa
+# from xhtml2pdf import pisa
 import json
 import logging
 import re
@@ -173,8 +173,8 @@ def dashboard(request):
     user_filter = request.GET.get('user')
     
     base_qs = get_agent_conversations(request.user).select_related(
-    "contact__client"
-).prefetch_related("messages")
+        "contact__client"
+    ).prefetch_related("messages")
     
     # Base filtering
     conversations = base_qs
@@ -182,6 +182,9 @@ def dashboard(request):
     # Filter by specific user (only for supervisors/admins)
     if user_filter and (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
         conversations = conversations.filter(assigned_to_id=user_filter)
+    
+    # Get counts using helper - pass channel filter to get contextual counts
+    counts = _get_conversation_counts(request.user, channel_filter)
     
     if channel_filter:
         if channel_filter != 'multichannel':
@@ -197,17 +200,14 @@ def dashboard(request):
             
         if status_filter == 'inbox':
             # Inbox logic: Group by client
-            # We want to show all conversations grouped by client
-            pass # Filtering handled below/separately
+            pass 
         elif status_filter == 'pending':
-            # Show all pending conversations
             conversations = conversations.filter(status='pending')
         elif status_filter == 'unread':
-            # Show conversations with unread inbound messages
            conversations = conversations.filter(
-    messages__direction='inbound',
-    messages__is_read=False
-).distinct()
+                messages__direction='inbound',
+                messages__is_read=False
+            ).distinct()
         elif status_filter != 'all':
             conversations = conversations.filter(status=status_filter)
         
@@ -234,9 +234,6 @@ def dashboard(request):
             
         # Sort groups by latest activity
         grouped_conversations.sort(key=lambda x: x['latest_update'] or '', reverse=True)
-        
-        # We don't use the main 'conversations' queryset for the list in this case
-        # But we keep it for other context if needed
     else:
         conversations = conversations.order_by('-updated_at')[:50]
         grouped_conversations = None
@@ -249,9 +246,6 @@ def dashboard(request):
     if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
         available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
     
-    # Get counts using helper (now with channel awareness)
-    counts = _get_conversation_counts(request.user, channel=channel_filter)
-    
     # Calculate percentages for donut chart
     whatsapp_count = counts['whatsapp_count']
     email_count = counts['email_count']
@@ -260,7 +254,6 @@ def dashboard(request):
     if total_channel_count > 0:
         whatsapp_percent = int((whatsapp_count / total_channel_count) * 100)
         email_percent = int((email_count / total_channel_count) * 100)
-        # Adjust so they sum to 100 if there's rounding error
         if whatsapp_percent + email_percent < 100:
             if whatsapp_count >= email_count:
                 whatsapp_percent += (100 - (whatsapp_percent + email_percent))
@@ -280,34 +273,34 @@ def dashboard(request):
         'current_user': user_filter,
         'available_users': available_users,
         'clients': clients,
-        **counts # Unpack counts into context
+        **counts 
     }
 
     return render(request, 'communications/dashboard.html', context)
 
 
 def _get_conversation_counts(user, channel=None):
-    """Helper to get conversation counts for the sidebar, optionally filtered by channel"""
+    """Helper to get conversation counts for the sidebar and filters"""
     base_qs = get_agent_conversations(user)
     
-    # Global channel counts (now showing only PENDING per user request)
-    whatsapp_pending_count = base_qs.filter(channel='whatsapp', status='pending').count()
-    email_pending_count = base_qs.filter(channel='email', status='pending').count()
+    # Counts for the sidebar (ONLY pending conversations as requested)
+    whatsapp_pending = base_qs.filter(channel='whatsapp', status='pending').count()
+    email_pending = base_qs.filter(channel='email', status='pending').count()
     
-    # Counts for status boxes (filtered by channel if provided)
-    status_qs = base_qs
+    # Filter base_qs if a channel is selected for the top filters
+    filter_qs = base_qs
     if channel and channel != 'multichannel':
-        status_qs = base_qs.filter(channel=channel)
+        filter_qs = filter_qs.filter(channel=channel)
     
     return {
-        'normal_count': status_qs.filter(status='normal').count(),
-        'pending_count': status_qs.filter(status='pending').count(),
-        'closed_count': status_qs.filter(status='closed').count(),
-        'total_count': status_qs.count(), # Nueva variable para el total según canal
-        'unread_count': status_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
-        'whatsapp_count': whatsapp_pending_count,
-        'email_count': email_pending_count,
-        'total_channel_count': whatsapp_pending_count + email_pending_count,
+        'normal_count': filter_qs.filter(status='normal').count(),
+        'pending_count': filter_qs.filter(status='pending').count(),
+        'closed_count': filter_qs.filter(status='closed').count(),
+        'unread_count': filter_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
+        'whatsapp_count': whatsapp_pending,
+        'email_count': email_pending,
+        'total_channel_count': whatsapp_pending + email_pending,
+        'current_filter_total': filter_qs.count(),
     }
 
 
