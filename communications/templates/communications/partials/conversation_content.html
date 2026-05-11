@@ -67,15 +67,186 @@
                 padding: 20px !important;
             }
 
-        /* Burbujas diferenciadas por canal */
+        /* --- ESTILOS VISTA AMPLIADA --- */
+        body .modal-dialog.custom-conversation-modal {
+            max-width: 98vw !important;
+            width: 98vw !important;
+            height: 98vh !important;
+            margin: 1vh auto !important;
+        }
+
+        body .modal-dialog.custom-conversation-modal .modal-content {
+            height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            border-radius: 12px !important;
+            border: none !important;
+            overflow: hidden !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+        }
+
+        /* Encabezado Profesional y Centrado */
+        body .modal-dialog.custom-conversation-modal .modal-header {
+            padding: 1rem 1.5rem !important;
+            background-color: #ffffff !important;
+            border-bottom: 1px solid #edf2f7 !important;
+            display: flex !important;
+            justify-content: center !important;
+            position: relative !important;
+        }
+
+        body .modal-dialog.custom-conversation-modal .modal-title {
+            background-color: #e3f2fd !important; /* Fondo celeste */
+            padding: 8px 30px !important;
+            border-radius: 12px !important;
+            font-size: 1.1rem !important;
+            font-weight: 700 !important;
+            color: #007bff !important;
+            border: 1px solid #c1d9f0 !important;
+            margin: 0 auto !important;
+            text-align: center !important;
+        }
+
+        body .modal-dialog.custom-conversation-modal .btn-close {
+            position: absolute !important;
+            right: 20px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            margin: 0 !important;
+        }
+
+        /* Área de Mensajes con Scroll */
+        body .modal-dialog.custom-conversation-modal .modal-body {
+            flex: 1 !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 0 !important;
+            background-color: #f7fafc !important;
+        }
+
+        #modalMessagesArea {
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 2rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1.5rem !important;
+        }
+
+        /* Alineación de Burbujas */
+        .omni-msg-row {
+            display: flex !important;
+            width: 100% !important;
+            margin-bottom: 20px !important;
+            gap: 12px !important;
+        }
+
+        /* Cliente (Inbound) -> IZQUIERDA */
+        .omni-msg-row.inbound {
+            flex-direction: row !important;
+            justify-content: flex-start !important;
+        }
+
+        /* Nosotros (Outbound) -> DERECHA */
+        .omni-msg-row.outbound {
+            flex-direction: row-reverse !important;
+            justify-content: flex-start !important;
+        }
+
+        .msg-content-wrapper {
+            max-width: 65% !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .inbound .msg-content-wrapper { align-items: flex-start !important; }
+        .outbound .msg-content-wrapper { align-items: flex-end !important; }
+
+        /* BURBUJAS CLIENTE (Izquierda) -> BLANCO PURO */
         .omni-msg-row.inbound .msg-bubble {
-            background-color: #f1f0f0 !important; /* WhatsApp inbound */
-            border: 1px solid #e0e0e0 !important;
+            background-color: #ffffff !important;
+            border: 1px solid #dee2e6 !important;
+            color: #1a202c !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
         }
+
+        /* Nosotros -> VERDE / CELESTE */
         .omni-msg-row.outbound .msg-bubble {
-            background-color: #dcf8c6 !important; /* WhatsApp outbound */
+            background-color: #dcf8c6 !important; /* Verde WhatsApp */
             border: 1px solid #c7e9b0 !important;
+            border-radius: 14px !important;
+            border-top-right-radius: 2px !important;
         }
+        .omni-msg-row.is-email.outbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Celeste Email */
+            border: 1px solid #c1d9f0 !important;
+        }
+
+        .omni-msg-row.outbound .msg-bubble {
+            background-color: #dcf8c6 !important; /* WhatsApp Verde */
+            border: 1px solid #c7e9b0 !important;
+            border-top-right-radius: 2px !important;
+        }
+
+        .omni-msg-row.is-email.outbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Email Celeste */
+            border: 1px solid #c1d9f0 !important;
+        }
+
+        /* Avatares alineados horizontalmente con la burbuja */
+        .msg-avatar {
+            width: 36px !important;
+            height: 36px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-weight: 700 !important;
+            font-size: 0.8rem !important;
+            color: #fff !important;
+            flex-shrink: 0 !important;
+            margin-top: 0 !important; /* Alineado al inicio de la burbuja */
+        }
+
+        /* Meta info en una sola línea debajo */
+        .message-meta {
+            font-size: 0.7rem !important;
+            color: #718096 !important;
+            margin-top: 4px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            white-space: nowrap !important;
+        }
+        
+        .msg-sender-name {
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            color: #a0aec0 !important;
+        }
+
+        .msg-status-delivered {
+            color: #3182ce !important;
+            font-weight: 600 !important;
+        }
+
+        .msg-action-buttons {
+            display: flex !important;
+            gap: 8px !important;
+            margin-left: 8px !important;
+        }
+        
+        .msg-action-btn {
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            color: #a0aec0 !important;
+            font-size: 0.85rem !important;
+            cursor: pointer !important;
+            transition: color 0.2s !important;
+        }
+        .msg-action-btn:hover { color: #4a5568 !important; }
         
         /* Estilos específicos para Email */
         .omni-msg-row.is-email.inbound .msg-bubble {
