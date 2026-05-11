@@ -59,13 +59,85 @@
                 padding: 0 !important;
             }
 
-            #modalMessagesArea {
+        #chatMessagesArea {
                 display: flex;
                 flex-direction: column;
                 height: 100%;
                 overflow-y: auto;
                 padding: 20px !important;
             }
+
+        /* Burbujas diferenciadas por canal */
+        .omni-msg-row.inbound .msg-bubble {
+            background-color: #f1f0f0 !important; /* WhatsApp inbound */
+            border: 1px solid #e0e0e0 !important;
+        }
+        .omni-msg-row.outbound .msg-bubble {
+            background-color: #dcf8c6 !important; /* WhatsApp outbound */
+            border: 1px solid #c7e9b0 !important;
+        }
+        
+        /* Estilos específicos para Email */
+        .omni-msg-row.is-email.inbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Celeste clarito */
+            border: 1px solid #c1d9f0 !important;
+        }
+        .omni-msg-row.is-email.outbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Celeste clarito */
+            border: 1px solid #c1d9f0 !important;
+        }
+
+        /* Ocultar header interno de la burbuja y forzarlo */
+        .msg-header, .omni-msg-row .msg-header {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Meta información (Hora + Remitente + Status + Acciones) en una sola línea compacta */
+        .message-meta {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+        .msg-sender-name {
+            color: #999;
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-left: 4px;
+        }
+        .msg-meta-divider {
+            margin: 0 4px;
+            color: #ccc;
+        }
+        .msg-status-delivered {
+            font-size: 0.65rem;
+            margin-left: 8px;
+            color: #007bff;
+        }
+        .msg-action-buttons {
+            display: flex;
+            gap: 6px;
+            margin-left: 10px;
+        }
+        .msg-action-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #888;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .msg-action-btn:hover {
+            color: #333;
+        }
          </style>
 
        <div class="d-flex justify-content-center my-2">
@@ -154,7 +226,7 @@
             </div>
 
             {% for m in messages %}
-            <div class="omni-msg-row {% if m.direction == 'outbound' %}outbound{% else %}inbound{% endif %}" data-message-id="{{ m.id }}">
+            <div class="omni-msg-row {% if m.direction == 'outbound' %}outbound{% else %}inbound{% endif %} {% if m.message_type == 'email' %}is-email{% endif %}" data-message-id="{{ m.id }}">
                 <div class="msg-select">
                     <input type="checkbox" class="form-check-input" onchange="toggleChatMessageSelection({{ m.id }}, this.checked)">
                 </div>
@@ -168,25 +240,6 @@
                 </div>
 
                 <div class="msg-content-wrapper">
-                    <div class="msg-header">
-                        <span class="fw-bold text-dark">
-                            {% if m.direction == 'inbound' %}
-                            {% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}
-                            {{ m.sender_name|default:conversation.contact.whatsapp_number }}{% endif %}
-                            {% else %}
-                            Tú
-                            {% endif %}
-                        </span>
-                        {% if m.message_type == 'whatsapp' %}
-                        <span class="ms-1 text-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
-                        
-                        {% else %}
-                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email</span>
-                        <span class="ms-1 text-muted" style="font-size: 0.65rem;">| Asunto: {{ conversation.subject|truncatechars:30 }}</span>
-                         
-                        {% endif %}
-                    </div>
-
                         <div class="msg-bubble text-break pt-1 d-inline-block text-start" onclick="onChatMessageClick(event, {{ m.id }})">
     
                                     {{ m.render_content|safe }}
@@ -320,31 +373,30 @@
                         {% endif %}
                     </div>
 
-                    <div class="message-meta d-flex justify-content-between align-items-center">
+                    <div class="message-meta">
                         <span>{{ m.created_at|time:"h:i A" }}</span>
-                        <div class="d-flex align-items-center">
-                            {% if m.direction == 'outbound' %}
-                            <span class="text-primary ms-2"><i class="fas fa-check-double"></i> Entregado</span>
+                        <span class="msg-meta-divider">-</span>
+                        <span class="msg-sender-name">
+                            {% if m.direction == 'inbound' %}
+                                {% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}{{ m.sender_name|default:conversation.contact.whatsapp_number }}{% endif %}
+                            {% else %}
+                                Tú
                             {% endif %}
-                            
-                            <!-- Botones de acción -->
-                            <div class="ms-2 d-flex gap-1">
-                                <!-- Botón de imprimir mensaje -->
-                                <button onclick="printMessage('{{ m.id }}')" 
-                                        class="btn btn-sm btn-outline-secondary" 
-                                        style="padding: 2px 6px; font-size: 11px; border-radius: 4px;"
-                                        title="Imprimir mensaje">
-                                    <i class="fas fa-print"></i>
-                                </button>
-                                
-                                <!-- Botón de descargar mensaje -->
-                                <button onclick="downloadMessage('{{ m.id }}', '{{ m.message_type }}')" 
-                                        class="btn btn-sm btn-outline-primary" 
-                                        style="padding: 2px 6px; font-size: 11px; border-radius: 4px;"
-                                        title="Descargar mensaje">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                            </div>
+                        </span>
+
+                        {% if m.direction == 'outbound' %}
+                        <span class="msg-status-delivered">
+                            <i class="fas fa-check-double"></i> Entregado
+                        </span>
+                        {% endif %}
+                        
+                        <div class="msg-action-buttons">
+                            <button onclick="printMessage('{{ m.id }}')" class="msg-action-btn" title="Imprimir">
+                                <i class="fas fa-print"></i>
+                            </button>
+                            <button onclick="downloadMessage('{{ m.id }}', '{{ m.message_type }}')" class="msg-action-btn" title="Descargar">
+                                <i class="fas fa-download"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
