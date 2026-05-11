@@ -709,15 +709,22 @@
 
                     <div class="bg-white p-2 rounded border mb-2">
                         <div id="emailFilePreview" class="mb-2"></div>
-                        <div class="mb-2 border-bottom pb-2">
-                            <input type="email" name="to_addresses"
-                                class="form-control form-control-sm border-0 px-0 mb-1" placeholder="Para"
-                                value="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
-                                required>
-                            <input type="text" name="subject" class="form-control form-control-sm border-0 px-0 fw-bold"
-                                placeholder="Asunto"
-                                value="{% if conversation.subject %}Re: {{ conversation.subject|truncatechars:30 }}{% endif %}" required>
-                                 
+                        <div class="mb-1 border-bottom pb-1 d-flex gap-2 align-items-center" style="line-height: 1;">
+                            <div style="flex: 0 0 30%;">
+                                <input type="email" name="to_addresses"
+                                    class="form-control form-control-sm border-0 px-0 py-0" 
+                                    style="font-size: 0.75rem; min-height: auto;"
+                                    placeholder="Para"
+                                    value="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
+                                    required>
+                            </div>
+                            <div class="flex-grow-1 border-start ps-2">
+                                <input type="text" name="subject" 
+                                    class="form-control form-control-sm border-0 px-0 py-0 fw-bold"
+                                    style="font-size: 0.75rem; min-height: auto;"
+                                    placeholder="Asunto"
+                                    value="{% if conversation.subject %}Re: {{ conversation.subject|truncatechars:30 }}{% endif %}" required>
+                            </div>
                         </div>
                         <div class="d-flex align-items-start">
                             
