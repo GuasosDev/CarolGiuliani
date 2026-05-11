@@ -21,7 +21,10 @@ from .permissions import IsAgentOrSupervisor, IsSupervisorOrAdmin, IsAssignedAge
 from ..whatsapp_handler import WhatsAppHandler
 from ..email_handler import EmailHandler
 from ..assignment_system import assign_conversation_to_agent, reassign_conversation
-
+from django.db import transaction
+from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
+from django.core.files.base import ContentFile
+from ..tasks import send_queued_email
 
 class ConversationViewSet(viewsets.ModelViewSet):
     """API endpoint for conversations"""
@@ -248,7 +251,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         html_body = request.data.get('html_body', '')
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
-        agent_name = request.user.get_full_name() or request.user.username
+       # agent_name = request.user.get_full_name() or request.user.username
         
         if conversation_id:
             try:
@@ -256,10 +259,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
             except Conversation.DoesNotExist:
                 pass
         
-        from django.db import transaction
-        from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
-        from django.core.files.base import ContentFile
-        from ..tasks import send_queued_email
+        
 
         try:
             with transaction.atomic():
