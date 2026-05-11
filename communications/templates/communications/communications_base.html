@@ -9,48 +9,48 @@
     <div class="d-flex align-items-center gap-2 pe-3 border-end">
         <!-- Todos / Inbox -->
         <a href="?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn p-1 position-relative d-flex align-items-center justify-content-center"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: {% if current_status == 'all' or not current_status %}#f0f7ff{% else %}#fff{% endif %}; border: {% if current_status == 'all' or not current_status %}2px solid #0d2142{% else %}1px solid #dee2e6{% endif %}; transition: all 0.2s;" title="Todos">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 26px; height: 26px; background-color: #0d2142;">
-                <i class="fas fa-list text-white" style="font-size: 0.75rem;"></i>
+           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'all' or not current_status %}border-primary{% endif %}"
+           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff;" title="Todos">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #0d2142;">
+                <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: -2px; right: 2px; font-size: 0.75rem; color: #333; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff;">
+            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
                 {{ current_filter_total }}
             </span>
         </a>
 
         <!-- Activos -->
         <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn p-1 position-relative d-flex align-items-center justify-content-center"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: {% if current_status == 'normal' %}#f0fdf4{% else %}#fff{% endif %}; border: {% if current_status == 'normal' %}2px solid #198754{% else %}1px solid #dee2e6{% endif %}; transition: all 0.2s;" title="Activos">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 26px; height: 26px; background-color: #198754;">
-                <i class="fas fa-check text-white" style="font-size: 0.75rem;"></i>
+           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'normal' %}border-primary{% endif %}"
+           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff;" title="Activos">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #198754;">
+                <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: -2px; right: 2px; font-size: 0.75rem; color: #333; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff;">
+            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
                 {{ normal_count }}
             </span>
         </a>
 
         <!-- Pendientes -->
         <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn p-1 position-relative d-flex align-items-center justify-content-center"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: {% if current_status == 'pending' %}#fffbeb{% else %}#fff{% endif %}; border: {% if current_status == 'pending' %}2px solid #ffc107{% else %}1px solid #dee2e6{% endif %}; transition: all 0.2s;" title="Pendientes">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 26px; height: 26px; background-color: #ffc107;">
-                <i class="fas fa-hourglass-half text-white" style="font-size: 0.75rem;"></i>
+           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'pending' %}border-primary{% endif %}"
+           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff; border-color: #6f42c1 !important; border-width: 1.5px !important;" title="Pendientes">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #ffc107;">
+                <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: -2px; right: 2px; font-size: 0.75rem; color: #333; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff;">
+            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
                 {{ pending_count }}
             </span>
         </a>
 
         <!-- Cerrados -->
         <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn p-1 position-relative d-flex align-items-center justify-content-center"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: {% if current_status == 'closed' %}#fef2f2{% else %}#fff{% endif %}; border: {% if current_status == 'closed' %}2px solid #dc3545{% else %}1px solid #dee2e6{% endif %}; transition: all 0.2s;" title="Cerrados">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 26px; height: 26px; background-color: #dc3545;">
-                <i class="fas fa-times text-white" style="font-size: 0.75rem;"></i>
+           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'closed' %}border-primary{% endif %}"
+           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff;" title="Cerrados">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #dc3545;">
+                <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: -2px; right: 2px; font-size: 0.75rem; color: #333; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff;">
+            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
                 {{ closed_count }}
             </span>
         </a>
@@ -76,6 +76,12 @@
 {% endblock %}
 
 {% block extra_css %}
+<style>
+    /* Ocultar barra de desplazamiento principal */
+    body {
+        overflow: hidden !important;
+    }
+</style>
 <link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
 {% block comm_css %}{% endblock %}
 {% endblock %}
@@ -107,68 +113,122 @@
     </div>
   </div>
 </div>
-<div class="comm-layout bg-light-subtle d-flex p-3 gap-3" style="height: calc(100vh - 140px); overflow: hidden;">
-    <div class="comm-sidebar-nav bg-white border rounded-4 shadow-sm h-100 overflow-hidden flex-shrink-0" style="width: 250px;">
-        <div class="px-4 py-3 mb-2 border-bottom bg-white">
-            <div class="d-flex align-items-center">
-                <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center"
-                    style="width: 40px; height: 40px;">
-                    <i class="fas fa-comment-dots fs-4 text-primary"></i>
-                </div>
-                <div>
-                    <h6 class="mb-0 fw-bold text-dark" style="font-size: 0.95rem;">Sistema Multicanal</h6>
-                    <small class="text-muted" style="font-size: 0.7rem;">WhatsApp Business + Email</small>
-                </div>
-            </div>
-        </div>
+<div class="comm-layout bg-light-subtle d-flex py-3 ps-2 pe-3 gap-2" style="height: calc(100vh - 140px); overflow: hidden;">
+    <!-- Compact Vertical Sidebar (Exact match to image) -->
+    <div class="comm-sidebar-nav bg-white border rounded-4 shadow-sm h-100 d-flex flex-column align-items-center py-3 flex-shrink-0" style="width: 100px; overflow-y: auto; scrollbar-width: none;">
+        <style>
+            .comm-sidebar-nav::-webkit-scrollbar { display: none; }
+            .sidebar-icon-btn {
+                width: 70px;
+                height: 70px;
+                border-radius: 15px;
+                border: 1px solid #dee2e6;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-decoration: none;
+                color: #6c757d;
+                margin-bottom: 15px;
+                position: relative;
+                transition: all 0.2s ease;
+                background-color: #fff;
+            }
+            .sidebar-icon-btn i { font-size: 1.5rem; margin-bottom: 4px; }
+            .sidebar-icon-btn span { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; }
+            .sidebar-icon-btn.active {
+                border-color: #0d6efd;
+                color: #0d6efd;
+                background-color: #f8fbff;
+                border-width: 2px;
+            }
+            .sidebar-icon-btn .sidebar-badge {
+                position: absolute;
+                top: 5px;
+                right: 8px;
+                font-size: 0.75rem;
+                font-weight: bold;
+                color: #333;
+            }
+            .sidebar-icon-btn:hover { background-color: #f8f9fa; border-color: #adb5bd; }
+            .sidebar-divider {
+                width: 40px;
+                height: 1px;
+                background-color: #eee;
+                margin: 10px 0 20px 0;
+            }
+        </style>
 
-        <div class="comm-nav-section mt-3">
-            <h6 class="comm-nav-title text-muted fw-bold small text-uppercase mb-2 px-2"
-                style="font-size:0.7rem; letter-spacing:0.5px;">CANALES</h6>
-            <a href="{% url 'communications:dashboard' %}?channel=whatsapp" class="comm-nav-link text-dark {% if current_channel == 'whatsapp' %}active-link{% endif %} d-flex justify-content-between align-items-center">
-                <span><i class="fab fa-whatsapp text-success me-2" style="font-size: 1.2rem;"></i> WhatsApp</span>
-                {% if whatsapp_count > 0 %}
-                <span class="badge rounded-pill bg-secondary">{{ whatsapp_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{% url 'communications:dashboard' %}?channel=email" class="comm-nav-link text-dark {% if current_channel == 'email' %}active-link{% endif %} d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-envelope-open-text text-primary me-2"></i> Email</span>
-                {% if email_count > 0 %}
-                <span class="badge rounded-pill bg-secondary">{{ email_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{% url 'communications:dashboard' %}?channel=multichannel" class="comm-nav-link text-dark {% if current_channel == 'multichannel' %}active-link{% endif %} d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-sync-alt text-info me-2"></i> Multicanal</span>
-                {% if total_channel_count > 0 %}
-                <span class="badge rounded-pill bg-danger">{{ total_channel_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{% url 'communications:internal_chat' %}" class="comm-nav-link text-dark {% if current_channel == 'internal' %}active-link{% endif %}">
-                <span><i class="fas fa-comments text-secondary me-2"></i> Interno</span>
-            </a>
-        </div>
+        <!-- WhatsApp -->
+        <a href="{% url 'communications:dashboard' %}?channel=whatsapp" 
+           class="sidebar-icon-btn {% if current_channel == 'whatsapp' %}active{% endif %}" title="WhatsApp">
+            <i class="fab fa-whatsapp" style="color: #25D366;"></i>
+            <span>WhatsApp</span>
+            {% if whatsapp_count > 0 %}
+            <span class="sidebar-badge">{{ whatsapp_count }}</span>
+            {% endif %}
+        </a>
 
-        <div class="comm-nav-section mt-4">
-            <h6 class="comm-nav-title text-muted fw-bold small text-uppercase mb-2 px-2"
-                style="font-size:0.7rem; letter-spacing:0.5px;">HERRAMIENTAS</h6>
-            <a href="{% url 'communications:quick_replies' %}" class="comm-nav-link text-dark {% if request.resolver_match.url_name|slice:':13' == 'quick_reply' %}active-link{% endif %}">
-                <i class="fas fa-bolt text-warning me-2"></i> Respuestas rápidas
-            </a>
-            <a href="{% url 'communications:welcome_menus' %}" class="comm-nav-link text-dark {% if 'welcome_menu' in request.resolver_match.url_name %}active-link{% endif %}">
-                <i class="fas fa-list-ul text-warning me-2"></i> Menú de Bienvenida
-            </a>
-            <a href="#" class="comm-nav-link text-dark">
-                <i class="fas fa-file-alt text-secondary me-2"></i> Plantillas
-            </a>
-            <a href="{% url 'client_tag_full_list' %}" class="comm-nav-link text-dark {% if 'tags' in request.path %}active-link{% endif %}">
-                <i class="fas fa-tags text-info me-2"></i> Etiquetas
-            </a>
-            <a href="#" class="comm-nav-link text-dark">
-                <i class="fas fa-chart-bar text-success me-2"></i> Reportes
-            </a>
-        </div>
+        <!-- Email -->
+        <a href="{% url 'communications:dashboard' %}?channel=email" 
+           class="sidebar-icon-btn {% if current_channel == 'email' %}active{% endif %}" title="Email">
+            <i class="fas fa-envelope" style="color: #0d6efd;"></i>
+            <span>Email</span>
+            {% if email_count > 0 %}
+            <span class="sidebar-badge">{{ email_count }}</span>
+            {% endif %}
+        </a>
 
+        <!-- Multicanal -->
+        <a href="{% url 'communications:dashboard' %}?channel=multichannel" 
+           class="sidebar-icon-btn {% if current_channel == 'multichannel' %}active{% endif %}" title="Multicanal">
+            <i class="fas fa-sync-alt" style="color: #0dcaf0;"></i>
+            <span>Multi</span>
+            {% if total_channel_count > 0 %}
+            <span class="sidebar-badge">{{ total_channel_count }}</span>
+            {% endif %}
+        </a>
+
+        <!-- Interno -->
+        <a href="{% url 'communications:internal_chat' %}" 
+           class="sidebar-icon-btn {% if current_channel == 'internal' %}active{% endif %}" title="Interno">
+            <i class="fas fa-comments" style="color: #6c757d;"></i>
+            <span>Interno</span>
+        </a>
+
+        <div class="sidebar-divider"></div>
+
+        <!-- Respuestas Rápidas -->
+        <a href="{% url 'communications:quick_replies' %}" class="sidebar-icon-btn" title="Respuestas Rápidas">
+            <i class="fas fa-bolt" style="color: #ffc107;"></i>
+            <span>Rápidas</span>
+        </a>
+
+        <!-- Bienvenida -->
+        <a href="{% url 'communications:welcome_menus' %}" class="sidebar-icon-btn" title="Menú de Bienvenida">
+            <i class="fas fa-list-ul" style="color: #ffc107;"></i>
+            <span>Bienvenida</span>
+        </a>
+
+        <!-- Plantillas -->
+        <a href="#" class="sidebar-icon-btn" title="Plantillas">
+            <i class="fas fa-file-alt" style="color: #6c757d;"></i>
+            <span>Plantillas</span>
+        </a>
+
+        <!-- Etiquetas -->
+        <a href="{% url 'client_tag_full_list' %}" class="sidebar-icon-btn" title="Etiquetas">
+            <i class="fas fa-tags" style="color: #0dcaf0;"></i>
+            <span>Etiquetas</span>
+        </a>
+
+        <!-- Reportes -->
+        <a href="#" class="sidebar-icon-btn" title="Reportes">
+            <i class="fas fa-chart-bar" style="color: #198754;"></i>
+            <span>Reportes</span>
+        </a>
     </div>
+
 
     <div class="comm-main-panel bg-light">
         {% block comm_content %}{% endblock %}
