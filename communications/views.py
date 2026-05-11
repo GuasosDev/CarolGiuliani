@@ -22,7 +22,7 @@ import csv
 import io
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote, EmailTemplate
 from .models import InternalChatMessage
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
@@ -44,7 +44,7 @@ def import_contacts_csv(request):
         csv_file = request.FILES['csv_file']
         if not csv_file.name.endswith('.csv'):
             messages.error(request, 'El archivo debe ser un CSV.')
-            return redirect('communications:import_contacts_csv')
+            return redirect('communications:dashboard')
 
         try:
             decoded_file = csv_file.read().decode('utf-8-sig')
@@ -75,32 +75,25 @@ def import_contacts_csv(request):
             for row in data_rows:
                 try:
                     if isinstance(row, dict):
-                        # It's a DictReader row with headers
                         name = row.get('nombre') or row.get('name')
                         email = row.get('email') or row.get('correo')
                         phone = row.get('telefono') or row.get('phone') or row.get('celular')
                         whatsapp = row.get('whatsapp') or phone
                         business_name = row.get('razon_social') or row.get('empresa')
                     else:
-                        # It's a raw list (no headers)
-                        # Expecting: martin,martinberon@gmail,3584117755,MPC
                         name = row[0] if len(row) > 0 else None
                         email = row[1] if len(row) > 1 else None
                         phone = row[2] if len(row) > 2 else None
                         whatsapp = phone
                         business_name = row[3] if len(row) > 3 else None
 
-                    if not name:
-                        continue
+                    if not name: continue
 
-                    # Basic cleaning
                     if name: name = name.strip()
                     if email: email = email.strip()
                     if phone: phone = str(phone).strip()
                     if business_name: business_name = business_name.strip()
 
-                    # Create or update Client
-                    # If email is invalid or missing, use a placeholder
                     final_email = email if (email and '@' in email) else f"imported_{uuid.uuid4().hex[:8]}@noemail.com"
                     
                     client, created = Client.objects.update_or_create(
@@ -112,7 +105,6 @@ def import_contacts_csv(request):
                         }
                     )
 
-                    # Create or update Contact in Communications
                     Contact.objects.update_or_create(
                         client=client,
                         defaults={
@@ -125,13 +117,14 @@ def import_contacts_csv(request):
                     logger.error(f"Error importing row {row}: {e}")
                     error_count += 1
 
-            messages.success(request, f'Importación completada: {success_count} contactos creados/actualizados. Errores: {error_count}.')
+            messages.success(request, f'Importación completada: {success_count} contactos. Errores: {error_count}.')
             return redirect('communications:dashboard')
 
         except Exception as e:
             messages.error(request, f'Error al procesar el archivo: {str(e)}')
-            return redirect('communications:import_contacts_csv')
+            return redirect('communications:dashboard')
 
+    # Si es una petición HTMX (para el modal), devolvemos el template de importación
     return render(request, 'communications/import_contacts.html')
 
 @login_required
@@ -200,7 +193,7 @@ def dashboard(request):
     else:
         # Default behavior (no channel filter)
         if not status_filter:
-            status_filter = 'normal' # Default status
+            status_filter = 'pending' # Cambiado de 'normal' a 'pending' por pedido del usuario
             
         if status_filter == 'inbox':
             # Inbox logic: Group by client
@@ -256,8 +249,8 @@ def dashboard(request):
     if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
         available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
     
-    # Get counts using helper
-    counts = _get_conversation_counts(request.user)
+    # Get counts using helper (now with channel awareness)
+    counts = _get_conversation_counts(request.user, channel=channel_filter)
     
     # Calculate percentages for donut chart
     whatsapp_count = counts['whatsapp_count']
@@ -293,21 +286,28 @@ def dashboard(request):
     return render(request, 'communications/dashboard.html', context)
 
 
-def _get_conversation_counts(user):
-    """Helper to get conversation counts for the sidebar"""
+def _get_conversation_counts(user, channel=None):
+    """Helper to get conversation counts for the sidebar, optionally filtered by channel"""
     base_qs = get_agent_conversations(user)
     
-    whatsapp_count = base_qs.filter(channel='whatsapp').count()
-    email_count = base_qs.filter(channel='email').count()
+    # Global channel counts (now showing only PENDING per user request)
+    whatsapp_pending_count = base_qs.filter(channel='whatsapp', status='pending').count()
+    email_pending_count = base_qs.filter(channel='email', status='pending').count()
+    
+    # Counts for status boxes (filtered by channel if provided)
+    status_qs = base_qs
+    if channel and channel != 'multichannel':
+        status_qs = base_qs.filter(channel=channel)
     
     return {
-        'normal_count': base_qs.filter(status='normal').count(),
-        'pending_count': base_qs.filter(status='pending').count(),
-        'closed_count': base_qs.filter(status='closed').count(),
-        'unread_count': base_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
-        'whatsapp_count': whatsapp_count,
-        'email_count': email_count,
-        'total_channel_count': whatsapp_count + email_count,
+        'normal_count': status_qs.filter(status='normal').count(),
+        'pending_count': status_qs.filter(status='pending').count(),
+        'closed_count': status_qs.filter(status='closed').count(),
+        'total_count': status_qs.count(), # Nueva variable para el total según canal
+        'unread_count': status_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
+        'whatsapp_count': whatsapp_pending_count,
+        'email_count': email_pending_count,
+        'total_channel_count': whatsapp_pending_count + email_pending_count,
     }
 
 
@@ -971,6 +971,46 @@ class ConversationReportView(LoginRequiredMixin, View):
             return render_pdf_view('communications/reports/conversation_pdf.html', context)
         
         return render(request, 'communications/report_modal.html', {'form': form})
+
+# ============================================================================
+# EMAIL TEMPLATE MANAGEMENT
+# ============================================================================
+
+class EmailTemplateListView(LoginRequiredMixin, ListView):
+    model = EmailTemplate
+    template_name = 'communications/email_templates/list.html'
+    context_object_name = 'templates'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            from django.contrib import messages
+            messages.error(request, 'No tenés permiso para acceder a esta sección.')
+            return redirect('communications:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return EmailTemplate.objects.all().order_by('-is_global', 'name')
+
+class EmailTemplateCreateView(LoginRequiredMixin, CreateView):
+    model = EmailTemplate
+    fields = ['name', 'description', 'subject_template', 'body_template', 'category', 'is_global']
+    template_name = 'communications/email_templates/form.html'
+    success_url = reverse_lazy('communications:email_templates')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+class EmailTemplateUpdateView(LoginRequiredMixin, UpdateView):
+    model = EmailTemplate
+    fields = ['name', 'description', 'subject_template', 'body_template', 'category', 'is_global']
+    template_name = 'communications/email_templates/form.html'
+    success_url = reverse_lazy('communications:email_templates')
+
+class EmailTemplateDeleteView(LoginRequiredMixin, DeleteView):
+    model = EmailTemplate
+    template_name = 'communications/email_templates/confirm_delete.html'
+    success_url = reverse_lazy('communications:email_templates')
 
 class QuickReplyDeleteView(LoginRequiredMixin, DeleteView):
     model = QuickReply
