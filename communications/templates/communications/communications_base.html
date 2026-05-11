@@ -4,24 +4,72 @@
 {% block title %}Comunicaciones{% endblock %}
 
 {% block navbar_tools %}
-<!-- Action Buttons Group -->
-<div class="btn-group me-3 shadow-sm">
-    <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
-        onclick="openModal()" class="btn btn-primary btn-sm px-3" style="border-top-left-radius: 20px; border-bottom-left-radius: 20px;">
-        <i class="fas fa-plus me-1"></i>
-        <span class="fw-bold" style="font-size: 0.8rem;">Nuevo</span>
-    </button>
-    <button hx-get="{% url 'communications:conversation_report' %}" hx-target="#modal-body"
-        hx-trigger="click" onclick="openModal()"
-        class="btn btn-light border btn-sm px-3">
-        <i class="fas fa-file-pdf me-1 text-danger"></i>
-        <span class="fw-bold" style="font-size: 0.8rem;">Reporte</span>
-    </button>
-    <a href="{% url 'communications:import_contacts_csv' %}"
-        class="btn btn-light border btn-sm px-3" style="border-top-right-radius: 20px; border-bottom-right-radius: 20px;">
-        <i class="fas fa-file-import me-1 text-info"></i>
-        <span class="fw-bold" style="font-size: 0.8rem;">Importar</span>
-    </a>
+<div class="d-flex align-items-center gap-3">
+    <!-- Status Filter Buttons (New) -->
+    <div class="d-flex align-items-center gap-2 pe-3 border-end">
+        <!-- Todos / Inbox -->
+        <a href="?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+           class="btn btn-outline-secondary btn-sm rounded-3 p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'all' or not current_status or current_status == 'normal' %}border-primary{% endif %}"
+           style="width: 38px; height: 38px;" title="Todos">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #003366;">
+                <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size: 0.6rem; transform: translate(25%, 25%);">
+                {{ total_channel_count }}
+            </span>
+        </a>
+
+        <!-- Activos -->
+        <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+           class="btn btn-outline-secondary btn-sm rounded-3 p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'normal' %}border-primary{% endif %}"
+           style="width: 38px; height: 38px;" title="Activos">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #198754;">
+                <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size: 0.6rem; transform: translate(25%, 25%);">
+                {{ normal_count }}
+            </span>
+        </a>
+
+        <!-- Pendientes -->
+        <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+           class="btn btn-outline-secondary btn-sm rounded-3 p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'pending' %}border-primary{% endif %}"
+           style="width: 38px; height: 38px;" title="Pendientes">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #ffc107;">
+                <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size: 0.6rem; transform: translate(25%, 25%);">
+                {{ pending_count }}
+            </span>
+        </a>
+
+        <!-- Cerrados -->
+        <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
+           class="btn btn-outline-secondary btn-sm rounded-3 p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'closed' %}border-primary{% endif %}"
+           style="width: 38px; height: 38px;" title="Cerrados">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #dc3545;">
+                <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size: 0.6rem; transform: translate(25%, 25%);">
+                {{ closed_count }}
+            </span>
+        </a>
+    </div>
+
+    <!-- Action Buttons Group -->
+    <div class="btn-group shadow-sm" style="border-radius: 20px; overflow: hidden;">
+        <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
+            onclick="openModal()" class="btn btn-primary btn-sm px-3" style="background-color: #6610f2; border: none;">
+            <i class="fas fa-plus me-1"></i>
+            <span class="fw-bold" style="font-size: 0.8rem;">Nuevo</span>
+        </button>
+        <button hx-get="{% url 'communications:conversation_report' %}" hx-target="#modal-body"
+            hx-trigger="click" onclick="openModal()"
+            class="btn btn-light border-start btn-sm px-3">
+            <i class="fas fa-file-pdf me-1 text-danger"></i>
+            <span class="fw-bold" style="font-size: 0.8rem;">Reporte</span>
+        </button>
+    </div>
 </div>
 {% endblock %}
 
