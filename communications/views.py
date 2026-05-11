@@ -13,7 +13,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.utils import timezone
 from django.template.loader import get_template
-from xhtml2pdf import pisa
+# from xhtml2pdf import pisa
 import json
 import logging
 import re
