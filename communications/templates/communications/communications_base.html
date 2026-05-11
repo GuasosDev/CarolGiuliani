@@ -5,56 +5,95 @@
 
 {% block navbar_tools %}
 <div class="d-flex align-items-center gap-3">
+    <style>
+        .filter-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            background-color: #fff !important;
+            border: 1px solid #dee2e6 !important;
+            position: relative;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0 !important;
+            transition: all 0.2s ease;
+            text-decoration: none !important;
+            overflow: hidden;
+            line-height: 0 !important;
+        }
+        .filter-btn.active {
+            border-color: #7c79ff !important;
+            border-width: 2px !important;
+            background-color: #f8f9ff !important;
+        }
+        .filter-btn .icon-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0;
+            margin: 0 !important;
+        }
+        .filter-btn .icon-circle i {
+            margin: 0 !important;
+            line-height: 1 !important;
+            display: block !important;
+            font-size: 0.9rem !important;
+        }
+        .filter-btn .filter-count {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #333;
+            line-height: 1;
+            z-index: 2;
+        }
+    </style>
+
     <!-- Status Filter Buttons (Exact match to image) -->
     <div class="d-flex align-items-center gap-2 pe-3 border-end">
         <!-- Todos / Inbox -->
         <a href="?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'all' or not current_status %}border-primary{% endif %}"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff;" title="Todos">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #0d2142;">
+           class="filter-btn {% if current_status == 'all' or not current_status %}active{% endif %}" title="Todos">
+            <div class="icon-circle" style="background-color: #0d2142;">
                 <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
-                {{ current_filter_total }}
-            </span>
+            <span class="filter-count">{{ current_filter_total }}</span>
         </a>
 
         <!-- Activos -->
         <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'normal' %}border-primary{% endif %}"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff;" title="Activos">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #198754;">
+           class="filter-btn {% if current_status == 'normal' %}active{% endif %}" title="Activos">
+            <div class="icon-circle" style="background-color: #198754;">
                 <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
-                {{ normal_count }}
-            </span>
+            <span class="filter-count">{{ normal_count }}</span>
         </a>
 
         <!-- Pendientes -->
         <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'pending' %}border-primary{% endif %}"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff; border-color: #6f42c1 !important; border-width: 1.5px !important;" title="Pendientes">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #ffc107;">
+           class="filter-btn {% if current_status == 'pending' %}active{% endif %}" title="Pendientes">
+            <div class="icon-circle" style="background-color: #ffc107;">
                 <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
-                {{ pending_count }}
-            </span>
+            <span class="filter-count">{{ pending_count }}</span>
         </a>
 
         <!-- Cerrados -->
         <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="btn btn-white border p-1 position-relative d-flex align-items-center justify-content-center {% if current_status == 'closed' %}border-primary{% endif %}"
-           style="width: 42px; height: 42px; border-radius: 10px; background-color: #fff;" title="Cerrados">
-            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background-color: #dc3545;">
+           class="filter-btn {% if current_status == 'closed' %}active{% endif %}" title="Cerrados">
+            <div class="icon-circle" style="background-color: #dc3545;">
                 <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
             </div>
-            <span class="position-absolute fw-bold" style="bottom: 2px; right: 4px; font-size: 0.7rem; color: #444;">
-                {{ closed_count }}
-            </span>
+            <span class="filter-count">{{ closed_count }}</span>
         </a>
     </div>
+
 
     <!-- Action Buttons Group (Exact match to image) -->
     <div class="d-flex align-items-center shadow-sm" style="border-radius: 25px; overflow: hidden; height: 45px; border: 1px solid #dee2e6;">

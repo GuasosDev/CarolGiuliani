@@ -290,9 +290,9 @@ def _get_conversation_counts(user, channel=None):
     """Helper to get conversation counts for the sidebar and filters"""
     base_qs = get_agent_conversations(user)
     
-    # Counts for the sidebar (always total)
-    whatsapp_total = base_qs.filter(channel='whatsapp').count()
-    email_total = base_qs.filter(channel='email').count()
+    # Counts for the sidebar (ONLY pending conversations as requested)
+    whatsapp_pending = base_qs.filter(channel='whatsapp', status='pending').count()
+    email_pending = base_qs.filter(channel='email', status='pending').count()
     
     # Filter base_qs if a channel is selected for the top filters
     filter_qs = base_qs
@@ -304,9 +304,9 @@ def _get_conversation_counts(user, channel=None):
         'pending_count': filter_qs.filter(status='pending').count(),
         'closed_count': filter_qs.filter(status='closed').count(),
         'unread_count': filter_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
-        'whatsapp_count': whatsapp_total,
-        'email_count': email_total,
-        'total_channel_count': whatsapp_total + email_total,
+        'whatsapp_count': whatsapp_pending,
+        'email_count': email_pending,
+        'total_channel_count': whatsapp_pending + email_pending,
         'current_filter_total': filter_qs.count(),
     }
 
