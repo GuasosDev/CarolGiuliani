@@ -23,7 +23,7 @@ import io
 from django.contrib import messages
 from django.contrib.auth.models import User
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote, EmailTemplate
-from .models import InternalChatMessage
+from .models import InternalChatMessage, InternalChatReadState
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
