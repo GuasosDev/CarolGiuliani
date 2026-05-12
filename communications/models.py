@@ -6,7 +6,6 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 import json
 
-
 # ============================================================================
 # CORE MODELS
 # ============================================================================
@@ -230,6 +229,8 @@ class Message(models.Model):
             'closed_at',
             'updated_at'
         ])
+
+    
 
 class InternalNote(models.Model):
     """Agent notes on conversations"""

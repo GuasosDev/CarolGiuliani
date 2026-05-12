@@ -51,6 +51,12 @@ urlpatterns = [
     path('welcome-menus/<int:pk>/edit/', WelcomeMenuUpdateView.as_view(), name='welcome_menu_edit'),
     path('welcome-menus/<int:pk>/delete/', WelcomeMenuDeleteView.as_view(), name='welcome_menu_delete'),
 
+    # Email Templates
+    path('email-templates/', views.EmailTemplateListView.as_view(), name='email_templates'),
+    path('email-templates/create/', views.EmailTemplateCreateView.as_view(), name='email_template_create'),
+    path('email-templates/<int:pk>/update/', views.EmailTemplateUpdateView.as_view(), name='email_template_update'),
+    path('email-templates/<int:pk>/delete/', views.EmailTemplateDeleteView.as_view(), name='email_template_delete'),
+
     # Conversation Transfer
     path('conversation/<int:pk>/transfer/', transfer_conversation, name='transfer_conversation'),
     path(
@@ -60,4 +66,5 @@ urlpatterns = [
     ),
 
     path('client/<int:client_id>/email/', open_client_email, name='open_client_email'),
+    path('contacts/import/', views.import_contacts_csv, name='import_contacts_csv'),
 ]

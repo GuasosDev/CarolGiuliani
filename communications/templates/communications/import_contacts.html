@@ -1,0 +1,150 @@
+<div class="modal-header border-0 pb-0 pt-3 px-4">
+    <div class="d-flex align-items-center w-100 py-1 px-3 rounded-pill shadow-sm" style="background-color: #128C7E;">
+        <h6 class="modal-title fw-bold mb-0 text-white flex-grow-1" style="font-size: 0.8rem; letter-spacing: 0.5px;">
+            <i class="fas fa-file-import me-2"></i> IMPORTAR CONTACTOS
+        </h6>
+        <button type="button" class="btn-close btn-close-white p-0" style="font-size: 0.6rem; opacity: 0.8;" onclick="closeModal()" aria-label="Close"></button>
+    </div>
+</div>
+
+<div class="modal-body p-0">
+    <!-- Paso 1: Subida -->
+    <div id="uploadStep" class="p-4">
+        <div class="upload-area border-2 border-dashed rounded-4 p-5 text-center bg-light cursor-pointer mb-3" id="dropZone" style="border-color: #dee2e6;">
+            <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-muted"></i>
+            <h5 class="text-dark fw-bold">Arrastra tu archivo CSV aquí</h5>
+            <p class="text-muted small">O haz clic para seleccionar desde tu computadora</p>
+            <input type="file" id="csv_file_input" class="d-none" accept=".csv">
+        </div>
+        
+        <div class="alert alert-light border shadow-sm rounded-3 mb-0">
+            <div class="d-flex small text-muted">
+                <i class="fas fa-info-circle mt-1 me-2 text-primary"></i>
+                <div>
+                    <strong>Recomendación:</strong> El sistema detectará automáticamente el separador y si el archivo tiene encabezados (Nombre, Email, Teléfono, Empresa).
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paso 2: Vista Previa -->
+    <div id="previewStep" class="d-none">
+        <div class="bg-white px-4 py-2 border-bottom d-flex justify-content-between align-items-center">
+            <span class="small fw-bold text-muted text-uppercase" style="letter-spacing: 0.5px;">Vista Previa de Importación</span>
+            <span class="badge bg-light text-dark border fw-normal" id="rowCountBadge">0 filas</span>
+        </div>
+        
+        <div class="table-responsive" style="max-height: 350px;">
+            <table class="table table-hover table-sm mb-0 table-bordered border-light" id="previewTable">
+                <thead class="table-light sticky-top">
+                    <tr id="tableHeader" class="small text-muted"></tr>
+                </thead>
+                <tbody id="tableBody" class="small"></tbody>
+            </table>
+        </div>
+
+        <div class="p-3 bg-white border-top">
+            <form method="post" action="{% url 'communications:import_contacts_csv' %}" enctype="multipart/form-data" id="finalForm">
+                {% csrf_token %}
+                <input type="file" name="csv_file" id="actual_file" class="d-none">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 flex-grow-1" onclick="resetUpload()">
+                        Cambiar
+                    </button>
+                    <button type="submit" class="btn btn-success rounded-pill px-4 flex-grow-1 fw-bold">
+                        Importar Ahora
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cursor-pointer { cursor: pointer; }
+    .border-dashed { border-style: dashed !important; }
+    .upload-area { transition: all 0.2s ease; border-width: 2px !important; }
+    .upload-area:hover { background-color: #f1f3f5 !important; border-color: #0d6efd !important; }
+    #previewTable th { font-weight: 700; background-color: #f8f9fa; padding: 8px; white-space: nowrap; }
+    #previewTable td { padding: 6px 8px; }
+</style>
+
+<script>
+    (function() {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('csv_file_input');
+        const actualFileInput = document.getElementById('actual_file');
+        const uploadStep = document.getElementById('uploadStep');
+        const previewStep = document.getElementById('previewStep');
+
+        if (!dropZone) return;
+
+        dropZone.onclick = () => fileInput.click();
+
+        fileInput.onchange = (e) => handleFiles(fileInput.files);
+
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('bg-primary', 'bg-opacity-10'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('bg-primary', 'bg-opacity-10'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('bg-primary', 'bg-opacity-10');
+            handleFiles(e.dataTransfer.files);
+        };
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            const file = files[0];
+            
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            actualFileInput.files = dataTransfer.files;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                processData(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        function processData(csvData) {
+            const lines = csvData.split(/\r?\n/).filter(line => line.trim() !== "");
+            if (lines.length === 0) return;
+
+            const firstLine = lines[0];
+            const delimiter = firstLine.includes(';') ? ';' : ',';
+            const headers = firstLine.split(delimiter).map(h => h.trim());
+            
+            const looksLikeHeaders = headers.some(h => ['nombre', 'name', 'email', 'telefono', 'phone'].includes(h.toLowerCase()));
+            
+            const defaultHeaders = ['Nombre', 'Email', 'Teléfono', 'Empresa'];
+            let displayHeaders = [];
+            let displayRows = [];
+
+            if (looksLikeHeaders) {
+                displayHeaders = headers;
+                displayRows = lines.slice(1, 11);
+            } else {
+                // Usar encabezados por defecto si no se detectan en el archivo
+                displayHeaders = headers.map((_, i) => defaultHeaders[i] || `Columna ${i + 1}`);
+                displayRows = lines.slice(0, 10);
+            }
+
+            document.getElementById('tableHeader').innerHTML = displayHeaders.map(h => `<th>${h}</th>`).join('');
+            document.getElementById('tableBody').innerHTML = displayRows.map(row => {
+                const cols = row.split(delimiter);
+                return `<tr>${cols.map(c => `<td>${c.trim()}</td>`).join('')}</tr>`;
+            }).join('');
+
+            document.getElementById('rowCountBadge').textContent = (lines.length - (looksLikeHeaders ? 1 : 0)) + " filas detectadas";
+            
+            uploadStep.classList.add('d-none');
+            previewStep.classList.remove('d-none');
+        }
+
+        window.resetUpload = function() {
+            uploadStep.classList.remove('d-none');
+            previewStep.classList.add('d-none');
+            fileInput.value = '';
+        };
+    })();
+</script>

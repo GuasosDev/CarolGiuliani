@@ -21,7 +21,10 @@ from .permissions import IsAgentOrSupervisor, IsSupervisorOrAdmin, IsAssignedAge
 from ..whatsapp_handler import WhatsAppHandler
 from ..email_handler import EmailHandler
 from ..assignment_system import assign_conversation_to_agent, reassign_conversation
-
+from django.db import transaction
+from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
+from django.core.files.base import ContentFile
+from ..tasks import send_queued_email
 
 class ConversationViewSet(viewsets.ModelViewSet):
     """API endpoint for conversations"""
@@ -169,6 +172,10 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         message_text = (request.data.get('message') or '').strip()
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
+        agent_name = request.user.get_full_name() or request.user.username
+
+# Agregar remitente
+        message_text += f"---Enviado por: {agent_name} "
         
         conversation = None
         if conversation_id:
@@ -244,18 +251,15 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         html_body = request.data.get('html_body', '')
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
+       # agent_name = request.user.get_full_name() or request.user.username
         
-        conversation = None
         if conversation_id:
             try:
                 conversation = Conversation.objects.get(id=conversation_id)
             except Conversation.DoesNotExist:
                 pass
         
-        from django.db import transaction
-        from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
-        from django.core.files.base import ContentFile
-        from ..tasks import send_queued_email
+        
 
         try:
             with transaction.atomic():
@@ -271,6 +275,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     message_type='email',
                     direction='outbound',
                     content=content,
+                    
                     sender_name=account.name,
                     metadata={'status': 'queued'}
                 )

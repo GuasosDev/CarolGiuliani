@@ -13,24 +13,119 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.utils import timezone
 from django.template.loader import get_template
-from xhtml2pdf import pisa
+# from xhtml2pdf import pisa
 import json
 import logging
 import re
 import uuid
-import os
-import mimetypes
+import csv
+import io
+from django.contrib import messages
 from django.contrib.auth.models import User
-from django.core.files.base import ContentFile
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote
-from .models import InternalChatMessage, InternalChatReadState
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote, EmailTemplate
+from .models import InternalChatMessage
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
 from core.views import GenericCreateView
 from django.db.models import Prefetch
+from .utils.html_cleaner import limpiar_email_html
+from django.http import JsonResponse
+
+
 logger = logging.getLogger(__name__)
+
+
+@login_required
+def import_contacts_csv(request):
+    """View to import contacts from a CSV file"""
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'El archivo debe ser un CSV.')
+            return redirect('communications:dashboard')
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8-sig')
+            io_string = io.StringIO(decoded_file)
+            
+            # Detect delimiter
+            content_snippet = decoded_file[:1024]
+            dialect_delimiter = ';' if content_snippet.count(';') > content_snippet.count(',') else ','
+            
+            reader = csv.DictReader(io_string, delimiter=dialect_delimiter)
+            
+            success_count = 0
+            error_count = 0
+
+            # Get field names to check if headers exist
+            fieldnames = reader.fieldnames
+            
+            # Helper to check if a row looks like it has headers
+            has_headers = any(f.lower() in ['nombre', 'name', 'email', 'correo', 'telefono', 'phone'] for f in (fieldnames or []))
+
+            if not has_headers:
+                io_string.seek(0)
+                raw_reader = csv.reader(io_string, delimiter=dialect_delimiter)
+                data_rows = list(raw_reader)
+            else:
+                data_rows = list(reader)
+
+            for row in data_rows:
+                try:
+                    if isinstance(row, dict):
+                        name = row.get('nombre') or row.get('name')
+                        email = row.get('email') or row.get('correo')
+                        phone = row.get('telefono') or row.get('phone') or row.get('celular')
+                        whatsapp = row.get('whatsapp') or phone
+                        business_name = row.get('razon_social') or row.get('empresa')
+                    else:
+                        name = row[0] if len(row) > 0 else None
+                        email = row[1] if len(row) > 1 else None
+                        phone = row[2] if len(row) > 2 else None
+                        whatsapp = phone
+                        business_name = row[3] if len(row) > 3 else None
+
+                    if not name: continue
+
+                    if name: name = name.strip()
+                    if email: email = email.strip()
+                    if phone: phone = str(phone).strip()
+                    if business_name: business_name = business_name.strip()
+
+                    final_email = email if (email and '@' in email) else f"imported_{uuid.uuid4().hex[:8]}@noemail.com"
+                    
+                    client, created = Client.objects.update_or_create(
+                        email=final_email,
+                        defaults={
+                            'name': name,
+                            'phone': phone,
+                            'business_name': business_name,
+                        }
+                    )
+
+                    Contact.objects.update_or_create(
+                        client=client,
+                        defaults={
+                            'whatsapp_number': whatsapp,
+                            'preferred_channel': 'whatsapp' if whatsapp else 'email'
+                        }
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"Error importing row {row}: {e}")
+                    error_count += 1
+
+            messages.success(request, f'Importación completada: {success_count} contactos. Errores: {error_count}.')
+            return redirect('communications:dashboard')
+
+        except Exception as e:
+            messages.error(request, f'Error al procesar el archivo: {str(e)}')
+            return redirect('communications:dashboard')
+
+    # Si es una petición HTMX (para el modal), devolvemos el template de importación
+    return render(request, 'communications/import_contacts.html')
 
 @login_required
 def add_conversation_note(request, conversation_id):
@@ -78,8 +173,8 @@ def dashboard(request):
     user_filter = request.GET.get('user')
     
     base_qs = get_agent_conversations(request.user).select_related(
-    "contact__client"
-).prefetch_related("messages")
+        "contact__client"
+    ).prefetch_related("messages")
     
     # Base filtering
     conversations = base_qs
@@ -87,6 +182,9 @@ def dashboard(request):
     # Filter by specific user (only for supervisors/admins)
     if user_filter and (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
         conversations = conversations.filter(assigned_to_id=user_filter)
+    
+    # Get counts using helper - pass channel filter to get contextual counts
+    counts = _get_conversation_counts(request.user, channel_filter)
     
     if channel_filter:
         if channel_filter != 'multichannel':
@@ -98,21 +196,18 @@ def dashboard(request):
     else:
         # Default behavior (no channel filter)
         if not status_filter:
-            status_filter = 'normal' # Default status
+            status_filter = 'pending' # Cambiado de 'normal' a 'pending' por pedido del usuario
             
         if status_filter == 'inbox':
             # Inbox logic: Group by client
-            # We want to show all conversations grouped by client
-            pass # Filtering handled below/separately
+            pass 
         elif status_filter == 'pending':
-            # Show all pending conversations
             conversations = conversations.filter(status='pending')
         elif status_filter == 'unread':
-            # Show conversations with unread inbound messages
            conversations = conversations.filter(
-    messages__direction='inbound',
-    messages__is_read=False
-).distinct()
+                messages__direction='inbound',
+                messages__is_read=False
+            ).distinct()
         elif status_filter != 'all':
             conversations = conversations.filter(status=status_filter)
         
@@ -139,9 +234,6 @@ def dashboard(request):
             
         # Sort groups by latest activity
         grouped_conversations.sort(key=lambda x: x['latest_update'] or '', reverse=True)
-        
-        # We don't use the main 'conversations' queryset for the list in this case
-        # But we keep it for other context if needed
     else:
         conversations = conversations.order_by('-updated_at')[:50]
         grouped_conversations = None
@@ -154,9 +246,6 @@ def dashboard(request):
     if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
         available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
     
-    # Get counts using helper
-    counts = _get_conversation_counts(request.user)
-    
     # Calculate percentages for donut chart
     whatsapp_count = counts['whatsapp_count']
     email_count = counts['email_count']
@@ -165,7 +254,6 @@ def dashboard(request):
     if total_channel_count > 0:
         whatsapp_percent = int((whatsapp_count / total_channel_count) * 100)
         email_percent = int((email_count / total_channel_count) * 100)
-        # Adjust so they sum to 100 if there's rounding error
         if whatsapp_percent + email_percent < 100:
             if whatsapp_count >= email_count:
                 whatsapp_percent += (100 - (whatsapp_percent + email_percent))
@@ -185,34 +273,34 @@ def dashboard(request):
         'current_user': user_filter,
         'available_users': available_users,
         'clients': clients,
-        **counts # Unpack counts into context
+        **counts 
     }
 
     return render(request, 'communications/dashboard.html', context)
 
 
-def _get_conversation_counts(user):
-    """Helper to get conversation counts for the sidebar"""
+def _get_conversation_counts(user, channel=None):
+    """Helper to get conversation counts for the sidebar and filters"""
     base_qs = get_agent_conversations(user)
     
-    whatsapp_count = base_qs.filter(channel='whatsapp').count()
-    email_count = base_qs.filter(channel='email').count()
-    read_state, _ = InternalChatReadState.objects.get_or_create(user=user)
-    last_read_at = read_state.last_read_at
-    internal_unread_count = InternalChatMessage.objects.exclude(author=user)
-    if last_read_at:
-        internal_unread_count = internal_unread_count.filter(created_at__gt=last_read_at)
-    internal_unread_count = internal_unread_count.count()
+    # Counts for the sidebar (ONLY pending conversations as requested)
+    whatsapp_pending = base_qs.filter(channel='whatsapp', status='pending').count()
+    email_pending = base_qs.filter(channel='email', status='pending').count()
+    
+    # Filter base_qs if a channel is selected for the top filters
+    filter_qs = base_qs
+    if channel and channel != 'multichannel':
+        filter_qs = filter_qs.filter(channel=channel)
     
     return {
-        'normal_count': base_qs.filter(status='normal').count(),
-        'pending_count': base_qs.filter(status='pending').count(),
-        'closed_count': base_qs.filter(status='closed').count(),
-        'unread_count': base_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
-        'whatsapp_count': whatsapp_count,
-        'email_count': email_count,
-        'total_channel_count': whatsapp_count + email_count,
-        'internal_unread_count': internal_unread_count,
+        'normal_count': filter_qs.filter(status='normal').count(),
+        'pending_count': filter_qs.filter(status='pending').count(),
+        'closed_count': filter_qs.filter(status='closed').count(),
+        'unread_count': filter_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
+        'whatsapp_count': whatsapp_pending,
+        'email_count': email_pending,
+        'total_channel_count': whatsapp_pending + email_pending,
+        'current_filter_total': filter_qs.count(),
     }
 
 
@@ -527,6 +615,14 @@ def conversation_detail(request, pk):
         conversation.messages.filter(direction='inbound', is_read=False).update(is_read=True, read_at=timezone.now())
     
         messages = conversation.messages.all().order_by('created_at')
+        
+        from .utils.html_cleaner import limpiar_email_html
+
+        for m in messages:
+            if conversation.channel == 'email':
+                m.render_content = limpiar_email_html(m.content)
+            else:
+                m.render_content = m.content
         notes = conversation.internal_notes.all()
         
         # Sidebar conversations (filtered by current conversation's status or default to normal)
@@ -894,6 +990,46 @@ class ConversationReportView(LoginRequiredMixin, View):
             return render_pdf_view('communications/reports/conversation_pdf.html', context)
         
         return render(request, 'communications/report_modal.html', {'form': form})
+
+# ============================================================================
+# EMAIL TEMPLATE MANAGEMENT
+# ============================================================================
+
+class EmailTemplateListView(LoginRequiredMixin, ListView):
+    model = EmailTemplate
+    template_name = 'communications/email_templates/list.html'
+    context_object_name = 'templates'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            from django.contrib import messages
+            messages.error(request, 'No tenés permiso para acceder a esta sección.')
+            return redirect('communications:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return EmailTemplate.objects.all().order_by('-is_global', 'name')
+
+class EmailTemplateCreateView(LoginRequiredMixin, CreateView):
+    model = EmailTemplate
+    fields = ['name', 'description', 'subject_template', 'body_template', 'category', 'is_global']
+    template_name = 'communications/email_templates/form.html'
+    success_url = reverse_lazy('communications:email_templates')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+class EmailTemplateUpdateView(LoginRequiredMixin, UpdateView):
+    model = EmailTemplate
+    fields = ['name', 'description', 'subject_template', 'body_template', 'category', 'is_global']
+    template_name = 'communications/email_templates/form.html'
+    success_url = reverse_lazy('communications:email_templates')
+
+class EmailTemplateDeleteView(LoginRequiredMixin, DeleteView):
+    model = EmailTemplate
+    template_name = 'communications/email_templates/confirm_delete.html'
+    success_url = reverse_lazy('communications:email_templates')
 
 class QuickReplyDeleteView(LoginRequiredMixin, DeleteView):
     model = QuickReply

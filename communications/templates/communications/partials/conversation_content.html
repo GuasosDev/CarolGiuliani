@@ -2,22 +2,345 @@
     style="min-height: 100%;">
   <!--Main Chat Workspace --> 
     <div class="omni-chat-main">
-        <div class="omni-chat-header bg-white py-3 px-3">
+        <style>
+        /* Corregir z-index del modal para que esté por encima del backdrop */
+        .modal {
+            z-index: 1060 !important;
+        }
+        .modal-backdrop {
+            z-index: 1055 !important;
+        }
+        .modal-backdrop.show {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .modal-dialog {
+            z-index: 1065 !important;
+            position: relative;
+        }
+        .modal-content {
+            z-index: 1070 !important;
+            position: relative;
+            background: white !important;
+        }
+        </style>
+        <style>
+            #modalMessagesArea {
+                background:
+                    linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.92)),
+                    url('/static/img/chat-bg.png');
+
+                background-size: cover;
+            }
+            .modal-fullscreen .modal-content {
+                border-radius: 0;
+            }
+        /* Selector ultra-específico para forzar el tamaño */
+            body .modal-dialog.custom-conversation-modal {
+                max-width: 94vw !important;
+                width: 94vw !important;
+                height: 90vh !important;
+                margin: 0 auto !important; /* Quitar margen para que no empuje el viewport */
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+            }
+
+            body .modal-dialog.custom-conversation-modal .modal-content {
+                height: 100% !important;
+                width: 100% !important;
+                border: none !important;
+                border-radius: 12px !important;
+                box-shadow: 0 10px 50px rgba(0,0,0,0.3) !important;
+                overflow: hidden !important; /* Asegurar que nada sobresalga */
+            }
+
+            body .modal-dialog.custom-conversation-modal .modal-body {
+                overflow: hidden !important;
+                height: calc(100% - 60px) !important;
+                padding: 0 !important;
+            }
+
+        #chatMessagesArea {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                overflow-y: auto;
+                padding: 20px !important;
+            }
+
+        /* --- ESTILOS VISTA AMPLIADA --- */
+        body .modal-dialog.custom-conversation-modal {
+            max-width: 98vw !important;
+            width: 98vw !important;
+            height: 98vh !important;
+            margin: 1vh auto !important;
+        }
+
+        body .modal-dialog.custom-conversation-modal .modal-content {
+            height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            border-radius: 12px !important;
+            border: none !important;
+            overflow: hidden !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+        }
+
+        /* Encabezado Profesional y Centrado */
+        body .modal-dialog.custom-conversation-modal .modal-header {
+            padding: 1rem 1.5rem !important;
+            background-color: #ffffff !important;
+            border-bottom: 1px solid #edf2f7 !important;
+            display: flex !important;
+            justify-content: center !important;
+            position: relative !important;
+        }
+
+        body .modal-dialog.custom-conversation-modal .modal-title {
+            background-color: #e3f2fd !important; /* Fondo celeste */
+            padding: 8px 30px !important;
+            border-radius: 12px !important;
+            font-size: 1.1rem !important;
+            font-weight: 700 !important;
+            color: #007bff !important;
+            border: 1px solid #c1d9f0 !important;
+            margin: 0 auto !important;
+            text-align: center !important;
+        }
+
+        body .modal-dialog.custom-conversation-modal .btn-close {
+            position: absolute !important;
+            right: 20px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            margin: 0 !important;
+        }
+
+        /* Área de Mensajes con Scroll */
+        body .modal-dialog.custom-conversation-modal .modal-body {
+            flex: 1 !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 0 !important;
+            background-color: #f7fafc !important;
+        }
+
+        #modalMessagesArea {
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 2rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1.5rem !important;
+        }
+
+        /* Alineación de Burbujas */
+        .omni-msg-row {
+            display: flex !important;
+            width: 100% !important;
+            margin-bottom: 20px !important;
+            gap: 12px !important;
+        }
+
+        /* Cliente (Inbound) -> IZQUIERDA */
+        .omni-msg-row.inbound {
+            flex-direction: row !important;
+            justify-content: flex-start !important;
+        }
+
+        /* Nosotros (Outbound) -> DERECHA */
+        .omni-msg-row.outbound {
+            flex-direction: row-reverse !important;
+            justify-content: flex-start !important;
+        }
+
+        .msg-content-wrapper {
+            max-width: 65% !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .inbound .msg-content-wrapper { align-items: flex-start !important; }
+        .outbound .msg-content-wrapper { align-items: flex-end !important; }
+
+        /* BURBUJAS CLIENTE (Izquierda) -> BLANCO PURO */
+        .omni-msg-row.inbound .msg-bubble {
+            background-color: #ffffff !important;
+            border: 1px solid #dee2e6 !important;
+            color: #1a202c !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+        }
+
+        /* Nosotros -> VERDE / CELESTE */
+        .omni-msg-row.outbound .msg-bubble {
+            background-color: #dcf8c6 !important; /* Verde WhatsApp */
+            border: 1px solid #c7e9b0 !important;
+            border-radius: 14px !important;
+            border-top-right-radius: 2px !important;
+        }
+        .omni-msg-row.is-email.outbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Celeste Email */
+            border: 1px solid #c1d9f0 !important;
+        }
+
+        .omni-msg-row.outbound .msg-bubble {
+            background-color: #dcf8c6 !important; /* WhatsApp Verde */
+            border: 1px solid #c7e9b0 !important;
+            border-top-right-radius: 2px !important;
+        }
+
+        .omni-msg-row.is-email.outbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Email Celeste */
+            border: 1px solid #c1d9f0 !important;
+        }
+
+        /* Avatares alineados horizontalmente con la burbuja */
+        .msg-avatar {
+            width: 36px !important;
+            height: 36px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-weight: 700 !important;
+            font-size: 0.8rem !important;
+            color: #fff !important;
+            flex-shrink: 0 !important;
+            margin-top: 0 !important; /* Alineado al inicio de la burbuja */
+        }
+
+        /* Meta info en una sola línea debajo */
+        .message-meta {
+            font-size: 0.7rem !important;
+            color: #718096 !important;
+            margin-top: 4px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            white-space: nowrap !important;
+        }
+        
+        .msg-sender-name {
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            color: #a0aec0 !important;
+        }
+
+        .msg-status-delivered {
+            color: #3182ce !important;
+            font-weight: 600 !important;
+        }
+
+        .msg-action-buttons {
+            display: flex !important;
+            gap: 8px !important;
+            margin-left: 8px !important;
+        }
+        
+        .msg-action-btn {
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            color: #a0aec0 !important;
+            font-size: 0.85rem !important;
+            cursor: pointer !important;
+            transition: color 0.2s !important;
+        }
+        .msg-action-btn:hover { color: #4a5568 !important; }
+        
+        /* Estilos específicos para Email */
+        .omni-msg-row.is-email.inbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Celeste clarito */
+            border: 1px solid #c1d9f0 !important;
+        }
+        .omni-msg-row.is-email.outbound .msg-bubble {
+            background-color: #e3f2fd !important; /* Celeste clarito */
+            border: 1px solid #c1d9f0 !important;
+        }
+
+        /* Ocultar header interno de la burbuja y forzarlo */
+        .msg-header, .omni-msg-row .msg-header {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Meta información (Hora + Remitente + Status + Acciones) en una sola línea compacta */
+        .message-meta {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+        .msg-sender-name {
+            color: #999;
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-left: 4px;
+        }
+        .msg-meta-divider {
+            margin: 0 4px;
+            color: #ccc;
+        }
+        .msg-status-delivered {
+            font-size: 0.65rem;
+            margin-left: 8px;
+            color: #007bff;
+        }
+        .msg-action-buttons {
+            display: flex;
+            gap: 6px;
+            margin-left: 10px;
+        }
+        .msg-action-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #888;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .msg-action-btn:hover {
+            color: #333;
+        }
+         </style>
+
+       <div class="omni-chat-header bg-white py-2 px-3 border-bottom d-flex align-items-center gap-3">
+            <!-- Botón Ampliar dinámico por canal -->
+            <button class="btn btn-sm rounded-pill px-3 shadow-sm flex-shrink-0"
+                   onclick="openConversationModal()"
+                   style="transition: all 0.3s ease; border: none; 
+                          background-color: {% if conversation.channel == 'whatsapp' %}#25D366{% else %}#3383FF{% endif %} !important; 
+                          color: white !important; font-size: 0.75rem;">
+               <i class="fas fa-expand-alt me-1"></i>
+               Ampliar
+            </button>
+
             <div class="d-flex align-items-center flex-grow-1" 
                  hx-get="{% url 'communications:contact_details_modal' conversation.id %}" 
                  hx-target="#modal-body" 
                  onclick="openModal()" 
                  style="cursor: pointer; min-width: 0;">
-                <div class="omni-avatar bg-secondary me-2" style="width: 40px; height: 40px; font-size: 1.1rem; flex-shrink: 0;">
+                <div class="omni-avatar bg-secondary me-2" style="width: 32px; height: 32px; font-size: 0.9rem; flex-shrink: 0;">
                     {{ conversation.get_display_name|make_list|first|upper }}
                 </div>
                 <div class="text-truncate">
-                    <h6 class="mb-0 fw-bold text-dark text-truncate">{{ conversation.get_display_name }}
-                        <span class="badge bg-light text-muted fw-normal ms-1" style="font-size: 0.75rem;">#{{ conversation.id }}</span>
+                    <h6 class="mb-0 fw-bold text-dark text-truncate" style="font-size: 0.9rem;">{{ conversation.get_display_name }}
+                        <span class="badge bg-light text-muted fw-normal ms-1" style="font-size: 0.65rem;">#{{ conversation.id }}</span>
                     </h6>
-                    <div class="small text-muted d-flex align-items-center" style="font-size: 0.8rem;">
-                        <span class="text-truncate me-3">
-                            <i class="fas fa-envelope me-1 text-primary"></i>{% if conversation.contact.client %}{{ conversation.contact.client.email|default:"Sin email" }}{% else %}Sin email{% endif %}
+                    <div class="small text-muted d-flex align-items-center" style="font-size: 0.75rem;">
+                        <span class="text-truncate me-2">
+                            <i class="fas fa-envelope me-1 text-primary"></i>{% if conversation.contact.client %}{{ conversation.contact.client.email|default:"-" }}{% else %}-{% endif %}
                         </span>
                         <span class="text-nowrap">
                             <i class="fas fa-phone me-1 text-success"></i>{{ conversation.contact.get_display_phone }}
@@ -79,7 +402,7 @@
             </div>
 
             {% for m in messages %}
-            <div class="omni-msg-row {% if m.direction == 'outbound' %}outbound{% else %}inbound{% endif %}" data-message-id="{{ m.id }}">
+            <div class="omni-msg-row {% if m.direction == 'outbound' %}outbound{% else %}inbound{% endif %} {% if m.message_type == 'email' %}is-email{% endif %}" data-message-id="{{ m.id }}">
                 <div class="msg-select">
                     <input type="checkbox" class="form-check-input" onchange="toggleChatMessageSelection({{ m.id }}, this.checked)">
                 </div>
@@ -93,88 +416,169 @@
                 </div>
 
                 <div class="msg-content-wrapper">
-                    <div class="msg-header">
-                        <span class="fw-bold text-dark">
-                            {% if m.direction == 'inbound' %}
-                            {% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}
-                            {{ m.sender_name|default:conversation.contact.whatsapp_number }}{% endif %}
-                            {% else %}
-                            Tú
-                            {% endif %}
-                        </span>
-                        {% if m.message_type == 'whatsapp' %}
-                        <span class="ms-1 text-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
-                        {% else %}
-                        <span class="ms-1 text-primary"><i class="fas fa-envelope"></i> Email </span><br>
-                        <span class="ms-1 text-primary"><i class="fas fa-tag"></i>Asunto:{{ conversation.subject }}</span>
-                        {% endif %}
-                    </div>
-
+                   {% if conversation.channel == "email" %}
+                        <small class="text-muted">
+                            Asunto: {{ conversation.subject|truncatechars:30 }}
+                        </small>
+                    {% endif %}
                         <div class="msg-bubble text-break pt-1 d-inline-block text-start" onclick="onChatMessageClick(event, {{ m.id }})">
     
-                                             {{ m.content|linebreaksbr }}
-
-                        <!-- 📎 ADJUNTOS WHATSAPP -->
+                                    {{ m.render_content|safe }}
+                                      
+                                                            
+                          
+                        <!-- 📎 ADJUNTOS WHATSAPP estilo Gmail -->
                         {% if m.file %}
-                            <div class="mt-2">
-                                
-                                {% if ".jpg" in m.file.url or ".png" in m.file.url or ".jpeg" in m.file.url %}
-                                    <img src="{{ m.file.url }}" style="max-width: 200px; border-radius: 8px;">
-                                
-                                {% elif ".mp3" in m.file.url or ".ogg" in m.file.url or ".opus" in m.file.url or ".m4a" in m.file.url or ".wav" in m.file.url or ".webm" in m.file.url %}
-                                    <audio controls>
-                                        <source src="{{ m.file.url }}">
-                                    </audio>
-                                    {% if m.metadata.transcription %}
-                                        <div class="mt-2 p-2 bg-light rounded small">
-                                            <strong>Transcripción:</strong> {{ m.metadata.transcription }}
+                            <div class="attachment-preview" style="display: inline-block; margin: 8px 8px 8px 0; vertical-align: top;">
+                                <div class="attachment-card" style="width: 200px; height: 120px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+                                    <!-- Vista previa del archivo (clickeable) -->
+                                    <div onclick="openAttachmentPreview('{{ m.file.url }}', '{{ m.file.name|default:m.file }}')" style="display: block; text-decoration: none; color: inherit; cursor: pointer;">
+                                        {% if ".jpg" in m.file.url or ".png" in m.file.url or ".jpeg" in m.file.url or ".gif" in m.file.url %}
+                                            <img src="{{ m.file.url }}" style="width: 100%; height: 80px; object-fit: cover; display: block; cursor: pointer;">
+                                        {% elif ".mp3" in m.file.url or ".ogg" in m.file.url or ".opus" in m.file.url or ".m4a" in m.file.url or ".wav" in m.file.url or ".webm" in m.file.url %}
+                                            <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                <i class="fas fa-file-audio" style="font-size: 2rem; color: #ff6b35;"></i>
+                                            </div>
+                                        {% elif ".mp4" in m.file.url %}
+                                            <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                <i class="fas fa-file-video" style="font-size: 2rem; color: #e74c3c;"></i>
+                                            </div>
+                                        {% elif ".pdf" in m.file.url %}
+                                            <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                <i class="fas fa-file-pdf" style="font-size: 2rem; color: #dc3545;"></i>
+                                            </div>
+                                        {% elif ".doc" in m.file.url or ".docx" in m.file.url %}
+                                            <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                <i class="fas fa-file-word" style="font-size: 2rem; color: #2b579a;"></i>
+                                            </div>
+                                        {% elif ".xls" in m.file.url or ".xlsx" in m.file.url %}
+                                            <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                <i class="fas fa-file-excel" style="font-size: 2rem; color: #217346;"></i>
+                                            </div>
+                                        {% else %}
+                                            <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                <i class="fas fa-file" style="font-size: 2rem; color: #6c757d;"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Nombre y botón de descargar -->
+                                    <div style="padding: 8px; height: 40px; display: flex; align-items: center; justify-content: space-between;">
+                                        <div style="flex: 1; min-width: 0; margin-right: 8px;">
+                                            <div style="font-size: 12px; font-weight: 500; color: #202124; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ m.file.name|default:m.file }}">
+                                                {{ m.file.name|default:m.file }}
+                                            </div>
+                                            <div style="font-size: 11px; color: #5f6368;">
+                                                {% if m.file.size %}{{ m.file.size|filesizeformat }}{% else %}Archivo{% endif %}
+                                            </div>
                                         </div>
-                                    {% elif m.metadata.transcription_status == "processing" %}
-                                        <div class="mt-2 text-muted small fst-italic">Transcribiendo audio...</div>
-                                    {% elif m.metadata.transcription_status == "queued" %}
-                                        <div class="mt-2 text-muted small fst-italic">Audio en cola para transcripción...</div>
-                                    {% elif m.metadata.transcription_status == "missing_api_key" %}
-                                        <div class="mt-2 text-danger small">Transcripción desactivada: falta configurar OPENAI_API_KEY en el worker.</div>
-                                    {% elif m.metadata.transcription_status == "error" %}
-                                        <div class="mt-2 text-danger small">No se pudo transcribir este audio.</div>
-                                    {% endif %}
-                                
-                                {% elif ".mp4" in m.file.url %}
-                                    <video controls width="250">
-                                        <source src="{{ m.file.url }}">
-                                    </video>
-                                
-                                {% else %}
-                                    <a href="{{ m.file.url }}" target="_blank" class="d-block mt-1"style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
-                                        <i class="fas fa-paperclip"></i>  {{ m.file }}
-                                    </a>
-                                
-                                {% endif %}
-                            
+                                        <a href="{{ m.file.url }}" download="{{ m.file.name|default:m.file }}" 
+                                           style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f1f3f4; border-radius: 50%; color: #5f6368; text-decoration: none; transition: all 0.2s;"
+                                           onmouseover="this.style.background='#e8eaed'; this.style.color='#202124';"
+                                           onmouseout="this.style.background='#f1f3f4'; this.style.color='#5f6368';"
+                                           title="Descargar archivo">
+                                            <i class="fas fa-download" style="font-size: 12px;"></i>
+                                           
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- Transcripciones de audio (se muestra debajo del adjunto) -->
+                            {% if ".mp3" in m.file.url or ".ogg" in m.file.url or ".opus" in m.file.url or ".m4a" in m.file.url or ".wav" in m.file.url or ".webm" in m.file.url %}
+                                {% if m.metadata.transcription %}
+                                    <div class="mt-2 p-2 bg-light rounded small" style="margin-left: 8px; max-width: 200px;">
+                                        <strong>Transcripción:</strong> {{ m.metadata.transcription }}
+                                    </div>
+                                {% elif m.metadata.transcription_status == "processing" %}
+                                    <div class="mt-2 text-muted small fst-italic" style="margin-left: 8px;">Transcribiendo audio...</div>
+                                {% elif m.metadata.transcription_status == "queued" %}
+                                    <div class="mt-2 text-muted small fst-italic" style="margin-left: 8px;">Audio en cola para transcripción...</div>
+                                {% elif m.metadata.transcription_status == "missing_api_key" %}
+                                    <div class="mt-2 text-danger small" style="margin-left: 8px;">Transcripción desactivada: falta configurar OPENAI_API_KEY en el worker.</div>
+                                {% elif m.metadata.transcription_status == "error" %}
+                                    <div class="mt-2 text-danger small" style="margin-left: 8px;">No se pudo transcribir este audio.</div>
+                                {% endif %}
+                            {% endif %}
                         {% endif %}
 
-                        <!-- 📎 ADJUNTOS EMAIL (ya lo tenías) -->
+                        <!-- 📎 ADJUNTOS EMAIL estilo Gmail -->
                         {% if m.email_data %}
                             {% for att in m.email_data.attachments.all %}
-                                <div style="display:flex; align-items:center; margin:5px 0; padding:6px; background:#f8f9fa; border-radius:6px;">
-                                    <i class="fas fa-paperclip me-2"></i>
-                                    <a href="{{ att.file.url }}" target="_blank">
-                                        {{ att.filename }}
-                                    </a>
-                                    <small class="ms-2 text-muted">
-                                        ({{ att.size|filesizeformat }})
-                                    </small>
+                                <div class="attachment-preview" style="display: inline-block; margin: 8px 8px 8px 0; vertical-align: top;">
+                                    <div class="attachment-card" style="width: 200px; height: 120px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+                                        <!-- Vista previa del archivo (clickeable) -->
+                                        <div onclick="openAttachmentPreview('{{ att.file.url }}', '{{ att.filename }}')" style="display: block; text-decoration: none; color: inherit; cursor: pointer;">
+                                            {% if ".jpg" in att.file.url or ".png" in att.file.url or ".jpeg" in att.file.url or ".gif" in att.file.url %}
+                                                <img src="{{ att.file.url }}" style="width: 100%; height: 80px; object-fit: cover; display: block; cursor: pointer;">
+                                            {% elif ".pdf" in att.file.url %}
+                                                <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                    <i class="fas fa-file-pdf" style="font-size: 2rem; color: #dc3545;"></i>
+                                                </div>
+                                            {% elif ".doc" in att.file.url or ".docx" in att.file.url %}
+                                                <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                    <i class="fas fa-file-word" style="font-size: 2rem; color: #2b579a;"></i>
+                                                </div>
+                                            {% elif ".xls" in att.file.url or ".xlsx" in att.file.url %}
+                                                <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                    <i class="fas fa-file-excel" style="font-size: 2rem; color: #217346;"></i>
+                                                </div>
+                                            {% else %}
+                                                <div style="width: 100%; height: 80px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                                    <i class="fas fa-file" style="font-size: 2rem; color: #6c757d;"></i>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Nombre y botón de descargar -->
+                                        <div style="padding: 8px; height: 40px; display: flex; align-items: center; justify-content: space-between;">
+                                            <div style="flex: 1; min-width: 0; margin-right: 8px;">
+                                                <div style="font-size: 12px; font-weight: 500; color: #202124; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ att.filename }}">
+                                                    {{ att.filename }}
+                                                </div>
+                                                <div style="font-size: 11px; color: #5f6368;">
+                                                    {{ att.size|filesizeformat }}
+                                                </div>
+                                            </div>
+                                            <a href="{{ att.file.url }}" download="{{ att.filename }}" 
+                                               style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f1f3f4; border-radius: 50%; color: #5f6368; text-decoration: none; transition: all 0.2s;"
+                                               onmouseover="this.style.background='#e8eaed'; this.style.color='#202124';"
+                                               onmouseout="this.style.background='#f1f3f4'; this.style.color='#5f6368';"
+                                               title="Descargar archivo">
+                                                <i class="fas fa-download" style="font-size: 12px;"></i>
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
                             {% endfor %}
                         {% endif %}
                     </div>
 
-                    <div class="message-meta d-flex justify-content-between">
+                    <div class="message-meta">
                         <span>{{ m.created_at|time:"h:i A" }}</span>
+                        <span class="msg-meta-divider">-</span>
+                        <span class="msg-sender-name">
+                            {% if m.direction == 'inbound' %}
+                                {% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}{{ m.sender_name|default:conversation.contact.whatsapp_number }}{% endif %}
+                            {% else %}
+                                Tú
+                            {% endif %}
+                        </span>
+
                         {% if m.direction == 'outbound' %}
-                        <span class="text-primary ms-2"><i class="fas fa-check-double"></i> Entregado</span>
+                        <span class="msg-status-delivered">
+                            <i class="fas fa-check-double"></i> Entregado
+                        </span>
                         {% endif %}
+                        
+                        <div class="msg-action-buttons">
+                            <button onclick="printMessage('{{ m.id }}')" class="msg-action-btn" title="Imprimir">
+                                <i class="fas fa-print"></i>
+                            </button>
+                            <button onclick="downloadMessage('{{ m.id }}', '{{ m.message_type }}')" class="msg-action-btn" title="Descargar">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -194,7 +598,7 @@
             
         </div>
 
-        <div class="omni-chat-input-area">
+        <div class="omni-chat-input-area p-2 border-top bg-white">
             <!-- Channel Selection Tabs -->
             <div class="chat-input-tools d-flex justify-content-between align-items-center mb-2">
                 <div class="d-flex gap-1 bg-light rounded-pill p-1">
@@ -314,14 +718,22 @@
 
                     <div class="bg-white p-2 rounded border mb-2">
                         <div id="emailFilePreview" class="mb-2"></div>
-                        <div class="mb-2 border-bottom pb-2">
-                            <input type="email" name="to_addresses"
-                                class="form-control form-control-sm border-0 px-0 mb-1" placeholder="Para"
-                                value="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
-                                required>
-                            <input type="text" name="subject" class="form-control form-control-sm border-0 px-0 fw-bold"
-                                placeholder="Asunto"
-                                value="{% if conversation.subject %}Re: {{ conversation.subject }}{% endif %}" required>
+                        <div class="mb-1 border-bottom pb-1 d-flex gap-2 align-items-center" style="line-height: 1;">
+                            <div style="flex: 0 0 30%;">
+                                <input type="email" name="to_addresses"
+                                    class="form-control form-control-sm border-0 px-0 py-0" 
+                                    style="font-size: 0.75rem; min-height: auto;"
+                                    placeholder="Para"
+                                    value="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
+                                    required>
+                            </div>
+                            <div class="flex-grow-1 border-start ps-2">
+                                <input type="text" name="subject" 
+                                    class="form-control form-control-sm border-0 px-0 py-0 fw-bold"
+                                    style="font-size: 0.75rem; min-height: auto;"
+                                    placeholder="Asunto"
+                                    value="{% if conversation.subject %}Re: {{ conversation.subject|truncatechars:30 }}{% endif %}" required>
+                            </div>
                         </div>
                         <div class="d-flex align-items-start">
                             
@@ -661,9 +1073,14 @@
                                         <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeEmailFile(${index})">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                                <div class="d-flex gap-1">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); openUploadPreview(document.getElementById('imageInputEmail').files[${index}], ${index})" title="Vista previa">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeEmailFile(${index})">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
                             `;
                         };
                         reader.readAsDataURL(file);
@@ -686,9 +1103,14 @@
                                     <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeEmailFile(${index})">
-                                <i class="fas fa-times"></i>
-                            </button>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); openUploadPreview(document.getElementById('imageInputEmail').files[${index}], ${index})" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeEmailFile(${index})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         `;
                     }
                     
@@ -706,8 +1128,20 @@
             function removeEmailFile(index) {
                 console.log('Eliminando archivo en índice:', index);
                 const input = document.getElementById('imageInputEmail');
+                
+                if (!input) {
+                    console.error('imageInputEmail not found');
+                    return;
+                }
+                
                 const dt = new DataTransfer();
                 const files = Array.from(input.files);
+                
+                // Validar que el índice exista
+                if (index < 0 || index >= files.length) {
+                    console.error('Invalid index:', index);
+                    return;
+                }
                 
                 // Agregar todos los archivos excepto el que se quiere eliminar
                 files.forEach((file, i) => {
@@ -749,9 +1183,14 @@
                                         <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                                <div class="d-flex gap-1">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); openUploadPreview(document.getElementById('imageInputWhatsapp').files[${index}], ${index})" title="Vista previa">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
                             `;
                         };
                         reader.readAsDataURL(file);
@@ -764,9 +1203,14 @@
                                     <div class="text-muted" style="font-size: 0.7rem;">${size}</div>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
-                                <i class="fas fa-times"></i>
-                            </button>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); openUploadPreview(document.getElementById('imageInputWhatsapp').files[${index}], ${index})" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWhatsappFile(${index})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         `;
                     }
 
@@ -775,9 +1219,21 @@
             }
             function removeWhatsappFile(index) {
                 const input = document.getElementById('imageInputWhatsapp');
+                
+                if (!input) {
+                    console.error('imageInputWhatsapp not found');
+                    return;
+                }
+                
                 const dt = new DataTransfer();
                 const files = Array.from(input.files);
-
+                
+                // Validar que el índice exista
+                if (index < 0 || index >= files.length) {
+                    console.error('Invalid index:', index);
+                    return;
+                }
+                
                 files.forEach((file, i) => {
                     if (i !== index) {
                         dt.items.add(file);
@@ -785,16 +1241,42 @@
                 });
 
                 input.files = dt.files;
-
+                
+                // Actualizar vista previa
                 if (input.files.length > 0) {
                     displayWhatsappFilePreview(input.files);
                 } else {
                     document.getElementById('whatsappFilePreview').innerHTML = '';
                 }
+                
+                // No limpiar el campo visual aquí - eso se hace solo al enviar
+                console.log('Archivo eliminado, quedan:', input.files.length);
             }
             function handleFileClick(index) {
                 const input = document.getElementById('imageInputEmail');
+                if (!input) {
+                    console.error('imageInputEmail not found');
+                    return;
+                }
+                
+                // Validar que input.files exista
+                if (!input.files || input.files.length === 0) {
+                    console.error('No files found in input');
+                    return;
+                }
+                
+                // Validar que el índice exista
+                if (index < 0 || index >= input.files.length) {
+                    console.error('Invalid index:', index);
+                    return;
+                }
+                
                 const file = input.files[index];
+                if (!file) {
+                    console.error('File not found at index:', index);
+                    return;
+                }
+                
                 console.log('Clic en archivo:', file.name);
                 
                 // Mostrar información del archivo
@@ -825,6 +1307,26 @@
                                 whatsappForm.dispatchEvent(new Event('submit'));
                             }
                         });
+
+                        // Soporte para pegar imágenes (Ctrl+V)
+                        waTextarea.addEventListener('paste', function(e) {
+                            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                            for (let index in items) {
+                                const item = items[index];
+                                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                                    const blob = item.getAsFile();
+                                    const file = new File([blob], `screenshot_${new Date().getTime()}.png`, {type: blob.type});
+                                    
+                                    const input = document.getElementById('imageInputWhatsapp');
+                                    const dt = new DataTransfer();
+                                    Array.from(input.files).forEach(f => dt.items.add(f));
+                                    dt.items.add(file);
+                                    input.files = dt.files;
+                                    
+                                    displayWhatsappFilePreview(input.files);
+                                }
+                            }
+                        });
                     }
                     whatsappForm.addEventListener('submit', function (e) {
                         e.preventDefault();
@@ -833,12 +1335,31 @@
                 }
 
                 if (emailForm) {
-                    const emailTextarea = emailForm.querySelector('textarea[name="body"]');
-                    if (emailTextarea) {
-                        emailTextarea.addEventListener('keydown', function(e) {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                emailForm.dispatchEvent(new Event('submit'));
+                    const emailBodyDiv = document.getElementById('emailBodyDiv');
+                    if (emailBodyDiv) {
+                        emailBodyDiv.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                                // No enviar en Enter para email, ya que es un div editable y Enter es común para párrafos
+                            }
+                        });
+
+                        // Soporte para pegar imágenes (Ctrl+V)
+                        emailBodyDiv.addEventListener('paste', function(e) {
+                            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                            for (let index in items) {
+                                const item = items[index];
+                                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                                    const blob = item.getAsFile();
+                                    const file = new File([blob], `screenshot_${new Date().getTime()}.png`, {type: blob.type});
+                                    
+                                    const input = document.getElementById('imageInputEmail');
+                                    const dt = new DataTransfer();
+                                    Array.from(input.files).forEach(f => dt.items.add(f));
+                                    dt.items.add(file);
+                                    input.files = dt.files;
+                                    
+                                    displayEmailFilePreview(input.files);
+                                }
                             }
                         });
                     }
@@ -1076,7 +1597,459 @@
                     })
                     .catch(err => console.error('Error refreshing messages:', err));
             }
+
+        // Función para imprimir un mensaje específico
+        function printMessage(messageId) {
+            console.log('Intentando imprimir mensaje:', messageId);
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageElement) {
+                console.error('Mensaje no encontrado:', messageId);
+                alert('No se pudo encontrar el mensaje para imprimir');
+                return;
+            }
+
+            // Extraer información del mensaje
+            const headerElement = messageElement.querySelector('.msg-header');
+            const contentElement = messageElement.querySelector('.msg-bubble');
+            
+            let headerText = '';
+            let contentText = '';
+            
+            if (headerElement) {
+                headerText = headerElement.textContent.trim();
+            }
+            
+            if (contentElement) {
+                // Limpiar el contenido, eliminando HTML pero preservando texto
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = contentElement.innerHTML;
+                contentText = tempDiv.textContent || tempDiv.innerText || '';
+                contentText = contentText.trim();
+            }
+            
+            // Crear una ventana de impresión
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            
+            // Crear HTML para imprimir
+            const printHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Mensaje #${messageId}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.5; }
+                        .header { font-weight: bold; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+                        .content { margin-bottom: 20px; white-space: pre-wrap; }
+                        .footer { font-size: 12px; color: #666; margin-top: 20px; }
+                        @media print { body { margin: 15px; } }
+                    </style>
+                </head>
+                <body>
+                    <h2>Mensaje #${messageId}</h2>
+                    <div class="header">${headerText}</div>
+                    <div class="content">${contentText}</div>
+                    <div class="footer">Impreso el ${new Date().toLocaleString()}</div>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Función para descargar un mensaje como archivo de texto
+        function downloadMessage(messageId, messageType) {
+            console.log('Intentando descargar mensaje:', messageId, messageType);
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageElement) {
+                console.error('Mensaje no encontrado:', messageId);
+                alert('No se pudo encontrar el mensaje para descargar');
+                return;
+            }
+
+            // Extraer el contenido del mensaje
+            const headerElement = messageElement.querySelector('.msg-header');
+            const contentElement = messageElement.querySelector('.msg-bubble');
+            
+            let messageText = `Mensaje #${messageId}\n`;
+            messageText += `Tipo: ${messageType}\n`;
+            messageText += `Fecha: ${new Date().toLocaleString()}\n`;
+            messageText += `${'='.repeat(50)}\n\n`;
+            
+            if (headerElement) {
+                messageText += headerElement.textContent.trim() + '\n\n';
+            }
+            
+            if (contentElement) {
+                // Limpiar el contenido, eliminando HTML pero preservando texto
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = contentElement.innerHTML;
+                const contentText = tempDiv.textContent || tempDiv.innerText || '';
+                messageText += contentText.trim();
+            }
+            
+            // Crear y descargar el archivo
+            try {
+                const blob = new Blob([messageText], { type: 'text/plain;charset=utf-8' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `mensaje_${messageId}_${messageType}_${new Date().getTime()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                console.log('Mensaje descargado exitosamente');
+            } catch (error) {
+                console.error('Error al descargar mensaje:', error);
+                alert('Error al descargar el mensaje');
+            }
+        }
+
+        // Función para abrir modal de vista previa de adjuntos
+        function openAttachmentPreview(fileUrl, fileName) {
+            const modal = document.getElementById('attachmentPreviewModal');
+            const fileNameElement = document.getElementById('attachmentFileName');
+            const previewContent = document.getElementById('attachmentPreviewContent');
+            const downloadLink = document.getElementById('attachmentDownloadLink');
+            
+            // Actualizar nombre del archivo
+            fileNameElement.textContent = fileName;
+            
+            // Actualizar link de descarga
+            downloadLink.href = fileUrl;
+            downloadLink.download = fileName;
+            
+            // Determinar tipo de archivo y mostrar vista previa
+            const fileExtension = fileName.split('.').pop().toLowerCase();
+            let previewHTML = '';
+            
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+                // Imagen
+                previewHTML = `
+                    <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                `;
+            } else if (['mp4', 'webm', 'ogg'].includes(fileExtension)) {
+                // Video
+                previewHTML = `
+                    <video controls style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <source src="${fileUrl}">
+                        Tu navegador no soporta la reproducción de video.
+                    </video>
+                `;
+            } else if (['mp3', 'wav', 'ogg', 'm4a', 'opus'].includes(fileExtension)) {
+                // Audio
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-audio" style="font-size: 4rem; color: #ff6b35; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <audio controls class="w-100">
+                            <source src="${fileUrl}">
+                            Tu navegador no soporta la reproducción de audio.
+                        </audio>
+                    </div>
+                `;
+            } else if (['pdf'].includes(fileExtension)) {
+                // PDF
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-pdf" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <p class="text-muted">Vista previa de PDF no disponible. Haz clic en "Descargar" para ver el archivo completo.</p>
+                    </div>
+                `;
+            } else {
+                // Otros archivos
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file" style="font-size: 4rem; color: #6c757d; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <p class="text-muted">Vista previa no disponible para este tipo de archivo. Haz clic en "Descargar" para ver el archivo.</p>
+                    </div>
+                `;
+            }
+            
+            previewContent.innerHTML = previewHTML;
+            
+            // Mostrar modal manualmente
+            modal.style.display = 'block';
+            modal.classList.add('show');
+            document.body.classList.add('modal-open');
+            
+            // Agregar backdrop
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
+            }
+        }
+
+        // Función para abrir modal de vista previa de adjuntos
+        function openAttachmentPreview(fileUrl, fileName) {
+            const modal = document.getElementById('attachmentPreviewModal');
+            const fileNameElement = document.getElementById('attachmentFileName');
+            const previewContent = document.getElementById('attachmentPreviewContent');
+            const downloadLink = document.getElementById('attachmentDownloadLink');
+            
+            // Actualizar nombre del archivo
+            fileNameElement.textContent = fileName;
+            
+            // Actualizar link de descarga
+            downloadLink.href = fileUrl;
+            downloadLink.download = fileName;
+            
+            // Determinar tipo de archivo y mostrar vista previa
+            const fileExtension = fileName.split('.').pop().toLowerCase();
+            let previewHTML = '';
+            
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+                // Imagen
+                previewHTML = `
+                    <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                `;
+            } else if (['mp4', 'webm', 'ogg'].includes(fileExtension)) {
+                // Video
+                previewHTML = `
+                    <video controls style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <source src="${fileUrl}">
+                        Tu navegador no soporta la reproducción de video.
+                    </video>
+                `;
+            } else if (['mp3', 'wav', 'ogg', 'm4a', 'opus'].includes(fileExtension)) {
+                // Audio
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-audio" style="font-size: 4rem; color: #ff6b35; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <audio controls class="w-100">
+                            <source src="${fileUrl}">
+                            Tu navegador no soporta la reproducción de audio.
+                        </audio>
+                    </div>
+                `;
+            } else if (['pdf'].includes(fileExtension)) {
+                // PDF
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-pdf" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <p class="text-muted">Vista previa de PDF no disponible. Haz clic en "Descargar" para ver el archivo completo.</p>
+                    </div>
+                `;
+            } else {
+                // Otros archivos
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file" style="font-size: 4rem; color: #6c757d; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <p class="text-muted">Vista previa no disponible para este tipo de archivo. Haz clic en "Descargar" para ver el archivo.</p>
+                    </div>
+                `;
+            }
+            
+            previewContent.innerHTML = previewHTML;
+            
+            // Eliminar cualquier backdrop existente
+            const existingBackdrop = document.querySelector('.modal-backdrop');
+            if (existingBackdrop) {
+                existingBackdrop.remove();
+            }
+            
+            // Mostrar modal usando Bootstrap
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+        }
+
+        // Función para cerrar modal
+        function closeAttachmentPreview() {
+            const modal = document.getElementById('attachmentPreviewModal');
+            if (modal) {
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            }
+        }
+
+        // Función para abrir modal de vista previa de adjuntos al enviar
+        function openUploadPreview(file, index) {
+            console.log('openUploadPreview called with file:', file, 'index:', index);
+            
+            // Validar que el archivo exista y no sea undefined
+            if (!file || typeof file === 'undefined') {
+                console.error('File is undefined or null');
+                return;
+            }
+            
+            const modal = document.getElementById('uploadPreviewModal');
+            const fileNameElement = document.getElementById('uploadPreviewFileName');
+            const previewContent = document.getElementById('uploadPreviewContent');
+            
+            if (!modal) {
+                console.error('uploadPreviewModal not found!');
+                return;
+            }
+            
+            if (!fileNameElement || !previewContent) {
+                console.error('Modal elements not found!');
+                return;
+            }
+            
+            // Guardar el índice del archivo para poder eliminarlo
+            window.currentUploadFileIndex = index;
+            
+            // Actualizar nombre del archivo
+            fileNameElement.textContent = file.name;
+            
+            // Determinar tipo de archivo y mostrar vista previa
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            let previewHTML = '';
+            
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+                // Imagen - crear URL para vista previa
+                const imageUrl = URL.createObjectURL(file);
+                previewHTML = `
+                    <img src="${imageUrl}" alt="${file.name}" style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                `;
+            } else if (['mp4', 'webm', 'ogg'].includes(fileExtension)) {
+                // Video - crear URL para vista previa
+                const videoUrl = URL.createObjectURL(file);
+                previewHTML = `
+                    <video controls style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <source src="${videoUrl}">
+                        Tu navegador no soporta la reproducción de video.
+                    </video>
+                `;
+            } else if (['mp3', 'wav', 'ogg', 'm4a', 'opus'].includes(fileExtension)) {
+                // Audio - crear URL para vista previa
+                const audioUrl = URL.createObjectURL(file);
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-audio" style="font-size: 4rem; color: #ff6b35; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${file.name}</h5>
+                        <p class="text-muted mb-3">Tamaño: ${formatFileSize(file.size)}</p>
+                        <audio controls class="w-100">
+                            <source src="${audioUrl}">
+                            Tu navegador no soporta la reproducción de audio.
+                        </audio>
+                    </div>
+                `;
+            } else if (['pdf'].includes(fileExtension)) {
+                // PDF
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-pdf" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${file.name}</h5>
+                        <p class="text-muted mb-3">Tamaño: ${formatFileSize(file.size)}</p>
+                        <p class="text-muted">Vista previa de PDF no disponible. Este archivo se enviará correctamente.</p>
+                    </div>
+                `;
+            } else {
+                // Otros archivos
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file" style="font-size: 4rem; color: #6c757d; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${file.name}</h5>
+                        <p class="text-muted mb-3">Tamaño: ${formatFileSize(file.size)}</p>
+                        <p class="text-muted">Vista previa no disponible para este tipo de archivo. Este archivo se enviará correctamente.</p>
+                    </div>
+                `;
+            }
+            
+            previewContent.innerHTML = previewHTML;
+            
+            // Mostrar modal usando Bootstrap
+            try {
+                const modalInstance = new bootstrap.Modal(modal);
+                modalInstance.show();
+                console.log('Modal should be shown now');
+            } catch (error) {
+                console.error('Error showing modal:', error);
+                // Fallback: mostrar manualmente
+                modal.style.display = 'block';
+                modal.classList.add('show');
+            }
+        }
+
+        // Función para cerrar modal de vista previa de adjuntos al enviar
+        function closeUploadPreview() {
+            const modal = document.getElementById('uploadPreviewModal');
+            if (modal) {
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            }
+        }
+
+        // Función para eliminar el archivo actual del upload
+        function removeUploadFile() {
+            if (window.currentUploadFileIndex !== undefined) {
+                const whatsappContainer = document.getElementById('channel-whatsapp');
+                const emailContainer = document.getElementById('channel-email');
+                
+                if (!whatsappContainer.classList.contains('d-none')) {
+                    // Es WhatsApp
+                    removeWhatsappFile(window.currentUploadFileIndex);
+                } else {
+                    // Es Email
+                    removeEmailFile(window.currentUploadFileIndex);
+                }
+                
+                closeUploadPreview();
+            }
+        }
         </script>
+    </div>
+</div>
+
+<!-- Modal de vista previa de adjuntos -->
+<div class="modal fade" id="attachmentPreviewModal" tabindex="-1" aria-labelledby="attachmentPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="attachmentPreviewModalLabel">
+                    <i class="fas fa-file me-2"></i>
+                    <span id="attachmentFileName">Vista previa de archivo</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center" id="attachmentPreviewContent">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <a href="#" id="attachmentDownloadLink" class="btn btn-primary" download>
+                    <i class="fas fa-download me-2"></i>Descargar
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de vista previa de adjuntos al enviar -->
+<div class="modal fade" id="uploadPreviewModal" tabindex="-1" aria-labelledby="uploadPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadPreviewModalLabel">
+                    <i class="fas fa-eye me-2"></i>
+                    <span id="uploadPreviewFileName">Vista previa del archivo</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center" id="uploadPreviewContent">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-danger" onclick="removeUploadFile()">
+                    <i class="fas fa-trash me-2"></i>Eliminar
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1346,4 +2319,66 @@ function openModal() {
 function closeModal() {
     document.getElementById("modal").style.display = "none";
 }
+</script>
+<div class="modal fade"
+     id="conversationModal"
+     tabindex="-1">
+
+    <div class="modal-dialog custom-conversation-modal">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Conversación ampliada
+                </h5>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <div class="modal-body p-0">
+
+                <div id="modalMessagesArea"
+                     class="p-3">
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+<script>
+
+function openConversationModal() {
+
+    const originalChat =
+        document.getElementById('chatMessagesArea');
+
+    const modalArea =
+        document.getElementById('modalMessagesArea');
+
+    if (!originalChat) {
+        console.error('NO EXISTE chatMessagesArea');
+        return;
+    }
+
+    if (!modalArea) {
+        console.error('NO EXISTE modalMessagesArea');
+        return;
+    }
+
+    modalArea.innerHTML = originalChat.innerHTML;
+
+    const modal =
+        new bootstrap.Modal(
+            document.getElementById('conversationModal')
+        );
+
+    modal.show();
+}
+
 </script>
