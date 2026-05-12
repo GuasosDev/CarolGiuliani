@@ -175,7 +175,7 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         agent_name = request.user.get_full_name() or request.user.username
 
 # Agregar remitente
-        message_text += f"\n\n—\n*{agent_name}* · _{account.name}_"
+        message_text += f"Enviado por: {agent_name} "
         
         conversation = None
         if conversation_id:
@@ -275,7 +275,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     message_type='email',
                     direction='outbound',
                     content=content,
-                    sender=request.user,
+                    
                     sender_name=account.name,
                     metadata={'status': 'queued'}
                 )

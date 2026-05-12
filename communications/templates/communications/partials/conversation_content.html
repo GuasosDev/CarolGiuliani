@@ -416,6 +416,11 @@
                 </div>
 
                 <div class="msg-content-wrapper">
+                   {% if conversation.channel == "email" %}
+                        <small class="text-muted">
+                            Asunto: {{ conversation.subject|truncatechars:30 }}
+                        </small>
+                    {% endif %}
                         <div class="msg-bubble text-break pt-1 d-inline-block text-start" onclick="onChatMessageClick(event, {{ m.id }})">
     
                                     {{ m.render_content|safe }}
@@ -757,7 +762,11 @@
         </div>
         <script>
             document.getElementById('imageInputWhatsapp')?.addEventListener('change', function () {
-                if (this.files.length > 0) displayWhatsappFilePreview(this.files);
+                const files = this.files;
+
+                if (files.length > 0) {
+                    displayWhatsappFilePreview(files);
+                }
             });
 
             document.getElementById('imageInputEmail')?.addEventListener('change', function () {
@@ -800,14 +809,16 @@
                 }
             }); 
         </script>
-
         <script>
             function openFileSelector() {
-                const wa = document.getElementById('channel-whatsapp');
-                const isWa = wa && !wa.classList.contains('d-none');
-                const inputId = isWa ? 'imageInputWhatsapp' : 'imageInputEmail';
-                const input = document.getElementById(inputId);
-                if (input) input.click();
+                const whatsappContainer = document.getElementById('channel-whatsapp');
+                const emailContainer = document.getElementById('channel-email');
+
+                if (!whatsappContainer.classList.contains('d-none')) {
+                    document.getElementById('imageInputWhatsapp').click();
+                } else {
+                    document.getElementById('imageInputEmail').click();
+                }
             }
 
             (function () {
@@ -1283,83 +1294,9 @@
             
             // Handle form submissions
             // In HTMX partials, we don't need DOMContentLoaded as elements are already inserted
-            function isWhatsappChannelActive() {
-                const whatsappContainer = document.getElementById('channel-whatsapp');
-                return whatsappContainer && !whatsappContainer.classList.contains('d-none');
-            }
-
-            function setMicButtonRecording(isRecording) {
-                const btn = document.getElementById('whatsappMicBtn');
-                if (!btn) return;
-                btn.innerHTML = isRecording ? '<i class="fas fa-stop-circle text-danger"></i>' : '<i class="fas fa-microphone"></i>';
-            }
-
-            async function toggleWhatsappVoiceRecording() {
-                if (!isWhatsappChannelActive()) return alert('Selecciona el canal WhatsApp.');
-                const state = window.whatsappVoiceState;
-                if (!state) return;
-                if (state.recording) { stopWhatsappVoiceRecording(); return; }
-                if (!navigator.mediaDevices?.getUserMedia) return alert('Tu navegador no soporta grabación.');
-
-                clearWhatsappVoiceNote();
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    state.stream = stream;
-                    const preferredMimeTypes = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/mp4'];
-                    let selectedMime = preferredMimeTypes.find(mt => MediaRecorder.isTypeSupported?.(mt)) || '';
-                    const recorder = new MediaRecorder(stream, selectedMime ? { mimeType: selectedMime } : {});
-                    state.recorder = recorder;
-                    state.mimeType = recorder.mimeType || selectedMime;
-                    state.chunks = [];
-                    state.recording = true;
-                    setMicButtonRecording(true);
-
-                    recorder.ondataavailable = e => { if (e.data.size > 0) state.chunks.push(e.data); };
-                    recorder.onstop = () => {
-                        state.recording = false;
-                        setMicButtonRecording(false);
-                        state.stream?.getTracks().forEach(t => t.stop());
-                        state.blob = new Blob(state.chunks, { type: state.mimeType || 'audio/ogg' });
-                        state.url = URL.createObjectURL(state.blob);
-                        renderWhatsappVoicePreview();
-                    };
-                    recorder.start();
-                } catch (e) { alert('Error al acceder al micrófono.'); }
-            }
-
-            function stopWhatsappVoiceRecording() {
-                if (window.whatsappVoiceState?.recorder?.state !== 'inactive') window.whatsappVoiceState.recorder.stop();
-            }
-
-            function renderWhatsappVoicePreview() {
-                const state = window.whatsappVoiceState;
-                const el = document.getElementById('whatsappVoicePreview');
-                if (!state?.url || !el) return;
-                el.classList.remove('d-none');
-                el.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded">
-                        <audio controls style="max-width: 260px;"><source src="${state.url}"></audio>
-                        <div class="d-flex gap-2 ms-2">
-                            <button type="button" class="btn btn-sm btn-success" onclick="sendWhatsappVoiceNote()"><i class="fas fa-paper-plane"></i></button>
-                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearWhatsappVoiceNote()"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>`;
-            }
-
-            function clearWhatsappVoiceNote() {
-                const state = window.whatsappVoiceState;
-                if (!state) return;
-                if (state.url) URL.revokeObjectURL(state.url);
-                state.blob = null; state.url = null; state.chunks = [];
-                const el = document.getElementById('whatsappVoicePreview');
-                if (el) { el.innerHTML = ''; el.classList.add('d-none'); }
-            }
-
-            function sendWhatsappVoiceNote() {
-                const form = document.getElementById('whatsappForm');
-                if (form) sendMessage(form, 'whatsapp');
-            }
-        
+            (function () {
+                const whatsappForm = document.getElementById('whatsappForm');
+                const emailForm = document.getElementById('emailForm');
 
                 if (whatsappForm) {
                     const waTextarea = whatsappForm.querySelector('textarea[name="message"]');
@@ -1661,159 +1598,194 @@
                     .catch(err => console.error('Error refreshing messages:', err));
             }
 
-            function printMessage(messageId) {
-                const msg = document.querySelector(`[data-message-id="${messageId}"]`);
-                if (!msg) return alert('No se encontró el mensaje');
+        // Función para imprimir un mensaje específico
+        function printMessage(messageId) {
+            console.log('Intentando imprimir mensaje:', messageId);
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageElement) {
+                console.error('Mensaje no encontrado:', messageId);
+                alert('No se pudo encontrar el mensaje para imprimir');
+                return;
+            }
 
-                const header = msg.querySelector('.msg-header')?.innerText.trim() || '';
-                const bubble = msg.querySelector('.msg-bubble');
-                const html = bubble ? bubble.innerHTML : '';
-                
-                const win = window.open('', '_blank', 'width=800,height=600');
-                if (!win) return alert('Habilita las ventanas emergentes');
-
-                win.document.write(`
-                    <html>
-                    <head><title>Imprimir</title>
+            // Extraer información del mensaje
+            const headerElement = messageElement.querySelector('.msg-header');
+            const contentElement = messageElement.querySelector('.msg-bubble');
+            
+            let headerText = '';
+            let contentText = '';
+            
+            if (headerElement) {
+                headerText = headerElement.textContent.trim();
+            }
+            
+            if (contentElement) {
+                // Limpiar el contenido, eliminando HTML pero preservando texto
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = contentElement.innerHTML;
+                contentText = tempDiv.textContent || tempDiv.innerText || '';
+                contentText = contentText.trim();
+            }
+            
+            // Crear una ventana de impresión
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            
+            // Crear HTML para imprimir
+            const printHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Mensaje #${messageId}</title>
                     <style>
-                        body { font-family: sans-serif; padding: 20px; }
-                        .header { background: #f8f9fa; padding: 10px; border-left: 5px solid #3383FF; margin-bottom: 20px; font-weight: bold; }
-                        img { max-width: 100%; height: auto; border-radius: 8px; }
+                        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.5; }
+                        .header { font-weight: bold; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+                        .content { margin-bottom: 20px; white-space: pre-wrap; }
+                        .footer { font-size: 12px; color: #666; margin-top: 20px; }
+                        @media print { body { margin: 15px; } }
                     </style>
-                    </head>
-                    <body>
-                        <div class="header">${header}</div>
-                        <div class="content">${html}</div>
-                        <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</` + `script>
-                    </body></html>`);
-                win.document.close();
+                </head>
+                <body>
+                    <h2>Mensaje #${messageId}</h2>
+                    <div class="header">${headerText}</div>
+                    <div class="content">${contentText}</div>
+                    <div class="footer">Impreso el ${new Date().toLocaleString()}</div>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Función para descargar un mensaje como archivo de texto
+        function downloadMessage(messageId, messageType) {
+            console.log('Intentando descargar mensaje:', messageId, messageType);
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageElement) {
+                console.error('Mensaje no encontrado:', messageId);
+                alert('No se pudo encontrar el mensaje para descargar');
+                return;
             }
-        
-                let headerText = '';
-                let contentHTML = '';
-                let attachmentsHTML = '';
 
-                if (headerElement) {
-                    headerText = headerElement.textContent.trim();
-                }
+            // Extraer el contenido del mensaje
+            const headerElement = messageElement.querySelector('.msg-header');
+            const contentElement = messageElement.querySelector('.msg-bubble');
+            
+            let messageText = `Mensaje #${messageId}\n`;
+            messageText += `Tipo: ${messageType}\n`;
+            messageText += `Fecha: ${new Date().toLocaleString()}\n`;
+            messageText += `${'='.repeat(50)}\n\n`;
+            
+            if (headerElement) {
+                messageText += headerElement.textContent.trim() + '\n\n';
+            }
+            
+            if (contentElement) {
+                // Limpiar el contenido, eliminando HTML pero preservando texto
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = contentElement.innerHTML;
+                const contentText = tempDiv.textContent || tempDiv.innerText || '';
+                messageText += contentText.trim();
+            }
+            
+            // Crear y descargar el archivo
+            try {
+                const blob = new Blob([messageText], { type: 'text/plain;charset=utf-8' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `mensaje_${messageId}_${messageType}_${new Date().getTime()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                console.log('Mensaje descargado exitosamente');
+            } catch (error) {
+                console.error('Error al descargar mensaje:', error);
+                alert('Error al descargar el mensaje');
+            }
+        }
 
-                if (contentElement) {
-                    // Preservar HTML para que las imágenes se vean
-                    contentHTML = contentElement.innerHTML;
-                }
-
-                if (attachmentsElement) {
-                    // Clonar adjuntos para la impresión
-                    const clone = attachmentsElement.cloneNode(true);
-                    // Asegurar que las imágenes en adjuntos se vean
-                    clone.querySelectorAll('img').forEach(img => {
-                        img.style.maxWidth = '300px';
-                        img.style.height = 'auto';
-                    });
-                    attachmentsHTML = clone.outerHTML;
-                }
-
-                // Crear una ventana de impresión
-                const printWindow = window.open('', '_blank', 'width=800,height=600');
-                if (!printWindow) {
-                    alert('No se pudo abrir la ventana de impresión. Verifica si el navegador bloqueó las ventanas emergentes.');
-                    return;
-                }
-
-                // Crear HTML para imprimir
-                const printHTML = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>Mensaje #${messageId}</title>
-                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-                        <style>
-                            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.5; color: #333; }
-                            .header { font-weight: bold; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; border-left: 5px solid #3383FF; }
-                            .content { margin-bottom: 20px; }
-                            .content img { max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0; }
-                            .attachments { margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
-                            .attachment-card { border: 1px solid #ddd; border-radius: 8px; padding: 10px; display: inline-block; width: 250px; }
-                            .footer { font-size: 12px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px; }
-                            @media print {
-                                body { margin: 15px; }
-                                .no-print { display: none; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <h2>Detalle de Mensaje</h2>
-                        <div class="header">${headerText}</div>
-                        <div class="content">${contentHTML}</div>
-                        ${attachmentsHTML ? `<div class="attachments"><strong>Adjuntos:</strong><br>${attachmentsHTML}</div>` : ''}
-                        <div class="footer">Impreso desde CarolGiuliani - ${new Date().toLocaleString()}</div>
-                        <script>
-                            window.onload = function() {
-                                setTimeout(function() {
-                                    window.print();
-                                }, 500);
-                            };
-                        <\/script>
-                    </body>
-                    </html>
+        // Función para abrir modal de vista previa de adjuntos
+        function openAttachmentPreview(fileUrl, fileName) {
+            const modal = document.getElementById('attachmentPreviewModal');
+            const fileNameElement = document.getElementById('attachmentFileName');
+            const previewContent = document.getElementById('attachmentPreviewContent');
+            const downloadLink = document.getElementById('attachmentDownloadLink');
+            
+            // Actualizar nombre del archivo
+            fileNameElement.textContent = fileName;
+            
+            // Actualizar link de descarga
+            downloadLink.href = fileUrl;
+            downloadLink.download = fileName;
+            
+            // Determinar tipo de archivo y mostrar vista previa
+            const fileExtension = fileName.split('.').pop().toLowerCase();
+            let previewHTML = '';
+            
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+                // Imagen
+                previewHTML = `
+                    <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                 `;
-
-                printWindow.document.open();
-                printWindow.document.write(printHTML);
-                printWindow.document.close();
+            } else if (['mp4', 'webm', 'ogg'].includes(fileExtension)) {
+                // Video
+                previewHTML = `
+                    <video controls style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <source src="${fileUrl}">
+                        Tu navegador no soporta la reproducción de video.
+                    </video>
+                `;
+            } else if (['mp3', 'wav', 'ogg', 'm4a', 'opus'].includes(fileExtension)) {
+                // Audio
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-audio" style="font-size: 4rem; color: #ff6b35; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <audio controls class="w-100">
+                            <source src="${fileUrl}">
+                            Tu navegador no soporta la reproducción de audio.
+                        </audio>
+                    </div>
+                `;
+            } else if (['pdf'].includes(fileExtension)) {
+                // PDF
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file-pdf" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <p class="text-muted">Vista previa de PDF no disponible. Haz clic en "Descargar" para ver el archivo completo.</p>
+                    </div>
+                `;
+            } else {
+                // Otros archivos
+                previewHTML = `
+                    <div class="text-center p-4">
+                        <i class="fas fa-file" style="font-size: 4rem; color: #6c757d; margin-bottom: 20px;"></i>
+                        <h5 class="mb-3">${fileName}</h5>
+                        <p class="text-muted">Vista previa no disponible para este tipo de archivo. Haz clic en "Descargar" para ver el archivo.</p>
+                    </div>
+                `;
             }
-
-            // Función para descargar un mensaje como archivo de texto
-            function downloadMessage(messageId, messageType) {
-                console.log('Intentando descargar mensaje:', messageId, messageType);
-                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                if (!messageElement) {
-                    console.error('Mensaje no encontrado:', messageId);
-                    alert('No se pudo encontrar el mensaje para descargar');
-                    return;
-                }
-
-                // Extraer el contenido del mensaje
-                const headerElement = messageElement.querySelector('.msg-header');
-                const contentElement = messageElement.querySelector('.msg-bubble');
-
-                let messageText = `Mensaje #${messageId}\n`;
-                messageText += `Tipo: ${messageType}\n`;
-                messageText += `Fecha: ${new Date().toLocaleString()}\n`;
-                messageText += `${'='.repeat(50)}\n\n`;
-
-                if (headerElement) {
-                    messageText += headerElement.textContent.trim() + '\n\n';
-                }
-
-                if (contentElement) {
-                    // Limpiar el contenido, eliminando HTML pero preservando texto
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = contentElement.innerHTML;
-                    const contentText = tempDiv.textContent || tempDiv.innerText || '';
-                    messageText += contentText.trim();
-                }
-
-                // Crear y descargar el archivo
-                try {
-                    const blob = new Blob([messageText], { type: 'text/plain;charset=utf-8' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `mensaje_${messageId}_${messageType}_${new Date().getTime()}.txt`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                    console.log('Mensaje descargado exitosamente');
-                } catch (error) {
-                    console.error('Error al descargar mensaje:', error);
-                    alert('Error al descargar el mensaje');
-                }
+            
+            previewContent.innerHTML = previewHTML;
+            
+            // Mostrar modal manualmente
+            modal.style.display = 'block';
+            modal.classList.add('show');
+            document.body.classList.add('modal-open');
+            
+            // Agregar backdrop
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
             }
-        </script>
+        }
 
-        <script>
         // Función para abrir modal de vista previa de adjuntos
         function openAttachmentPreview(fileUrl, fileName) {
             const modal = document.getElementById('attachmentPreviewModal');
@@ -2285,7 +2257,7 @@ function closeModal() {
      id="conversationModal"
      tabindex="-1">
 
-    <div class="modal-dialog modal-dialog-centered custom-conversation-modal">
+    <div class="modal-dialog custom-conversation-modal">
 
         <div class="modal-content">
 
