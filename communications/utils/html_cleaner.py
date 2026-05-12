@@ -1,20 +1,84 @@
 import re
 import bleach
 from bs4 import BeautifulSoup, Comment
-
+from html import unescape
 ALLOWED_TAGS = [
+    # estructura
+    'html', 'body',
+    'div', 'span',
+    'p', 'br', 'hr',
+
+    # formato
     'b', 'strong',
     'i', 'em',
     'u',
-    'p',
-    'br',
+
+    # listas
     'ul', 'ol', 'li',
+
+    # links
     'a',
+
+    # tablas (emails usan esto)
+    'table', 'thead', 'tbody', 'tfoot',
+    'tr', 'td', 'th',
+
+    # imágenes
+    'img',
+
+    # citas
     'blockquote',
 ]
 
 ALLOWED_ATTRIBUTES = {
-    'a': ['href', 'title', 'target', 'rel'],
+    '*': [
+        'style',
+        'class',
+        'align',
+    ],
+
+    'a': [
+        'href',
+        'title',
+        'target',
+        'rel',
+    ],
+
+    'img': [
+        'src',
+        'alt',
+        'width',
+        'height',
+        'style',
+    ],
+
+    'table': [
+        'width',
+        'border',
+        'cellpadding',
+        'cellspacing',
+        'style',
+    ],
+
+    'td': [
+        'width',
+        'height',
+        'colspan',
+        'rowspan',
+        'style',
+        'align',
+    ],
+
+    'th': [
+        'colspan',
+        'rowspan',
+        'style',
+        'align',
+    ],
+
+    'div': ['style'],
+    'span': ['style'],
+    'p': ['style'],
 }
 
 def limpiar_email_html(html):
@@ -24,15 +88,25 @@ def limpiar_email_html(html):
 
     soup = BeautifulSoup(html, "html.parser")
 
-    # Eliminar comentarios
-    for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+    # eliminar comentarios
+    for comment in soup.find_all(
+        string=lambda text: isinstance(text, Comment)
+    ):
         comment.extract()
 
-    # Eliminar tags peligrosos
-    for tag in soup(['script', 'style', 'head', 'meta']):
+    # eliminar contenido peligroso
+    for tag in soup([
+        'script',
+        'iframe',
+        'object',
+        'embed',
+        'form',
+        'input',
+        'button',
+    ]):
         tag.decompose()
 
-    # Configurar links
+    # asegurar links seguros
     for a in soup.find_all("a"):
         href = a.get("href")
 
@@ -40,19 +114,24 @@ def limpiar_email_html(html):
             a["target"] = "_blank"
             a["rel"] = "noopener noreferrer"
 
-    # Obtener HTML limpio
-    content = str(soup)
+        # convertir a string
+    content = unescape(str(soup))
 
-    # Sanitizar
+    # sanitizar
     cleaned = bleach.clean(
         content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
-        protocols=['http', 'https', 'mailto'],
+        protocols=['http', 'https', 'mailto', 'data'],
         strip=True
     )
 
-    # Opcional: limpiar espacios excesivos
-    cleaned = re.sub(r'\n\s*\n+', '\n\n', cleaned)
+    # convertir URLs texto en links
+    cleaned = bleach.linkify(
+        cleaned,
+        skip_tags=['a']
+    )
 
     return cleaned.strip()
+        
+        

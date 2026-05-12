@@ -175,7 +175,7 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         agent_name = request.user.get_full_name() or request.user.username
 
 # Agregar remitente
-        message_text += f"Enviado por: {agent_name} "
+        message_text += f"---Enviado por: {agent_name} "
         
         conversation = None
         if conversation_id:
