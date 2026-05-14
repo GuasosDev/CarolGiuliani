@@ -992,75 +992,6 @@
         </script>
         {% else %}
         <div class="omni-chat-input-area p-2 border-top bg-white">
-            <!-- Channel Selection Tabs -->
-            <div class="chat-input-tools d-flex justify-content-between align-items-center mb-2">
-                <div class="d-flex gap-1 bg-light rounded-pill p-1">
-                    <button type="button" id="btn-whatsapp" onclick="switchChannel('whatsapp')"
-                        class="btn btn-sm {% if conversation.channel == 'whatsapp' or not conversation.channel %}btn-white rounded-pill px-3 active text-success shadow-sm{% else %}btn-light rounded-pill px-3 text-muted{% endif %}">
-                        <i class="fab fa-whatsapp me-1"></i> WhatsApp
-                    </button>
-                    <button type="button" id="btn-email" onclick="switchChannel('email')"
-                        class="btn btn-sm {% if conversation.channel == 'email' %}btn-white rounded-pill px-3 active text-primary shadow-sm{% else %}btn-light rounded-pill px-3 text-muted{% endif %}">
-                        <i class="fas fa-envelope me-1"></i> Email
-                    </button>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <div class="dropdown">
-                        <button type="button" class="tool-btn" data-bs-toggle="dropdown" title="Respuestas Rápidas">
-                            <i class="fas fa-bolt"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end p-0 shadow-lg"
-                            style="width: 300px; max-height: 400px; overflow-y: auto;">
-                            <div class="p-2 border-bottom sticky-top bg-white">
-                                <input type="text" class="form-control form-control-sm"
-                                    placeholder="Buscar respuesta..." onkeyup="filterQuickReplies(this)">
-                            </div>
-                            <div id="quick-replies-list">
-                                {% for reply in quick_replies %}
-                                <a href="#" class="dropdown-item p-2 border-bottom quick-reply-item"
-                                    data-channel="{{ reply.channel }}"
-                                    onclick="insertQuickReply(this.dataset.content); return false;"
-                                    data-content="{{ reply.content }}">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <strong class="text-truncate" style="max-width: 180px;">{{ reply.title }}</strong>
-                                            
-                                        {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{  reply.shortcut }}</small>{% endif %}
-                                           
-                                    </div>
-                                    <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{  reply.content }}</small>
-                                       
-                                    <div class="d-flex gap-1 mt-1">
-                                        {% if reply.channel == 'whatsapp' %}
-                                        <i class="fab fa-whatsapp text-success" style="font-size: 0.7rem;"></i>
-                                        {% elif reply.channel == 'email' %}
-                                        <i class="fas fa-envelope text-primary" style="font-size: 0.7rem;"></i>
-                                        {% endif %}
-                                    </div>
-                                </a>
-                                {% empty %}
-                                <div class="p-3 text-center text-muted small">No hay respuestas rápidas configuradas
-                                </div>
-                                {% endfor %}
-                            </div>
-                            <div class="p-2 border-top sticky-bottom bg-white text-center">
-                                <a href="{% url 'communications:quick_replies' %}"
-                                    class="small text-primary text-decoration-none">
-                                    <i class="fas fa-cog me-1"></i> Administrar respuestas
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    
-                <button type="button" onclick="openFileSelector()" class="tool-btn">
-                    <i class="fas fa-paperclip"></i>
-                </button>
-                <button type="button" onclick="toggleWhatsappVoiceRecording()" class="tool-btn" id="whatsappMicBtn" title="Enviar audio">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                </div>
-            </div>
-
             <!-- WhatsApp Form -->
             <div id="channel-whatsapp"
                 class="channel-content {% if conversation.channel == 'email' %}d-none{% endif %}">
@@ -1080,6 +1011,57 @@
                         style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
                         <textarea class="form-control border-0 shadow-none" name="message" rows="1"
                             placeholder="Escribe un mensaje de WhatsApp..."></textarea>
+
+                        <div class="d-flex align-items-end gap-2">
+                            <div class="dropdown">
+                                <button type="button" class="tool-btn" data-bs-toggle="dropdown" title="Respuestas Rápidas">
+                                    <i class="fas fa-bolt"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end p-0 shadow-lg"
+                                    style="width: 300px; max-height: 400px; overflow-y: auto;">
+                                    <div class="p-2 border-bottom sticky-top bg-white">
+                                        <input type="text" class="form-control form-control-sm"
+                                            placeholder="Buscar respuesta..." onkeyup="filterQuickReplies(this)">
+                                    </div>
+                                    <div id="quick-replies-list">
+                                        {% for reply in quick_replies %}
+                                        <a href="#" class="dropdown-item p-2 border-bottom quick-reply-item"
+                                            data-channel="{{ reply.channel }}"
+                                            onclick="insertQuickReply(this.dataset.content); return false;"
+                                            data-content="{{ reply.content }}">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong class="text-truncate" style="max-width: 180px;">{{ reply.title }}</strong>
+                                                {% if reply.shortcut %}<small class="badge bg-light text-dark border">/{{ reply.shortcut }}</small>{% endif %}
+                                            </div>
+                                            <small class="text-muted text-truncate d-block" style="max-width: 280px;">{{ reply.content }}</small>
+                                            <div class="d-flex gap-1 mt-1">
+                                                {% if reply.channel == 'whatsapp' %}
+                                                <i class="fab fa-whatsapp text-success" style="font-size: 0.7rem;"></i>
+                                                {% elif reply.channel == 'email' %}
+                                                <i class="fas fa-envelope text-primary" style="font-size: 0.7rem;"></i>
+                                                {% endif %}
+                                            </div>
+                                        </a>
+                                        {% empty %}
+                                        <div class="p-3 text-center text-muted small">No hay respuestas rápidas configuradas</div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="p-2 border-top sticky-bottom bg-white text-center">
+                                        <a href="{% url 'communications:quick_replies' %}"
+                                            class="small text-primary text-decoration-none">
+                                            <i class="fas fa-cog me-1"></i> Administrar respuestas
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" onclick="openFileSelector()" class="tool-btn" title="Adjuntar">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <button type="button" onclick="toggleWhatsappVoiceRecording()" class="tool-btn" id="whatsappMicBtn" title="Enviar audio">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
 
                         <button type="submit" class="btn-send ms-2 text-success" style="border:none; background:none;">
                             <i class="fas fa-paper-plane fa-lg"></i>
@@ -1368,27 +1350,6 @@
                 const form = document.getElementById('whatsappForm');
                 if (!form) return;
                 sendMessage(form, 'whatsapp');
-            }
-            function switchChannel(channel) {
-                // Reset buttons
-                document.getElementById('btn-whatsapp').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
-                document.getElementById('btn-email').className = 'btn btn-sm btn-light rounded-pill px-3 text-muted';
-
-                // Hide all contents
-                document.getElementById('channel-whatsapp').classList.add('d-none');
-                document.getElementById('channel-email').classList.add('d-none');
-
-                // Activate selected
-                const btn = document.getElementById('btn-' + channel);
-                btn.className = 'btn btn-sm btn-white rounded-pill px-3 active shadow-sm';
-
-                if (channel === 'whatsapp') {
-                    btn.classList.add('text-success');
-                    document.getElementById('channel-whatsapp').classList.remove('d-none');
-                } else {
-                    btn.classList.add('text-primary');
-                    document.getElementById('channel-email').classList.remove('d-none');
-                }
             }
 
             function insertQuickReply(content) {
