@@ -2,6 +2,28 @@ import re
 import bleach
 from bs4 import BeautifulSoup, Comment
 from html import unescape
+from bleach.css_sanitizer import CSSSanitizer
+
+css_sanitizer = CSSSanitizer(
+    allowed_css_properties=[
+        'color',
+        'background-color',
+        'font-size',
+        'font-family',
+        'font-weight',
+        'text-align',
+        'width',
+        'height',
+        'max-width',
+        'min-width',
+        'display',
+        'margin',
+        'padding',
+        'border',
+        'border-radius',
+        'text-decoration',
+    ]
+)
 ALLOWED_TAGS = [
     # estructura
     'html', 'body',
@@ -89,10 +111,12 @@ ALLOWED_ATTRIBUTES = {
 
     'img': [
         'src',
+        'srcset',
         'alt',
         'width',
         'height',
         'style',
+        'class',
     ],
 
     'table': [
@@ -183,14 +207,15 @@ def limpiar_email_html(html):
 
         # convertir a string
     content = unescape(str(soup))
-
+    
     # sanitizar
     cleaned = bleach.clean(
         content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
         protocols=['http', 'https', 'mailto', 'data', 'cid'],
-        strip=True
+        strip=True,
+        css_sanitizer=css_sanitizer
     )
 
     return cleaned.strip()

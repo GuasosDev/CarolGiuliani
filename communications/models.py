@@ -463,7 +463,12 @@ class EmailMessage(models.Model):
     """Email-specific message data"""
     message = models.OneToOneField(Message, on_delete=models.CASCADE, related_name='email_data')
     email_account = models.ForeignKey(EmailAccount, on_delete=models.CASCADE, related_name='messages')
-    
+    imap_uid = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="IMAP UID"
+    )
     subject = models.CharField(max_length=500, verbose_name="Asunto")
     html_body = models.TextField(blank=True, null=True, verbose_name="Cuerpo HTML")
     plain_body = models.TextField(blank=True, null=True, verbose_name="Cuerpo Texto Plano")
@@ -488,7 +493,7 @@ class EmailMessage(models.Model):
     class Meta:
         verbose_name = "Mensaje de Email"
         verbose_name_plural = "Mensajes de Email"
-
+        unique_together = ('email_account', 'imap_uid')
     def __str__(self):
         return f"Email: {self.subject}"
 

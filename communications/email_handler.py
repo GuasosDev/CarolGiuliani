@@ -102,47 +102,63 @@ class EmailHandler:
                 pass
     
     def fetch_new_emails(self, folder='INBOX'):
-        """Fetch new emails from IMAP server"""
-        
+        """Fetch emails from IMAP server using UID tracking"""
+
         if not self.connect_imap():
             return []
-        
+
         try:
             self.imap_connection.select(folder)
-            
-            # Search for unseen emails
-            status, messages = self.imap_connection.search(None, 'UNSEEN')
-            
+
+            # traer TODOS
+            status, messages = self.imap_connection.uid('search', None, 'X-GM-RAW',
+    'category:primary')
+
             if status != 'OK':
                 return []
-            
-            email_ids = messages[0].split()
+
+            email_uids = messages[0].split()
             fetched_emails = []
-            
-            for email_id in email_ids:
-                status, msg_data = self.imap_connection.fetch(email_id, '(RFC822)')
-                
+
+            for uid in email_uids:
+
+                # verificar si ya existe en DB
+                if EmailMessage.objects.filter(email_account=self.account,imap_uid=uid.decode()).exists():
+                    continue
+
+                status, msg_data = self.imap_connection.uid(
+                    'fetch',
+                    uid,
+                    '(RFC822)'
+                )
+
                 if status != 'OK':
                     continue
-                
+
                 raw_email = msg_data[0][1]
-                email_message = email.message_from_bytes(raw_email, policy=email_policy.default)
-                
-                # Process and store email
-                processed = self.process_incoming_email(email_message)
+                email_message = email.message_from_bytes(raw_email)
+
+                processed = self.process_incoming_email(
+                    email_message,
+                    imap_uid=uid.decode()
+                )
+
                 if processed:
                     fetched_emails.append(processed)
-            
-            # Update last sync time
+
             self.account.last_sync_at = timezone.now()
             self.account.save()
-            
-            logger.info(f"Fetched {len(fetched_emails)} new emails for {self.account.email_address}")
+
+            logger.info(
+                f"Fetched {len(fetched_emails)} emails for {self.account.email_address}"
+            )
+
             return fetched_emails
-            
+
         except Exception as e:
             logger.error(f"Error fetching emails: {str(e)}")
             return []
+
         finally:
             self.disconnect()
 
@@ -164,7 +180,7 @@ class EmailHandler:
 
         return body.strip()
     
-    def process_incoming_email(self, email_message):
+    def process_incoming_email(self, email_message, imap_uid=None):
         """Process an incoming email and create database records"""
         try:
             # Extract email headers
@@ -260,6 +276,7 @@ class EmailHandler:
             email_msg = EmailMessage.objects.create(
                 message=message,
                 email_account=self.account,
+                imap_uid=imap_uid,
                 subject=subject,
                 html_body=html_body,
                 plain_body=plain_body,
@@ -297,12 +314,20 @@ class EmailHandler:
 
         from clients.models import Client
 
-        client, _ = Client.objects.get_or_create(
-            email=email_address,
-            defaults={
-                "name": email_address.split("@")[0]
-            }
-        )
+        clients = Client.objects.filter(email__iexact=email_address)
+
+        if clients.exists():
+            client = clients.first()
+
+            if clients.count() > 1:
+                logger.warning(
+                    f"Multiple clients found for {email_address}"
+                )
+        else:
+            client = Client.objects.create(
+                email=email_address,
+                name=email_address.split("@")[0]
+            )
 
         contact, _ = Contact.objects.get_or_create(
             client=client,
