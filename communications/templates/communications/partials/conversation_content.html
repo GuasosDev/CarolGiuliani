@@ -225,9 +225,9 @@
         }
         
         .msg-sender-name {
-            font-weight: 600 !important;
-            text-transform: uppercase !important;
-            color: #a0aec0 !important;
+            font-weight: 400 !important;
+            text-transform: none !important;
+            color: #8a8a8a !important;
         }
 
         .msg-status-delivered {
@@ -282,19 +282,14 @@
             white-space: nowrap;
         }
         .msg-sender-name {
-            color: #999;
-            font-weight: 500;
-            text-transform: uppercase;
+            color: #8a8a8a;
+            font-weight: 400;
+            text-transform: none;
             margin-left: 4px;
         }
         .msg-meta-divider {
             margin: 0 4px;
             color: #ccc;
-        }
-        .msg-envio-remitente {
-            color: #888;
-            font-weight: 400;
-            text-transform: none;
         }
         .msg-status-delivered {
             font-size: 0.65rem;
@@ -845,7 +840,7 @@
                             {% if m.direction == 'inbound' %}
                                 {% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}{{ m.sender_name|default:conversation.contact.whatsapp_number }}{% endif %}
                             {% else %}
-                                Tú
+                                {% if m.envio_remitente %}{{ m.envio_remitente }}{% else %}Tú{% endif %}
                             {% endif %}
                         </span>
 
@@ -855,11 +850,6 @@
                         </span>
                         {% endif %}
 
-                        {% if m.envio_remitente %}
-                        <span class="msg-meta-divider">-</span>
-                        <span class="msg-envio-remitente">envio: {{ m.envio_remitente }}</span>
-                        {% endif %}
-                        
                         <div class="msg-action-buttons">
                             <button onclick="printMessage('{{ m.id }}')" class="msg-action-btn" title="Imprimir">
                                 <i class="fas fa-print"></i>

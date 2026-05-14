@@ -172,21 +172,18 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         message_text = (request.data.get('message') or '').strip()
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
-        agent_name = request.user.get_full_name() or request.user.username
-
-# Agregar remitente
-        message_text += f"---Enviado por: {agent_name} "
         
         conversation = None
         if conversation_id:
-            conversation = Conversation.objects.get(id=conversation_id)
-        if message_text:
-            message_text += f"\n\n---\n{agent_name}"
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+            except Conversation.DoesNotExist:
+                conversation = None
         if not attachments:
             if not message_text:
                 return Response({'error': 'Por favor escribe un mensaje o adjunta archivos antes de enviar.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            success, result = handler.send_text_message(to_number, message_text, conversation)
+            success, result = handler.send_text_message(to_number, message_text, conversation=conversation, sender_user=request.user)
             if success:
                 return Response({'status': 'sent', 'message_id': result})
             return Response({'error': result}, status=status.HTTP_400_BAD_REQUEST)
@@ -210,7 +207,8 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
                 caption=caption,
                 filename=filename,
                 conversation=conversation,
-                uploaded_file=f
+                uploaded_file=f,
+                sender_user=request.user
             )
             if not success:
                 return Response({'error': msg_id_or_error}, status=status.HTTP_400_BAD_REQUEST)
@@ -262,8 +260,7 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
                 "parameters": [{"type": "text", "text": p} for p in body_params]
             }]
 
-        agent_name = request.user.get_full_name() or request.user.username
-        content_for_db = f"📄 Plantilla: {template_name}---Enviado por: {agent_name} "
+        content_for_db = f"📄 Plantilla: {template_name}"
 
         success, result = handler.send_template_message(
             to_number=to_number,
@@ -271,7 +268,8 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
             language_code=language_code,
             components=components,
             conversation=conversation,
-            content_for_db=content_for_db
+            content_for_db=content_for_db,
+            sender_user=request.user
         )
 
         if success:

@@ -662,15 +662,20 @@ def conversation_detail(request, pk):
                 # Mark inbound unread messages as read
         conversation.messages.filter(direction='inbound', is_read=False).update(is_read=True, read_at=timezone.now())
     
-        messages = conversation.messages.all().order_by('created_at')
+        messages = conversation.messages.select_related('sender').all().order_by('created_at')
         
         from .utils.html_cleaner import limpiar_email_html
-        sent_by_re = re.compile(r'(?:\s*<br\s*/?>\s*)*-{2,}\s*Enviado por:\s*(?P<name>.+?)\s*$', re.IGNORECASE)
+        sent_by_re = re.compile(
+            r'(?:\s*<br\s*/?>\s*)*\s*-{2,}\s*Enviado por:\s*(?P<name>.*?)(?:\s*-{2,}.*)?\s*$',
+            re.IGNORECASE | re.DOTALL
+        )
         from core.models import CompanySettings
         company_settings = CompanySettings.load()
 
         for m in messages:
             m.envio_remitente = ''
+            if m.direction == 'outbound' and getattr(m, 'sender', None):
+                m.envio_remitente = (m.sender.get_full_name() or m.sender.username or '').strip()
             if conversation.channel == 'email':
                 m.render_content = limpiar_email_html(m.content)
             else:
@@ -679,7 +684,8 @@ def conversation_detail(request, pk):
             if isinstance(m.render_content, str):
                 match = sent_by_re.search(m.render_content)
                 if match:
-                    m.envio_remitente = (match.group('name') or '').strip()
+                    if not m.envio_remitente:
+                        m.envio_remitente = (match.group('name') or '').strip()
                     m.render_content = (m.render_content[:match.start()] or '').rstrip()
         notes = conversation.internal_notes.all()
         

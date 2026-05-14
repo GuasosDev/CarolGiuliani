@@ -59,7 +59,7 @@ class WhatsAppHandler:
             'Content-Type': 'application/json',
         }
     
-    def send_text_message(self, to_number, message_text, conversation=None):
+    def send_text_message(self, to_number, message_text, conversation=None, sender_user=None):
         """Send a text message via WhatsApp"""
         to_number = normalize_phone_number(to_number)
         
@@ -93,6 +93,7 @@ class WhatsAppHandler:
                     message_type='whatsapp',
                     direction='outbound',
                     content=message_text,
+                    sender=sender_user,
                     metadata={'to': to_number}
                 )
                 
@@ -119,7 +120,7 @@ class WhatsAppHandler:
             logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False, str(e)
     
-    def send_media_message(self, to_number, media_type, media_id, caption=None, filename=None, conversation=None,uploaded_file=None):
+    def send_media_message(self, to_number, media_type, media_id, caption=None, filename=None, conversation=None, uploaded_file=None, sender_user=None):
         """Send a media message (image, document, audio, video)"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -152,6 +153,7 @@ class WhatsAppHandler:
                     message_type='whatsapp',
                     direction='outbound',
                     content=caption or f"[{media_type.upper()}]",
+                    sender=sender_user,
                     metadata={'to': to_number, 'media_type': media_type}
                 )
                 if uploaded_file:
@@ -279,7 +281,7 @@ class WhatsAppHandler:
         except requests.exceptions.RequestException as e:
             return False, str(e)
     
-    def send_template_message(self, to_number, template_name, language_code, components=None, conversation=None, content_for_db=None):
+    def send_template_message(self, to_number, template_name, language_code, components=None, conversation=None, content_for_db=None, sender_user=None):
         """Send a template message"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -313,6 +315,7 @@ class WhatsAppHandler:
                     message_type='whatsapp',
                     direction='outbound',
                     content=content,
+                    sender=sender_user,
                     metadata={
                         'to': to_number,
                         'template_name': template_name,
