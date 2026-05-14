@@ -180,7 +180,8 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         conversation = None
         if conversation_id:
             conversation = Conversation.objects.get(id=conversation_id)
-
+        if message_text:
+            message_text += f"\n\n---\n{agent_name}"
         if not attachments:
             if not message_text:
                 return Response({'error': 'Por favor escribe un mensaje o adjunta archivos antes de enviar.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -318,8 +319,34 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                 conversation = Conversation.objects.get(id=conversation_id)
             except Conversation.DoesNotExist:
                 pass
+<<<<<<< Updated upstream
         
         
+=======
+        if body and not html_body and ('<' in body and '>' in body):
+            html_body = body
+            from django.utils.html import strip_tags
+            body = strip_tags(body)
+
+        # Add automatic signatures
+        if body:
+            body += f"\n\n---\n{agent_name}"
+            
+        if html_body:
+            html_body += f"""
+            <br><br>
+            <hr>
+            <p>
+                <b>{agent_name}</b><br>
+                {account.name}
+            </p>
+            """        
+
+        from django.db import transaction
+        from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
+        from django.core.files.base import ContentFile
+        from ..tasks import send_queued_email
+>>>>>>> Stashed changes
 
         try:
             with transaction.atomic():
