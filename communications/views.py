@@ -6,7 +6,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -29,7 +29,7 @@ from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
 from core.views import GenericCreateView
-from django.db.models import Prefetch
+from django.db.models import Exists, OuterRef, Prefetch, Q
 from .utils.html_cleaner import limpiar_email_html
 from django.http import JsonResponse
 
@@ -171,6 +171,7 @@ def dashboard(request):
     status_filter = request.GET.get('status')
     channel_filter = request.GET.get('channel')
     user_filter = request.GET.get('user')
+    search_q = (request.GET.get('q') or '').strip()
     
     base_qs = get_agent_conversations(request.user).select_related(
         "contact__client"
@@ -193,6 +194,13 @@ def dashboard(request):
         # If filtering by channel, we generally want to see all unless specific status is requested
         if status_filter and status_filter != 'all':
             conversations = conversations.filter(status=status_filter)
+
+        if channel_filter == 'email' and search_q:
+            conversations = conversations.filter(
+                Q(subject__icontains=search_q)
+                | Q(contact__client__name__icontains=search_q)
+                | Q(contact__client__email__icontains=search_q)
+            )
     else:
         # Default behavior (no channel filter)
         if not status_filter:
@@ -217,7 +225,17 @@ def dashboard(request):
         client_groups = defaultdict(list)
         
         # Get recent conversations from all statuses
-        inbox_qs = base_qs.select_related('contact__client').prefetch_related('messages').order_by('-updated_at')[:100]
+        unread_subq_inbox = Message.objects.filter(
+            conversation_id=OuterRef('pk'),
+            direction='inbound',
+            is_read=False,
+        )
+        inbox_qs = (
+            base_qs.select_related('contact__client')
+            .prefetch_related('messages')
+            .annotate(has_unread_inbound=Exists(unread_subq_inbox))
+            .order_by('-updated_at')[:100]
+        )
         
         for conv in inbox_qs:
             if conv.contact and conv.contact.client:
@@ -235,7 +253,16 @@ def dashboard(request):
         # Sort groups by latest activity
         grouped_conversations.sort(key=lambda x: x['latest_update'] or '', reverse=True)
     else:
-        conversations = conversations.order_by('-updated_at')[:50]
+        unread_subq = Message.objects.filter(
+            conversation_id=OuterRef('pk'),
+            direction='inbound',
+            is_read=False,
+        )
+        conversations = conversations.annotate(has_unread_inbound=Exists(unread_subq))
+        if channel_filter == 'email':
+            conversations = conversations.order_by('-created_at')[:50]
+        else:
+            conversations = conversations.order_by('-updated_at')[:50]
         grouped_conversations = None
 
     clients = Client.objects.all().order_by('name')[:200]
@@ -273,6 +300,7 @@ def dashboard(request):
         'current_user': user_filter,
         'available_users': available_users,
         'clients': clients,
+        'search_q': search_q,
         **counts 
     }
 
@@ -559,6 +587,26 @@ def change_conversation_status(request, pk):
     if request.headers.get('HX-Request'):
         return HttpResponse(status=204)                 
     return redirect('communications:conversation_detail', pk=conversation.pk)
+
+
+@login_required
+@require_POST
+def mark_conversation_unread(request, pk):
+    """Marca todos los mensajes entrantes del hilo como no leídos (vista webmail)."""
+    conversation = get_object_or_404(Conversation, pk=pk)
+    if conversation.channel != 'email':
+        return HttpResponse(status=404)
+    if not (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+        or conversation.assigned_to == request.user
+    ):
+        if not get_agent_conversations(request.user).filter(pk=pk).exists():
+            return HttpResponse('Unauthorized', status=403)
+    conversation.messages.filter(direction='inbound').update(is_read=False, read_at=None)
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = json.dumps({'commRefreshConversationList': True})
+    return response
 
 
 class ContactCreateView(GenericCreateView):
