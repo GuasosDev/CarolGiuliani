@@ -42,18 +42,52 @@
         const form = document.getElementById('internalChatForm');
         const area = document.getElementById('internalChatMessagesArea');
         const url = "{% url 'communications:internal_chat_messages' %}";
+        const currentUserId = parseInt("{{ request.user.id }}", 10);
+        let lastInboundId = 0;
+        let initialized = false;
+
+        function getLastMetaFromRoot(rootEl) {
+            if (!rootEl) return { id: 0, authorId: 0 };
+            const rows = rootEl.querySelectorAll('.omni-msg-row[data-message-id]');
+            const last = rows.length ? rows[rows.length - 1] : null;
+            const id = last ? parseInt(last.getAttribute('data-message-id') || '0', 10) : 0;
+            const authorId = last ? parseInt(last.getAttribute('data-author-id') || '0', 10) : 0;
+            return {
+                id: Number.isFinite(id) ? id : 0,
+                authorId: Number.isFinite(authorId) ? authorId : 0
+            };
+        }
 
         function scrollToBottom() {
             if (area) area.scrollTop = area.scrollHeight;
         }
 
         function refresh() {
+            const prevId = lastInboundId;
             fetch(url, { headers: { 'HX-Request': 'true' } })
                 .then(r => r.text())
                 .then(html => {
                     if (!area) return;
+                    const wrapper = document.createElement('div');
+                    wrapper.innerHTML = html;
+                    const meta = getLastMetaFromRoot(wrapper);
                     area.innerHTML = html;
                     scrollToBottom();
+
+                    if (!initialized) {
+                        lastInboundId = meta.id;
+                        initialized = true;
+                        return;
+                    }
+
+                    if (meta.id && meta.id > prevId && meta.authorId && meta.authorId !== currentUserId) {
+                        lastInboundId = meta.id;
+                        if (window.commNotify && typeof window.commNotify.playDing === 'function') {
+                            window.commNotify.playDing('internal');
+                        }
+                        return;
+                    }
+                    lastInboundId = meta.id;
                 })
                 .catch(() => {});
         }

@@ -180,7 +180,8 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         conversation = None
         if conversation_id:
             conversation = Conversation.objects.get(id=conversation_id)
-
+        if message_text:
+            message_text += f"\n\n---\n{agent_name}"
         if not attachments:
             if not message_text:
                 return Response({'error': 'Por favor escribe un mensaje o adjunta archivos antes de enviar.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -216,6 +217,66 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
             message_ids.append(msg_id_or_error)
 
         return Response({'status': 'sent', 'message_ids': message_ids})
+
+    @action(detail=True, methods=['post'])
+    def send_template(self, request, pk=None):
+        account = self.get_object()
+
+        from core.models import CompanySettings
+        cs = CompanySettings.load()
+        if not getattr(cs, 'whatsapp_templates_enabled', False):
+            return Response({'error': 'Las plantillas de WhatsApp están deshabilitadas.'}, status=status.HTTP_403_FORBIDDEN)
+
+        handler = WhatsAppHandler(account)
+        to_number = request.data.get('to_number')
+        conversation_id = request.data.get('conversation_id')
+        template_name = (request.data.get('template_name') or request.data.get('name') or '').strip()
+        language_code = (request.data.get('language_code') or request.data.get('language') or '').strip()
+
+        if not template_name or not language_code:
+            return Response({'error': 'Template y lenguaje son obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        conversation = None
+        if conversation_id:
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+            except Conversation.DoesNotExist:
+                conversation = None
+
+        body_params = []
+        try:
+            body_params = request.data.getlist('body_params')
+        except Exception:
+            raw_params = request.data.get('body_params')
+            if isinstance(raw_params, list):
+                body_params = raw_params
+            elif isinstance(raw_params, str) and raw_params.strip():
+                body_params = [p.strip() for p in raw_params.split(',') if p.strip()]
+
+        body_params = [str(p) for p in body_params if str(p).strip() != '']
+
+        components = None
+        if body_params:
+            components = [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": p} for p in body_params]
+            }]
+
+        agent_name = request.user.get_full_name() or request.user.username
+        content_for_db = f"📄 Plantilla: {template_name}---Enviado por: {agent_name} "
+
+        success, result = handler.send_template_message(
+            to_number=to_number,
+            template_name=template_name,
+            language_code=language_code,
+            components=components,
+            conversation=conversation,
+            content_for_db=content_for_db
+        )
+
+        if success:
+            return Response({'status': 'sent', 'message_id': result})
+        return Response({'error': result}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class EmailAccountViewSet(viewsets.ModelViewSet):
@@ -258,8 +319,34 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                 conversation = Conversation.objects.get(id=conversation_id)
             except Conversation.DoesNotExist:
                 pass
+<<<<<<< Updated upstream
         
         
+=======
+        if body and not html_body and ('<' in body and '>' in body):
+            html_body = body
+            from django.utils.html import strip_tags
+            body = strip_tags(body)
+
+        # Add automatic signatures
+        if body:
+            body += f"\n\n---\n{agent_name}"
+            
+        if html_body:
+            html_body += f"""
+            <br><br>
+            <hr>
+            <p>
+                <b>{agent_name}</b><br>
+                {account.name}
+            </p>
+            """        
+
+        from django.db import transaction
+        from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
+        from django.core.files.base import ContentFile
+        from ..tasks import send_queued_email
+>>>>>>> Stashed changes
 
         try:
             with transaction.atomic():

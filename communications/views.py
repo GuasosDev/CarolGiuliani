@@ -6,7 +6,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -29,7 +29,7 @@ from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
 from core.views import GenericCreateView
-from django.db.models import Prefetch
+from django.db.models import Exists, OuterRef, Prefetch, Q
 from .utils.html_cleaner import limpiar_email_html
 from django.http import JsonResponse
 
@@ -171,6 +171,7 @@ def dashboard(request):
     status_filter = request.GET.get('status')
     channel_filter = request.GET.get('channel')
     user_filter = request.GET.get('user')
+    search_q = (request.GET.get('q') or '').strip()
     
     base_qs = get_agent_conversations(request.user).select_related(
         "contact__client"
@@ -193,6 +194,13 @@ def dashboard(request):
         # If filtering by channel, we generally want to see all unless specific status is requested
         if status_filter and status_filter != 'all':
             conversations = conversations.filter(status=status_filter)
+
+        if channel_filter == 'email' and search_q:
+            conversations = conversations.filter(
+                Q(subject__icontains=search_q)
+                | Q(contact__client__name__icontains=search_q)
+                | Q(contact__client__email__icontains=search_q)
+            )
     else:
         # Default behavior (no channel filter)
         if not status_filter:
@@ -217,7 +225,17 @@ def dashboard(request):
         client_groups = defaultdict(list)
         
         # Get recent conversations from all statuses
-        inbox_qs = base_qs.select_related('contact__client').prefetch_related('messages').order_by('-updated_at')[:100]
+        unread_subq_inbox = Message.objects.filter(
+            conversation_id=OuterRef('pk'),
+            direction='inbound',
+            is_read=False,
+        )
+        inbox_qs = (
+            base_qs.select_related('contact__client')
+            .prefetch_related('messages')
+            .annotate(has_unread_inbound=Exists(unread_subq_inbox))
+            .order_by('-updated_at')[:100]
+        )
         
         for conv in inbox_qs:
             if conv.contact and conv.contact.client:
@@ -235,7 +253,16 @@ def dashboard(request):
         # Sort groups by latest activity
         grouped_conversations.sort(key=lambda x: x['latest_update'] or '', reverse=True)
     else:
-        conversations = conversations.order_by('-updated_at')[:50]
+        unread_subq = Message.objects.filter(
+            conversation_id=OuterRef('pk'),
+            direction='inbound',
+            is_read=False,
+        )
+        conversations = conversations.annotate(has_unread_inbound=Exists(unread_subq))
+        if channel_filter == 'email':
+            conversations = conversations.order_by('-created_at')[:50]
+        else:
+            conversations = conversations.order_by('-updated_at')[:50]
         grouped_conversations = None
 
     clients = Client.objects.all().order_by('name')[:200]
@@ -273,6 +300,7 @@ def dashboard(request):
         'current_user': user_filter,
         'available_users': available_users,
         'clients': clients,
+        'search_q': search_q,
         **counts 
     }
 
@@ -587,6 +615,26 @@ def change_conversation_status(request, pk):
     return redirect('communications:conversation_detail', pk=conversation.pk)
 
 
+@login_required
+@require_POST
+def mark_conversation_unread(request, pk):
+    """Marca todos los mensajes entrantes del hilo como no leídos (vista webmail)."""
+    conversation = get_object_or_404(Conversation, pk=pk)
+    if conversation.channel != 'email':
+        return HttpResponse(status=404)
+    if not (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+        or conversation.assigned_to == request.user
+    ):
+        if not get_agent_conversations(request.user).filter(pk=pk).exists():
+            return HttpResponse('Unauthorized', status=403)
+    conversation.messages.filter(direction='inbound').update(is_read=False, read_at=None)
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = json.dumps({'commRefreshConversationList': True})
+    return response
+
+
 class ContactCreateView(GenericCreateView):
     model = Contact
     fields = ['client', 'whatsapp_number', 'preferred_channel', 'notes']
@@ -617,12 +665,22 @@ def conversation_detail(request, pk):
         messages = conversation.messages.all().order_by('created_at')
         
         from .utils.html_cleaner import limpiar_email_html
+        sent_by_re = re.compile(r'(?:\s*<br\s*/?>\s*)*-{2,}\s*Enviado por:\s*(?P<name>.+?)\s*$', re.IGNORECASE)
+        from core.models import CompanySettings
+        company_settings = CompanySettings.load()
 
         for m in messages:
+            m.envio_remitente = ''
             if conversation.channel == 'email':
                 m.render_content = limpiar_email_html(m.content)
             else:
                 m.render_content = m.content
+
+            if isinstance(m.render_content, str):
+                match = sent_by_re.search(m.render_content)
+                if match:
+                    m.envio_remitente = (match.group('name') or '').strip()
+                    m.render_content = (m.render_content[:match.start()] or '').rstrip()
         notes = conversation.internal_notes.all()
         
         # Sidebar conversations (filtered by current conversation's status or default to normal)
@@ -667,6 +725,7 @@ def conversation_detail(request, pk):
             'email_account': email_account,
             'quick_replies': quick_replies,
             'transfer_users': transfer_users,
+            'company_settings': company_settings,
             **counts # Unpack counts into context
         }
         
@@ -845,7 +904,7 @@ def settings_view(request):
     
     from .models import WhatsAppAccount, EmailAccount
     from django.contrib.auth.models import User, Group
-    from core.models import WorkArea, UserRole
+    from core.models import WorkArea, UserRole, CompanySettings
     
     whatsapp_accounts = WhatsAppAccount.objects.all()
     email_accounts = EmailAccount.objects.all()
@@ -853,6 +912,7 @@ def settings_view(request):
     work_areas = WorkArea.objects.all()
     roles = UserRole.objects.all()
     groups = Group.objects.all().prefetch_related('permissions')
+    company_settings = CompanySettings.load()
     
     context = {
         'whatsapp_accounts': whatsapp_accounts,
@@ -861,9 +921,56 @@ def settings_view(request):
         'work_areas': work_areas,
         'roles': roles,
         'privileges': groups,
+        'company_settings': company_settings,
     }
     
     return render(request, 'communications/settings.html', context)
+
+
+@login_required
+@require_POST
+def update_whatsapp_templates_settings(request):
+    if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+        return HttpResponse('Unauthorized', status=401)
+
+    from core.models import CompanySettings
+
+    cs = CompanySettings.load()
+    cs.whatsapp_templates_enabled = request.POST.get('whatsapp_templates_enabled') == 'on'
+
+    raw = (request.POST.get('whatsapp_templates') or '').strip()
+    templates = []
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                for t in parsed:
+                    if not isinstance(t, dict):
+                        continue
+                    name = (t.get('name') or '').strip()
+                    language = (t.get('language') or t.get('language_code') or '').strip()
+                    label = (t.get('label') or name).strip()
+                    body_params = t.get('body_params', 0)
+                    try:
+                        body_params = int(body_params) if body_params is not None else 0
+                    except Exception:
+                        body_params = 0
+                    if not name or not language:
+                        continue
+                    templates.append({
+                        'name': name,
+                        'language': language,
+                        'label': label,
+                        'body_params': max(0, body_params),
+                    })
+        except Exception:
+            templates = []
+
+    cs.whatsapp_templates = templates
+    cs.save(update_fields=['whatsapp_templates_enabled', 'whatsapp_templates'])
+
+    messages.success(request, 'Configuración de plantillas WhatsApp guardada.')
+    return redirect('communications:settings')
 
 
 @csrf_exempt

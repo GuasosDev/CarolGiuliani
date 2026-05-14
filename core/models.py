@@ -8,6 +8,8 @@ class CompanySettings(models.Model):
     address = models.TextField(default="123 Street, City")
     phone = models.CharField(max_length=50, default="123-456-7890")
     email = models.EmailField(default="info@example.com")
+    whatsapp_templates_enabled = models.BooleanField(default=False, verbose_name="Plantillas WhatsApp habilitadas")
+    whatsapp_templates = models.JSONField(default=list, blank=True, verbose_name="Plantillas WhatsApp")
     
     class Meta:
         verbose_name = "Configuración de Empresa"

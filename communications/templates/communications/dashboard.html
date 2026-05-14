@@ -39,15 +39,50 @@
         user-select: none;
         cursor: col-resize !important;
     }
+
+    /* Tema correo: celeste / azul oscuro suave (lista + detalle) */
+    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell {
+        background: linear-gradient(180deg, #f6fafd 0%, #edf4fa 55%, #e8f1f8 100%) !important;
+        border-color: #c5d8eb !important;
+        box-shadow: 0 1px 2px rgba(15, 52, 96, 0.06), 0 4px 14px rgba(30, 80, 130, 0.05) !important;
+    }
+    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .list-group-item {
+        background: transparent;
+        border-color: rgba(30, 73, 118, 0.09);
+    }
+    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .comm-email-inbox-item:not(.active):hover {
+        background: linear-gradient(90deg, rgba(224, 242, 254, 0.55) 0%, rgba(239, 246, 255, 0.75) 100%) !important;
+    }
+    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .conversation-item.active {
+        background: linear-gradient(90deg, #dbeafe 0%, #eff6ff 100%) !important;
+        border-left: none !important;
+        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.22);
+    }
+    .comm-mail-dashboard-row #conversation-detail-panel.comm-mail-shell-detail {
+        background: linear-gradient(180deg, #f3f8fc 0%, #ebf3fa 100%) !important;
+        border-color: #c5d8eb !important;
+        box-shadow: 0 1px 2px rgba(15, 52, 96, 0.06), 0 4px 14px rgba(30, 80, 130, 0.05) !important;
+    }
+    .comm-mail-dashboard-row #conversation-splitter:hover {
+        background: linear-gradient(90deg, transparent 0, rgba(37, 99, 235, 0.22) 4px, rgba(14, 116, 144, 0.18) 6px, transparent 10px);
+    }
+    body.dark-mode .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell {
+        background: linear-gradient(180deg, #252d38 0%, #1e2630 100%) !important;
+        border-color: #3d4f63 !important;
+    }
+    body.dark-mode .comm-mail-dashboard-row #conversation-detail-panel.comm-mail-shell-detail {
+        background: linear-gradient(180deg, #232b35 0%, #1a222b 100%) !important;
+        border-color: #3d4f63 !important;
+    }
 </style>
 {% endblock %}
 
 {% block comm_content %}
-<div class="d-flex h-100 flex-grow-1 gap-3 overflow-hidden px-3">
+<div class="d-flex h-100 flex-grow-1 gap-3 overflow-hidden px-3{% if current_channel == 'email' %} comm-mail-dashboard-row{% endif %}">
     <!-- Main Content Area: 2 Columns (Status column removed) -->
 
     <!-- Column 1: Conversation List (3 cols) -->
-    <div class="bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0" id="conversation-list-panel">
+    <div class="bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0{% if current_channel == 'email' %} comm-mail-shell{% endif %}" id="conversation-list-panel">
             <!-- Scrollable List -->
             <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
                 hx-get="{{ request.get_full_path }}" hx-trigger="every 15s"
@@ -63,9 +98,23 @@
 
                     {% for conv in group.conversations %}
                     <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
-                        data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                        data-id="{{ conv.id }}" data-contact-name="{{ conv.get_display_name }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
+                        {% if conv.channel == 'email' %}
+                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
+                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}fw-bold text-dark{% else %}fw-normal text-secondary{% endif %}">
+                                    {{ conv.subject|default:"(Sin asunto)"|truncatechars:56 }}
+                                </span>
+                            </div>
+                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.updated_at|date:"d/m H:i" }}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-truncate">{{ conv.get_display_name }}</small>
+                            <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                        </div>
+                        {% else %}
                         <div class="d-flex justify-content-between mb-1">
                             <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
                                 <!-- Status Indicator -->
@@ -106,6 +155,7 @@
                                 {% endwith %}
                             </small>
                         </div>
+                        {% endif %}
                     </button>
                     {% endfor %}
                     {% empty %}
@@ -115,9 +165,23 @@
                     {% else %}
                     {% for conv in conversations %}
                     <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
-                        data-id="{{ conv.id }}" onclick="loadConversation(this, '{{ conv.id }}')">
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if current_channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                        data-id="{{ conv.id }}" data-contact-name="{{ conv.get_display_name }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
+                        {% if current_channel == 'email' %}
+                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
+                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}fw-bold text-dark{% else %}fw-normal text-secondary{% endif %}">
+                                    {{ conv.subject|default:"(Sin asunto)"|truncatechars:56 }}
+                                </span>
+                            </div>
+                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.created_at|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-truncate">{{ conv.get_display_name }}</small>
+                            <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                        </div>
+                        {% else %}
                         <div class="d-flex justify-content-between mb-1">
                             <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
                                 <!-- Status Indicator -->
@@ -156,6 +220,7 @@
                                 {% endwith %}
                             </small>
                         </div>
+                        {% endif %}
                     </button>
                     {% empty %}
                     <div class="text-center p-5 text-muted">
@@ -172,8 +237,8 @@
     <div id="conversation-splitter" aria-label="Redimensionar panel" class="mx-1 d-none d-md-block"></div>
 
     <!-- Column 3: Conversation Detail (Rest) -->
-    <div class="bg-white d-flex flex-column h-100 position-relative p-0 border rounded-4 shadow-sm overflow-hidden flex-grow-1" id="conversation-detail-panel"
-        style="background-color: #f8f9fa;">
+    <div class="bg-white d-flex flex-column h-100 position-relative p-0 border rounded-4 shadow-sm overflow-hidden flex-grow-1{% if current_channel == 'email' %} comm-mail-shell-detail{% endif %}" id="conversation-detail-panel"
+        style="{% if current_channel != 'email' %}background-color: #f8f9fa;{% endif %}">
             <!-- Empty State -->
             <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
                 <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
@@ -263,12 +328,6 @@
         border-radius: 3px;
     }
 
-    /* Active State Style for List Items */
-    .conversation-item.active {
-        background-color: #e9ecef !important;
-        border-left: 4px solid #0d6efd;
-    }
-
     /* Status Circle Styles */
     .status-circle-btn {
         display: flex;
@@ -312,13 +371,46 @@
         display: block;
     }
 
-    /* Active Conversation Style */
-    .conversation-item.active {
+    .comm-mail-dashboard-row .comm-email-subject.fw-bold.text-dark {
+        color: #15375c !important;
+    }
+    .comm-mail-dashboard-row .comm-email-subject.fw-normal.text-secondary {
+        color: #5a7289 !important;
+    }
+
+    /* Active: WhatsApp / otros — barra lateral azul */
+    .conversation-item.active:not(.comm-email-inbox-item) {
         background-color: #f8f9fa !important;
         border-left: 4px solid #0d6efd !important;
     }
+
+    /* Lista correo: sin franja lateral; activo = fondo celeste + borde interior muy suave */
+    .comm-email-inbox-item {
+        border-left: none !important;
+    }
+    .comm-email-inbox-item.active {
+        background: linear-gradient(90deg, #dbeafe 0%, #eff6ff 100%) !important;
+        border-left: none !important;
+        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.22);
+    }
+    .comm-email-inbox-item:not(.active):hover {
+        background-color: rgba(224, 242, 254, 0.45) !important;
+    }
 </style>
 
+<script>
+    document.body.addEventListener('commRefreshConversationList', function () {
+        var el = document.getElementById('dashboard-conversations-container');
+        if (!el || typeof htmx === 'undefined') return;
+        var path = window.location.pathname + window.location.search;
+        htmx.ajax('GET', path, {
+            source: el,
+            target: '#dashboard-conversations-container',
+            swap: 'outerHTML',
+            select: '#dashboard-conversations-container'
+        });
+    });
+</script>
 <script>
     (function () {
         const panel = document.getElementById('conversation-list-panel');
@@ -448,12 +540,16 @@
                 element.classList.add('active', 'bg-light');
 
                 // Update Header Title with Client Name
-                const clientNameEl = element.querySelector('.fw-bold.text-dark');
-                if (clientNameEl) {
-                    const clientName = clientNameEl.textContent.trim();
-                    const headerTitle = document.getElementById('dashboard-header-title');
-                    if (headerTitle) {
-                        headerTitle.textContent = clientName;
+                const headerTitle = document.getElementById('dashboard-header-title');
+                const nameFromData = element.getAttribute('data-contact-name');
+                if (headerTitle) {
+                    if (nameFromData && nameFromData.trim()) {
+                        headerTitle.textContent = nameFromData.trim();
+                    } else {
+                        const clientNameEl = element.querySelector('.fw-bold.text-dark');
+                        if (clientNameEl) {
+                            headerTitle.textContent = clientNameEl.textContent.trim();
+                        }
                     }
                 }
             }

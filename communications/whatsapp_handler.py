@@ -279,7 +279,7 @@ class WhatsAppHandler:
         except requests.exceptions.RequestException as e:
             return False, str(e)
     
-    def send_template_message(self, to_number, template_name, language_code, components=None):
+    def send_template_message(self, to_number, template_name, language_code, components=None, conversation=None, content_for_db=None):
         """Send a template message"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -305,6 +305,31 @@ class WhatsAppHandler:
             
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id')
+
+            if conversation:
+                content = content_for_db if content_for_db is not None else f"📄 Plantilla: {template_name}"
+                message = Message.objects.create(
+                    conversation=conversation,
+                    message_type='whatsapp',
+                    direction='outbound',
+                    content=content,
+                    metadata={
+                        'to': to_number,
+                        'template_name': template_name,
+                        'template_language': language_code,
+                        'template_components': components or []
+                    }
+                )
+
+                WhatsAppMessage.objects.create(
+                    message=message,
+                    whatsapp_account=self.account,
+                    whatsapp_message_id=message_id,
+                    wa_message_type='text',
+                    delivery_status='sent',
+                    template_name=template_name,
+                    template_language=language_code
+                )
             
             logger.info(f"WhatsApp template message sent: {message_id}")
             return True, message_id
