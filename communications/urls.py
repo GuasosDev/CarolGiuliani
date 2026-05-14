@@ -36,6 +36,7 @@ urlpatterns = [
     path('agent/', views.agent_dashboard, name='agent_dashboard'),
     path('panel/', views.role_dashboard, name='role_dashboard'),
     path('settings/', views.settings_view, name='settings'),
+    path('settings/whatsapp-templates/', views.update_whatsapp_templates_settings, name='settings_whatsapp_templates'),
     
     # Quick Replies
     path('quick-replies/', views.QuickReplyListView.as_view(), name='quick_replies'),

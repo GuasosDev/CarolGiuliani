@@ -217,6 +217,66 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
 
         return Response({'status': 'sent', 'message_ids': message_ids})
 
+    @action(detail=True, methods=['post'])
+    def send_template(self, request, pk=None):
+        account = self.get_object()
+
+        from core.models import CompanySettings
+        cs = CompanySettings.load()
+        if not getattr(cs, 'whatsapp_templates_enabled', False):
+            return Response({'error': 'Las plantillas de WhatsApp están deshabilitadas.'}, status=status.HTTP_403_FORBIDDEN)
+
+        handler = WhatsAppHandler(account)
+        to_number = request.data.get('to_number')
+        conversation_id = request.data.get('conversation_id')
+        template_name = (request.data.get('template_name') or request.data.get('name') or '').strip()
+        language_code = (request.data.get('language_code') or request.data.get('language') or '').strip()
+
+        if not template_name or not language_code:
+            return Response({'error': 'Template y lenguaje son obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        conversation = None
+        if conversation_id:
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+            except Conversation.DoesNotExist:
+                conversation = None
+
+        body_params = []
+        try:
+            body_params = request.data.getlist('body_params')
+        except Exception:
+            raw_params = request.data.get('body_params')
+            if isinstance(raw_params, list):
+                body_params = raw_params
+            elif isinstance(raw_params, str) and raw_params.strip():
+                body_params = [p.strip() for p in raw_params.split(',') if p.strip()]
+
+        body_params = [str(p) for p in body_params if str(p).strip() != '']
+
+        components = None
+        if body_params:
+            components = [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": p} for p in body_params]
+            }]
+
+        agent_name = request.user.get_full_name() or request.user.username
+        content_for_db = f"📄 Plantilla: {template_name}---Enviado por: {agent_name} "
+
+        success, result = handler.send_template_message(
+            to_number=to_number,
+            template_name=template_name,
+            language_code=language_code,
+            components=components,
+            conversation=conversation,
+            content_for_db=content_for_db
+        )
+
+        if success:
+            return Response({'status': 'sent', 'message_id': result})
+        return Response({'error': result}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class EmailAccountViewSet(viewsets.ModelViewSet):
     """API endpoint for email accounts"""

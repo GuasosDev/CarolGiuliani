@@ -640,6 +640,8 @@ def conversation_detail(request, pk):
         
         from .utils.html_cleaner import limpiar_email_html
         sent_by_re = re.compile(r'(?:\s*<br\s*/?>\s*)*-{2,}\s*Enviado por:\s*(?P<name>.+?)\s*$', re.IGNORECASE)
+        from core.models import CompanySettings
+        company_settings = CompanySettings.load()
 
         for m in messages:
             m.envio_remitente = ''
@@ -697,6 +699,7 @@ def conversation_detail(request, pk):
             'email_account': email_account,
             'quick_replies': quick_replies,
             'transfer_users': transfer_users,
+            'company_settings': company_settings,
             **counts # Unpack counts into context
         }
         
@@ -875,7 +878,7 @@ def settings_view(request):
     
     from .models import WhatsAppAccount, EmailAccount
     from django.contrib.auth.models import User, Group
-    from core.models import WorkArea, UserRole
+    from core.models import WorkArea, UserRole, CompanySettings
     
     whatsapp_accounts = WhatsAppAccount.objects.all()
     email_accounts = EmailAccount.objects.all()
@@ -883,6 +886,7 @@ def settings_view(request):
     work_areas = WorkArea.objects.all()
     roles = UserRole.objects.all()
     groups = Group.objects.all().prefetch_related('permissions')
+    company_settings = CompanySettings.load()
     
     context = {
         'whatsapp_accounts': whatsapp_accounts,
@@ -891,9 +895,56 @@ def settings_view(request):
         'work_areas': work_areas,
         'roles': roles,
         'privileges': groups,
+        'company_settings': company_settings,
     }
     
     return render(request, 'communications/settings.html', context)
+
+
+@login_required
+@require_POST
+def update_whatsapp_templates_settings(request):
+    if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+        return HttpResponse('Unauthorized', status=401)
+
+    from core.models import CompanySettings
+
+    cs = CompanySettings.load()
+    cs.whatsapp_templates_enabled = request.POST.get('whatsapp_templates_enabled') == 'on'
+
+    raw = (request.POST.get('whatsapp_templates') or '').strip()
+    templates = []
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                for t in parsed:
+                    if not isinstance(t, dict):
+                        continue
+                    name = (t.get('name') or '').strip()
+                    language = (t.get('language') or t.get('language_code') or '').strip()
+                    label = (t.get('label') or name).strip()
+                    body_params = t.get('body_params', 0)
+                    try:
+                        body_params = int(body_params) if body_params is not None else 0
+                    except Exception:
+                        body_params = 0
+                    if not name or not language:
+                        continue
+                    templates.append({
+                        'name': name,
+                        'language': language,
+                        'label': label,
+                        'body_params': max(0, body_params),
+                    })
+        except Exception:
+            templates = []
+
+    cs.whatsapp_templates = templates
+    cs.save(update_fields=['whatsapp_templates_enabled', 'whatsapp_templates'])
+
+    messages.success(request, 'Configuración de plantillas WhatsApp guardada.')
+    return redirect('communications:settings')
 
 
 @csrf_exempt

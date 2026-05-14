@@ -1023,6 +1023,11 @@
                             placeholder="Escribe un mensaje de WhatsApp..."></textarea>
 
                         <div class="d-flex align-items-end gap-2">
+                            {% if company_settings.whatsapp_templates_enabled %}
+                            <button type="button" class="tool-btn" title="Plantillas" onclick="openWhatsappTemplateModal()">
+                                <i class="fas fa-file-alt"></i>
+                            </button>
+                            {% endif %}
                             <div class="dropdown">
                                 <button type="button" class="tool-btn" data-bs-toggle="dropdown" title="Respuestas Rápidas">
                                     <i class="fas fa-bolt"></i>
@@ -1091,6 +1096,42 @@
                 </div>
                 {% endif %}
             </div>
+
+            {% if whatsapp_account and company_settings.whatsapp_templates_enabled %}
+            {{ company_settings.whatsapp_templates|json_script:"wa-templates-json" }}
+            <div class="modal fade" id="whatsappTemplateModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-file-alt me-2 text-success"></i>Enviar plantilla</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Plantilla</label>
+                                <select id="waTemplateSelect" class="form-select">
+                                    <option value="">Seleccionar…</option>
+                                    {% for t in company_settings.whatsapp_templates %}
+                                    <option value="{{ t.name }}" data-language="{{ t.language }}" data-body-params="{{ t.body_params|default:0 }}">
+                                        {{ t.label|default:t.name }} ({{ t.language }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Se usa para iniciar conversación fuera de la ventana de 24h.</div>
+                            </div>
+                            <div id="waTemplateParams"></div>
+                            <div class="alert alert-warning py-2 small d-none" id="waTemplateWarn"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-success" id="waTemplateSendBtn" onclick="sendWhatsappTemplate()">
+                                <i class="fas fa-paper-plane me-1"></i> Enviar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Email Form -->
             <div id="channel-email" class="channel-content {% if conversation.channel != 'email' %}d-none{% endif %}">
@@ -1734,6 +1775,141 @@
                     });
                 }
             })();
+
+            function openWhatsappTemplateModal() {
+                const modalEl = document.getElementById('whatsappTemplateModal');
+                if (!modalEl || typeof bootstrap === 'undefined') return;
+                const select = document.getElementById('waTemplateSelect');
+                const paramsWrap = document.getElementById('waTemplateParams');
+                const warn = document.getElementById('waTemplateWarn');
+                if (warn) {
+                    warn.classList.add('d-none');
+                    warn.textContent = '';
+                }
+                if (paramsWrap) paramsWrap.innerHTML = '';
+                if (select) select.value = '';
+
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+
+            (function () {
+                const select = document.getElementById('waTemplateSelect');
+                if (!select) return;
+
+                function renderParams() {
+                    const opt = select.options[select.selectedIndex];
+                    const paramsWrap = document.getElementById('waTemplateParams');
+                    if (!paramsWrap) return;
+                    paramsWrap.innerHTML = '';
+
+                    if (!opt || !opt.value) return;
+                    const count = parseInt(opt.getAttribute('data-body-params') || '0', 10) || 0;
+                    if (count <= 0) return;
+
+                    const box = document.createElement('div');
+                    box.className = 'mb-2';
+                    box.innerHTML = '<label class="form-label fw-bold">Variables</label>';
+                    paramsWrap.appendChild(box);
+
+                    for (let i = 0; i < count; i++) {
+                        const row = document.createElement('div');
+                        row.className = 'mb-2';
+                        row.innerHTML = `
+                            <input type="text" class="form-control" name="wa_body_param_${i}" placeholder="Variable ${i + 1}">
+                        `;
+                        paramsWrap.appendChild(row);
+                    }
+                }
+
+                select.addEventListener('change', renderParams);
+            })();
+
+            function sendWhatsappTemplate() {
+                const btn = document.getElementById('waTemplateSendBtn');
+                const warn = document.getElementById('waTemplateWarn');
+                const select = document.getElementById('waTemplateSelect');
+                const modalEl = document.getElementById('whatsappTemplateModal');
+
+                function showWarn(msg) {
+                    if (!warn) return;
+                    warn.textContent = msg;
+                    warn.classList.remove('d-none');
+                }
+
+                if (!select || !select.value) {
+                    showWarn('Seleccioná una plantilla.');
+                    return;
+                }
+
+                const opt = select.options[select.selectedIndex];
+                const templateName = select.value;
+                const language = (opt && opt.getAttribute('data-language')) ? opt.getAttribute('data-language') : '';
+                const toNumber = "{{ conversation.contact.get_display_phone|default:'' }}";
+
+                if (!toNumber || !toNumber.trim()) {
+                    showWarn('El contacto no tiene un número de teléfono válido para WhatsApp.');
+                    return;
+                }
+                if (!language) {
+                    showWarn('La plantilla no tiene lenguaje configurado.');
+                    return;
+                }
+
+                const count = parseInt(opt.getAttribute('data-body-params') || '0', 10) || 0;
+                const bodyParams = [];
+                for (let i = 0; i < count; i++) {
+                    const input = document.querySelector(`#waTemplateParams input[name="wa_body_param_${i}"]`);
+                    bodyParams.push(input ? (input.value || '') : '');
+                }
+
+                const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+                const formData = new FormData();
+                if (csrf) formData.append('csrfmiddlewaretoken', csrf);
+                formData.append('conversation_id', "{{ conversation.id }}");
+                formData.append('to_number', toNumber);
+                formData.append('template_name', templateName);
+                formData.append('language_code', language);
+                bodyParams.forEach(p => formData.append('body_params', p));
+
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+                }
+
+                fetch("/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_template/", {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': csrf
+                    }
+                })
+                    .then(async (response) => {
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            let msg = 'Error al enviar plantilla';
+                            if (data && data.error) {
+                                msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+                            }
+                            throw new Error(msg);
+                        }
+                        return data;
+                    })
+                    .then(() => {
+                        if (modalEl && typeof bootstrap !== 'undefined') {
+                            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                        }
+                        if (typeof refreshMessages === 'function') refreshMessages();
+                    })
+                    .catch((err) => {
+                        showWarn(err.message);
+                    })
+                    .finally(() => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Enviar';
+                        }
+                    });
+            }
 
             function sendMessage(form, channel) {
                 // Para email, copiar contenido del div al input hidden
