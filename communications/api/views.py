@@ -319,10 +319,8 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                 conversation = Conversation.objects.get(id=conversation_id)
             except Conversation.DoesNotExist:
                 pass
-<<<<<<< Updated upstream
         
         
-=======
         if body and not html_body and ('<' in body and '>' in body):
             html_body = body
             from django.utils.html import strip_tags
@@ -346,7 +344,6 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
         from django.core.files.base import ContentFile
         from ..tasks import send_queued_email
->>>>>>> Stashed changes
 
         try:
             with transaction.atomic():
