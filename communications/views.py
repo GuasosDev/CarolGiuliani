@@ -639,12 +639,20 @@ def conversation_detail(request, pk):
         messages = conversation.messages.all().order_by('created_at')
         
         from .utils.html_cleaner import limpiar_email_html
+        sent_by_re = re.compile(r'(?:\s*<br\s*/?>\s*)*-{2,}\s*Enviado por:\s*(?P<name>.+?)\s*$', re.IGNORECASE)
 
         for m in messages:
+            m.envio_remitente = ''
             if conversation.channel == 'email':
                 m.render_content = limpiar_email_html(m.content)
             else:
                 m.render_content = m.content
+
+            if isinstance(m.render_content, str):
+                match = sent_by_re.search(m.render_content)
+                if match:
+                    m.envio_remitente = (match.group('name') or '').strip()
+                    m.render_content = (m.render_content[:match.start()] or '').rstrip()
         notes = conversation.internal_notes.all()
         
         # Sidebar conversations (filtered by current conversation's status or default to normal)

@@ -1,5 +1,5 @@
 {% for m in messages %}
-<div class="omni-msg-row inbound">
+<div class="omni-msg-row inbound" data-message-id="{{ m.id }}" data-author-id="{{ m.author_id }}">
     <div class="omni-avatar bg-secondary msg-avatar">{{ m.author.username|make_list|first|upper }}</div>
     <div class="msg-content-wrapper">
         <div class="msg-header">

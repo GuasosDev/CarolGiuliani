@@ -675,6 +675,93 @@
 {% block extra_js %}
 <script src="{% static 'communications/js/websocket.js' %}"></script>
 <script>
+(function () {
+    if (window.commNotify) return;
+
+    const state = {
+        enabled: false,
+        ctx: null,
+        lastPlayAt: 0,
+    };
+
+    function getAudioContext() {
+        if (state.ctx) return state.ctx;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+        state.ctx = new AudioCtx();
+        return state.ctx;
+    }
+
+    function beep(ctx, freq, startAt, durationSec, volume) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startAt);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + durationSec);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startAt);
+        osc.stop(startAt + durationSec + 0.03);
+    }
+
+    function unlockAudio() {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(function () {});
+        }
+        state.enabled = true;
+        document.removeEventListener('pointerdown', unlockAudio, true);
+        document.removeEventListener('keydown', unlockAudio, true);
+    }
+
+    document.addEventListener('pointerdown', unlockAudio, true);
+    document.addEventListener('keydown', unlockAudio, true);
+
+    function playDing(kind) {
+        const nowMs = Date.now();
+        if (nowMs - state.lastPlayAt < 800) return false;
+        state.lastPlayAt = nowMs;
+
+        const ctx = getAudioContext();
+        if (!ctx) return false;
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(function () {});
+        }
+
+        const t = ctx.currentTime + 0.01;
+        const vol = 0.12;
+
+        if (kind === 'whatsapp') {
+            beep(ctx, 784, t, 0.075, vol);
+            beep(ctx, 988, t + 0.10, 0.085, vol);
+            return true;
+        }
+        if (kind === 'email') {
+            beep(ctx, 659, t, 0.085, vol);
+            beep(ctx, 523, t + 0.13, 0.11, vol);
+            return true;
+        }
+        if (kind === 'internal') {
+            beep(ctx, 880, t, 0.06, 0.10);
+            beep(ctx, 880, t + 0.085, 0.06, 0.10);
+            beep(ctx, 880, t + 0.17, 0.06, 0.10);
+            return true;
+        }
+
+        beep(ctx, 880, t, 0.08, vol);
+        return true;
+    }
+
+    window.commNotify = {
+        playDing: playDing,
+        unlockAudio: unlockAudio,
+        isEnabled: function () { return state.enabled; },
+    };
+})();
+
 document.body.addEventListener('htmx:afterSwap', function () {
     const modalEl = document.getElementById('transferModal');
     if (modalEl) {
