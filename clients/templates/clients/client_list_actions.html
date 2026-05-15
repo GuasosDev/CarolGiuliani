@@ -1,18 +1,33 @@
+{% if action_toolbar_inline %}
+{% include "clients/partials/client_list_comm_actions.html" with client_obj=obj use_secondary_modal=False %}
+{% else %}
 <li>
-    <button class="dropdown-item" 
-            hx-get="{% url 'client_tag_list_for_client' obj.pk %}" 
-            hx-target="#modal-body" 
-            onclick="openModal()">
-        <i class="fas fa-tags me-2 text-primary"></i> Etiquetas
+    <button class="dropdown-item"
+            hx-get="{% url 'client_tag_list_for_client' obj.pk %}"
+            hx-target="#modal-body"
+            onclick="openModal()"
+            title="Gestionar etiquetas de este contacto"
+            aria-label="Etiquetas: asignar o quitar etiquetas del contacto">
+        <i class="fas fa-tags me-2 text-primary" aria-hidden="true"></i> Etiquetas
     </button>
 </li>
 <li>
-    <a class="dropdown-item" href="{% url 'communications:open_client_whatsapp' obj.pk 'whatsapp' %}">
-        <i class="fab fa-whatsapp me-2 text-success"></i> Chat WhatsApp
+    <a class="dropdown-item" href="{% url 'communications:open_client_whatsapp' obj.pk 'whatsapp' %}"
+        title="Abrir el chat de WhatsApp en el panel de comunicaciones"
+        aria-label="WhatsApp: abrir conversación en el panel de comunicaciones">
+        <i class="fab fa-whatsapp me-2 text-success" aria-hidden="true"></i> WhatsApp
     </a>
 </li>
 <li>
-    <a class="dropdown-item" href="{% url 'communications:open_client_email' obj.pk %}">
-        <i class="fas fa-envelope me-2 text-primary"></i> Chat Email
-    </a>
+    <button type="button" class="dropdown-item"
+            hx-get="{% url 'communications:client_email_compose_modal' obj.pk %}"
+            hx-target="#modal-body"
+            hx-swap="innerHTML"
+            hx-on:click="try { sessionStorage.setItem('clientListScrollY', String(window.scrollY || window.pageYOffset || 0)); } catch (e) {}"
+            onclick="openModal()"
+            title="Redactar correo al contacto sin salir del listado"
+            aria-label="Mail: redactar correo al contacto">
+        <i class="fas fa-envelope me-2 text-primary" aria-hidden="true"></i> Mail
+    </button>
 </li>
+{% endif %}

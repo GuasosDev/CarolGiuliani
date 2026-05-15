@@ -1,3 +1,15 @@
+<style>
+.comm-client-actions-toolbar .comm-client-action-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+}
+.comm-client-actions-toolbar .comm-client-action-tile > i { font-size: 1.05rem; line-height: 1; }
+</style>
 <div class="modal-header border-bottom">
     <div class="d-flex align-items-center">
         <div class="omni-avatar bg-warning me-3"
@@ -209,6 +221,33 @@
     </div>
 </div>
 
-<div class="modal-footer">
-    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
+<div class="modal-footer flex-column align-items-stretch gap-2">
+    {% if conversation.contact.client %}
+    <div class="d-flex flex-wrap align-items-stretch gap-1 justify-content-center comm-client-actions-toolbar w-100 pb-2 border-bottom">
+        {% include "clients/partials/client_list_comm_actions.html" with client_obj=conversation.contact.client use_secondary_modal=False %}
+        <button type="button" class="btn btn-sm btn-outline-secondary comm-client-action-tile"
+            hx-get="{% url 'client_update' conversation.contact.client.pk %}"
+            hx-target="#modal-body"
+            onclick="openModal()"
+            title="Editar: modificar los datos de este contacto"
+            aria-label="Editar: modificar los datos de este contacto">
+            <i class="fas fa-edit text-secondary" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger comm-client-action-tile"
+            hx-get="{% url 'client_delete' conversation.contact.client.pk %}"
+            hx-target="#modal-body"
+            onclick="openModal()"
+            title="Borrar: eliminar este contacto de forma definitiva"
+            aria-label="Borrar: eliminar este contacto de forma definitiva">
+            <i class="fas fa-trash-alt" aria-hidden="true"></i>
+        </button>
+    </div>
+    {% endif %}
+    <div class="text-end w-100">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()"
+            title="Cerrar la ficha de contacto"
+            aria-label="Cerrar: volver a la conversación">
+            Cerrar
+        </button>
+    </div>
 </div>

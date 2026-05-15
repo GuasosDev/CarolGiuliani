@@ -65,6 +65,7 @@ class GenericListView(LoginRequiredMixin, ListView):
         context['delete_url_name'] = self.delete_url_name
         context['detail_url_name'] = getattr(self, 'detail_url_name', None)
         context['action_template_name'] = self.action_template_name
+        context['action_toolbar_inline'] = getattr(self, 'action_toolbar_inline', False)
         return context
 
 class CompanySettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, GenericFormMixin, UpdateView):

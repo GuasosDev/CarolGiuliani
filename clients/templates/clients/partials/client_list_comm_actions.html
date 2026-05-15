@@ -1,0 +1,27 @@
+{# Requiere: client_obj (Client). Opcional: use_secondary_modal (bool, default False) #}
+<button type="button"
+    class="btn btn-sm btn-outline-secondary comm-client-action-tile"
+    hx-get="{% url 'client_tag_list_for_client' client_obj.pk %}"
+    hx-target="{% if use_secondary_modal %}#modal-secondary-body{% else %}#modal-body{% endif %}"
+    {% if use_secondary_modal %}onclick="openModalSecondary()"{% else %}onclick="openModal()"{% endif %}
+    title="Etiquetas: gestionar etiquetas de este contacto"
+    aria-label="Etiquetas: abrir para asignar o quitar etiquetas del contacto">
+    <i class="fas fa-tags text-primary" aria-hidden="true"></i>
+</button>
+<a class="btn btn-sm btn-outline-secondary comm-client-action-tile text-decoration-none text-body"
+    href="{% url 'communications:open_client_whatsapp' client_obj.pk 'whatsapp' %}"
+    title="WhatsApp: abrir el chat en el panel de comunicaciones"
+    aria-label="WhatsApp: abrir conversación en el panel de comunicaciones">
+    <i class="fab fa-whatsapp text-success" aria-hidden="true"></i>
+</a>
+<button type="button"
+    class="btn btn-sm btn-outline-secondary comm-client-action-tile"
+    hx-get="{% url 'communications:client_email_compose_modal' client_obj.pk %}"
+    hx-target="{% if use_secondary_modal %}#modal-secondary-body{% else %}#modal-body{% endif %}"
+    hx-swap="innerHTML"
+    hx-on:click="try { sessionStorage.setItem('clientListScrollY', String(window.scrollY || window.pageYOffset || 0)); } catch (e) {}"
+    {% if use_secondary_modal %}onclick="openModalSecondary()"{% else %}onclick="openModal()"{% endif %}
+    title="Mail: redactar correo a este contacto sin salir del listado"
+    aria-label="Mail: abrir ventana para redactar correo al contacto">
+    <i class="fas fa-envelope text-primary" aria-hidden="true"></i>
+</button>

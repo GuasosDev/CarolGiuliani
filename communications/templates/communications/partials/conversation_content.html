@@ -1084,8 +1084,9 @@
         <script>
         (function () {
             var modalEl = document.getElementById('emailComposeModal');
-            window.commMailOpenCompose = function (mode) {
+            window.commMailOpenCompose = function (mode, options) {
                 if (!modalEl || typeof bootstrap === 'undefined') return;
+                options = options || {};
                 mode = mode || 'reply';
                 var form = document.getElementById('emailForm');
                 var to = document.getElementById('emailToInput');
@@ -1106,7 +1107,11 @@
                 }
 
                 if (mode === 'new') {
-                    if (to) to.value = '';
+                    if (to) {
+                        to.value = Object.prototype.hasOwnProperty.call(options, 'initialTo')
+                            ? String(options.initialTo)
+                            : '';
+                    }
                     if (subj) subj.value = '';
                     if (body) body.innerHTML = '';
                     if (convInput) {
@@ -1152,6 +1157,30 @@
                 }
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             };
+            (function tryOpenComposeFromQuery() {
+                try {
+                    var u = new URL(window.location.href);
+                    var c = u.searchParams.get('compose');
+                    if (c !== '1' && c !== 'new') return;
+                    if (!document.getElementById('emailForm')) return;
+                    var rawTo = u.searchParams.get('to');
+                    var initialTo = '';
+                    if (rawTo != null && String(rawTo).length) {
+                        try {
+                            initialTo = decodeURIComponent(String(rawTo).replace(/\+/g, ' '));
+                        } catch (e1) {
+                            initialTo = String(rawTo);
+                        }
+                    }
+                    window.commMailOpenCompose('new', { initialTo: initialTo });
+                    u.searchParams.delete('compose');
+                    u.searchParams.delete('to');
+                    var qs = u.searchParams.toString();
+                    window.history.replaceState({}, '', u.pathname + (qs ? '?' + qs : '') + u.hash);
+                } catch (e) {
+                    console.warn('tryOpenComposeFromQuery', e);
+                }
+            })();
             if (modalEl) {
                 modalEl.addEventListener('hidden.bs.modal', function () {
                     var convIn = document.getElementById('emailConversationIdInput');
@@ -1375,162 +1404,7 @@
         </div>
         {% endif %}
         {% if email_account %}
-        <script>
-        (function () {
-            function parseCatalog() {
-                try {
-                    var el = document.getElementById('email-compose-recipient-catalog');
-                    if (!el || !el.textContent) return [];
-                    return JSON.parse(el.textContent);
-                } catch (e) { return []; }
-            }
-            var catalog = parseCatalog();
-            var panel = null;
-            var activeInput = null;
-            var debTimer = null;
-
-            function ensurePanel() {
-                if (panel) return panel;
-                panel = document.createElement('ul');
-                panel.id = 'emailRecipientSuggestList';
-                panel.className = 'comm-email-recipient-suggest';
-                panel.setAttribute('role', 'listbox');
-                panel.setAttribute('aria-label', 'Sugerencias de destinatarios');
-                document.body.appendChild(panel);
-                return panel;
-            }
-            function hidePanel() {
-                if (panel) {
-                    panel.style.display = 'none';
-                    panel.innerHTML = '';
-                }
-            }
-            function tokenAtCursor(input) {
-                var v = input.value || '';
-                var pos = typeof input.selectionStart === 'number' ? input.selectionStart : v.length;
-                var before = v.slice(0, pos);
-                var i = before.lastIndexOf(',');
-                return ((i === -1 ? before : before.slice(i + 1)).trim().toLowerCase());
-            }
-            function replaceActiveToken(input, insertText) {
-                insertText = (insertText || '').trim();
-                if (!insertText) return;
-                var v = input.value || '';
-                var pos = typeof input.selectionStart === 'number' ? input.selectionStart : v.length;
-                var before = v.slice(0, pos);
-                var after = v.slice(pos);
-                var lastComma = before.lastIndexOf(',');
-                var start = lastComma + 1;
-                var newBefore = v.slice(0, start) + insertText;
-                input.value = newBefore + after;
-                var np = newBefore.length;
-                try { input.setSelectionRange(np, np); } catch (e) {}
-            }
-            function filterMatches(q) {
-                if (!q || q.length < 1) return [];
-                var out = [];
-                for (var i = 0; i < catalog.length && out.length < 14; i++) {
-                    var it = catalog[i];
-                    if (it.t === 'c') {
-                        var le = (it.l || '').toLowerCase();
-                        var ee = (it.e || '').toLowerCase();
-                        if (le.indexOf(q) !== -1 || ee.indexOf(q) !== -1) out.push(it);
-                    } else if (it.t === 'g') {
-                        var lg = (it.l || '').toLowerCase();
-                        if (lg.indexOf(q) !== -1) out.push(it);
-                        else if (it.emails) {
-                            for (var j = 0; j < it.emails.length; j++) {
-                                if ((it.emails[j] || '').toLowerCase().indexOf(q) !== -1) { out.push(it); break; }
-                            }
-                        }
-                    }
-                }
-                return out;
-            }
-            function positionPanel(input) {
-                var el = ensurePanel();
-                var r = input.getBoundingClientRect();
-                el.style.position = 'fixed';
-                el.style.display = 'block';
-                el.style.top = (r.bottom + 4) + 'px';
-                el.style.left = r.left + 'px';
-                el.style.width = Math.max(r.width, 300) + 'px';
-            }
-            function applyPick(it) {
-                if (!activeInput) return;
-                if (it.t === 'c') {
-                    replaceActiveToken(activeInput, it.e);
-                } else {
-                    replaceActiveToken(activeInput, (it.emails || []).join(', '));
-                }
-                hidePanel();
-                activeInput.focus();
-            }
-            function renderSuggest(matches) {
-                var el = ensurePanel();
-                el.innerHTML = '';
-                if (!matches.length || !activeInput) {
-                    hidePanel();
-                    return;
-                }
-                positionPanel(activeInput);
-                matches.forEach(function (it) {
-                    var li = document.createElement('li');
-                    var btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.setAttribute('role', 'option');
-                    var span = document.createElement('span');
-                    span.className = 'fw-semibold';
-                    span.textContent = (it.t === 'g' ? '[Grupo] ' : '[Contacto] ') + (it.l || '');
-                    btn.appendChild(span);
-                    var meta = document.createElement('div');
-                    meta.className = 'sug-meta';
-                    meta.textContent = it.t === 'g' ? ((it.emails || []).length + ' direcciones') : (it.e || '');
-                    btn.appendChild(meta);
-                    btn.addEventListener('mousedown', function (ev) { ev.preventDefault(); applyPick(it); });
-                    li.appendChild(btn);
-                    el.appendChild(li);
-                });
-            }
-            function onInput(ev) {
-                activeInput = ev.target;
-                clearTimeout(debTimer);
-                debTimer = setTimeout(function () {
-                    catalog = parseCatalog();
-                    var t = tokenAtCursor(activeInput);
-                    if (t.length < 1) { hidePanel(); return; }
-                    renderSuggest(filterMatches(t));
-                }, 180);
-            }
-            function bindField(inp) {
-                if (!inp || inp.dataset.commRecipientSuggest) return;
-                inp.dataset.commRecipientSuggest = '1';
-                inp.addEventListener('input', onInput);
-                inp.addEventListener('focus', function (e) { activeInput = e.target; });
-                inp.addEventListener('keydown', function (e) {
-                    if (e.key === 'Escape') hidePanel();
-                });
-                inp.addEventListener('blur', function () {
-                    setTimeout(function () { hidePanel(); }, 320);
-                });
-            }
-            function initRecipientSuggest() {
-                catalog = parseCatalog();
-                if (!catalog.length) return;
-                bindField(document.getElementById('emailToInput'));
-                bindField(document.getElementById('emailCcInput'));
-                bindField(document.getElementById('emailBccInput'));
-            }
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initRecipientSuggest);
-            } else {
-                initRecipientSuggest();
-            }
-            document.body.addEventListener('htmx:afterSwap', initRecipientSuggest);
-            var composeModal = document.getElementById('emailComposeModal');
-            if (composeModal) composeModal.addEventListener('hidden.bs.modal', hidePanel);
-        })();
-        </script>
+        {% include 'communications/partials/email_recipient_suggest_script.html' %}
         {% endif %}
         <script>
             document.getElementById('imageInputWhatsapp')?.addEventListener('change', function () {

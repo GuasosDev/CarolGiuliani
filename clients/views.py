@@ -16,6 +16,7 @@ class ClientListView(GenericListView):
     update_url_name = 'client_update'
     delete_url_name = 'client_delete'
     action_template_name = 'clients/client_list_actions.html'
+    action_toolbar_inline = True
 
 class ClientCreateView(GenericCreateView):
     model = Client

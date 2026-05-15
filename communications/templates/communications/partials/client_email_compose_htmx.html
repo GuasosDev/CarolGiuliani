@@ -1,0 +1,241 @@
+{% load comm_mail %}
+<div class="modal-header border-bottom">
+    <h5 class="modal-title" id="clientEmailComposeTitle">
+        <i class="fas fa-envelope me-2 text-primary" aria-hidden="true"></i>Correo a {{ client.name }}
+    </h5>
+    <button type="button" class="btn-close" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()" aria-label="Cerrar ventana de redacción de correo"></button>
+</div>
+<div class="modal-body">
+    {% if email_account %}
+    {{ email_compose_recipients_catalog|json_script:"email-compose-recipient-catalog" }}
+    <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
+        id="emailForm" enctype="multipart/form-data"
+        data-reply-to="{{ client.email|default:'' }}"
+        data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
+        data-reply-cc="{{ reply_cc_joined|default:'' }}"
+        data-conversation-id="{{ conversation.id }}"
+        data-return-url="{{ return_url }}">
+        {% csrf_token %}
+        <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
+        <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{{ conversation.id }}">
+
+        <div class="bg-white p-2 rounded border mb-2">
+            <div id="emailFilePreview" class="mb-2" aria-live="polite"></div>
+            <label class="form-label small text-muted mb-0" for="emailToInput">Para</label>
+            <div class="position-relative mb-2">
+                <input type="text" name="to_addresses" id="emailToInput"
+                    class="form-control form-control-sm"
+                    placeholder="Buscar contacto o grupo; varios correos por coma"
+                    value="{{ client.email|default:'' }}"
+                    autocomplete="off"
+                    spellcheck="false"
+                    required
+                    title="Direcciones de correo del destinatario. Podés buscar en la agenda al escribir."
+                    aria-label="Destinatarios en campo Para: escribí correos separados por coma o elegí sugerencias al escribir.">
+            </div>
+            <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
+            <div class="position-relative mb-2">
+                <input type="text" name="cc_addresses" id="emailCcInput"
+                    class="form-control form-control-sm"
+                    placeholder="Con copia (opcional)"
+                    value=""
+                    autocomplete="off"
+                    spellcheck="false"
+                    title="Destinatarios en copia visibles, separados por coma."
+                    aria-label="Campo copia (Cc): correos separados por coma.">
+            </div>
+            <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
+            <div class="position-relative mb-2">
+                <input type="text" name="bcc_addresses" id="emailBccInput"
+                    class="form-control form-control-sm"
+                    placeholder="Copia oculta (opcional)"
+                    value=""
+                    autocomplete="off"
+                    spellcheck="false"
+                    title="Destinatarios en copia oculta, separados por coma."
+                    aria-label="Campo copia oculta (Cco): correos separados por coma.">
+            </div>
+            <label class="form-label small text-muted mb-0" for="emailSubjectInput">Asunto</label>
+            <div class="mb-2">
+                <input type="text" name="subject" id="emailSubjectInput"
+                    class="form-control form-control-sm fw-bold"
+                    placeholder="Asunto"
+                    value=""
+                    required
+                    title="Asunto del mensaje que verá el destinatario."
+                    aria-label="Asunto del correo.">
+            </div>
+            <label class="form-label small text-muted mb-0" for="emailBodyDiv">Mensaje</label>
+            <div class="d-flex align-items-start">
+                <div class="form-control border-0 shadow-none px-0"
+                    contenteditable="true"
+                    id="emailBodyDiv"
+                    style="min-height: 120px; max-height: 320px; overflow-y: auto;"
+                    role="textbox"
+                    aria-multiline="true"
+                    aria-label="Cuerpo del mensaje de correo."
+                    title="Escribí el cuerpo del correo. Podés adjuntar archivos con el botón de abajo."
+                    placeholder="Escribe el contenido del correo..."
+                    data-placeholder="Escribe el contenido del correo..."></div>
+                <input type="hidden" name="body" id="emailBodyInput">
+            </div>
+            <div class="mt-2 d-flex gap-2 flex-wrap align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                    onclick="document.getElementById('imageInputEmail').click()"
+                    title="Adjuntar uno o más archivos al correo"
+                    aria-label="Adjuntar archivos al correo">
+                    <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Adjuntar
+                </button>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()"
+                title="Cerrar sin enviar y volver al listado de contactos"
+                aria-label="Cancelar: cerrar sin enviar el correo">
+                Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary btn-sm px-4"
+                title="Enviar el correo y volver al listado de contactos"
+                aria-label="Enviar correo y volver al listado de contactos">
+                <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Enviar
+            </button>
+        </div>
+    </form>
+    {% include 'communications/partials/email_recipient_suggest_script.html' %}
+    <script>
+    (function () {
+        function formatFileSize(bytes) {
+            if (!bytes && bytes !== 0) return '';
+            var k = 1024;
+            var sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            var i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        var inp = document.getElementById('imageInputEmail');
+        var prev = document.getElementById('emailFilePreview');
+        if (inp && prev) {
+            inp.addEventListener('change', function () {
+                prev.innerHTML = '';
+                if (!this.files || !this.files.length) return;
+                var ul = document.createElement('ul');
+                ul.className = 'list-unstyled small mb-0';
+                Array.from(this.files).forEach(function (f) {
+                    var li = document.createElement('li');
+                    li.className = 'text-muted';
+                    li.textContent = f.name + ' (' + formatFileSize(f.size) + ')';
+                    ul.appendChild(li);
+                });
+                prev.appendChild(ul);
+            });
+        }
+
+        var form = document.getElementById('emailForm');
+        if (!form) return;
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var returnUrl = form.getAttribute('data-return-url') || '';
+            var emailBodyDiv = document.getElementById('emailBodyDiv');
+            var emailBodyInput = document.getElementById('emailBodyInput');
+            if (emailBodyDiv && emailBodyInput) {
+                var tempDiv = document.createElement('div');
+                tempDiv.innerHTML = emailBodyDiv.innerHTML;
+                tempDiv.querySelectorAll('img').forEach(function (img) { img.remove(); });
+                tempDiv.querySelectorAll('div').forEach(function (div) {
+                    var h = div.innerHTML || '';
+                    if (h.indexOf('fa-file-pdf') !== -1 || h.indexOf('fa-file-word') !== -1 ||
+                        h.indexOf('fa-file-excel') !== -1 || h.indexOf('fa-file') !== -1) {
+                        div.remove();
+                    }
+                });
+                var textContent = tempDiv.textContent || tempDiv.innerText || '';
+                var fileInput = document.getElementById('imageInputEmail');
+                if (textContent.trim() === '' && (!fileInput || !fileInput.files || fileInput.files.length === 0)) {
+                    alert('Por favor escribe un mensaje o adjunta archivos antes de enviar.');
+                    return;
+                }
+                emailBodyInput.value = emailBodyDiv.innerHTML;
+            }
+
+            var formData = new FormData(form);
+            var fileInput = document.getElementById('imageInputEmail');
+            if (fileInput && fileInput.files.length > 0) {
+                formData.delete('attachments');
+                Array.from(fileInput.files).forEach(function (file) {
+                    formData.append('attachments', file);
+                });
+            }
+
+            var btn = form.querySelector('button[type="submit"]');
+            var originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Enviando...';
+            }
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken') || '',
+                    'Accept': 'application/json'
+                }
+            }).then(async function (response) {
+                var ct = (response.headers.get('content-type') || '').toLowerCase();
+                var data = {};
+                if (ct.indexOf('application/json') !== -1) {
+                    try {
+                        var raw = await response.text();
+                        data = raw ? JSON.parse(raw) : {};
+                    } catch (parseErr) {
+                        data = { error: 'La respuesta JSON del servidor no es válida.' };
+                    }
+                } else {
+                    var html = await response.text();
+                    var snippet = html.replace(/\s+/g, ' ').trim().slice(0, 200);
+                    data = { error: snippet || ('HTTP ' + response.status) };
+                }
+                if (!response.ok) {
+                    var errorMsg = data.error || data.detail || ('Error al enviar (HTTP ' + response.status + ')');
+                    if (typeof errorMsg === 'object') {
+                        try {
+                            errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+                        } catch (e2) {
+                            errorMsg = 'Error desconocido';
+                        }
+                    }
+                    throw new Error(errorMsg);
+                }
+                return data;
+            }).then(function () {
+                if (typeof closeModal === 'function') closeModal();
+                if (returnUrl) {
+                    window.location.href = returnUrl;
+                }
+            }).catch(function (err) {
+                console.error(err);
+                alert('Error al enviar mensaje: ' + (err && err.message ? err.message : err));
+            }).finally(function () {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            });
+        });
+    })();
+    </script>
+    {% else %}
+    <div class="alert alert-warning mb-0 text-center rounded-3 p-2 small" role="alert">
+        <i class="fas fa-envelope me-2" aria-hidden="true"></i>Configura una cuenta de Email activa para enviar desde aquí.
+    </div>
+    {% endif %}
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()"
+        title="Cerrar esta ventana sin enviar"
+        aria-label="Cerrar ventana de redacción">
+        Cerrar
+    </button>
+</div>

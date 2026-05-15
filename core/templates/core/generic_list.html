@@ -2,6 +2,18 @@
 {% load core_tags %}
 
 {% block content %}
+<style>
+.comm-client-actions-toolbar .comm-client-action-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+}
+.comm-client-actions-toolbar .comm-client-action-tile > i { font-size: 1.05rem; line-height: 1; }
+</style>
 <div class="container">
     <div class="page-header">
         <h1 class="page-title">{{ title }}</h1>
@@ -23,7 +35,7 @@
                     {% for header in headers %}
                     <th>{{ header }}</th>
                     {% endfor %}
-                    <th style="width: 80px;">Acciones</th>
+                    <th style="min-width: {% if action_toolbar_inline %}220px{% else %}80px{% endif %};">Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,10 +44,43 @@
                     {% for field in fields %}
                     <td>{{ obj|get_attr:field }}</td>
                     {% endfor %}
-                    <td>
+                    <td class="{% if action_toolbar_inline %}align-middle{% endif %}">
+                        {% if action_toolbar_inline %}
+                        <div class="d-flex flex-wrap align-items-stretch gap-1 comm-client-actions-toolbar">
+                            {% if action_template_name %}
+                            {% include action_template_name %}
+                            {% endif %}
+                            {% if detail_url_name %}
+                            <a class="btn btn-sm btn-outline-secondary comm-client-action-tile text-decoration-none text-body"
+                                href="{% url detail_url_name obj.pk %}"
+                                title="Ver: abrir la ficha completa de este registro"
+                                aria-label="Ver: abrir ficha detallada de este registro">
+                                <i class="fas fa-eye text-primary" aria-hidden="true"></i>
+                            </a>
+                            {% endif %}
+                            {% if update_url_name %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary comm-client-action-tile"
+                                hx-get="{% url update_url_name obj.pk %}" hx-target="#modal-body" onclick="openModal()"
+                                title="Editar: modificar los datos de este contacto"
+                                aria-label="Editar: modificar los datos de este contacto">
+                                <i class="fas fa-edit text-secondary" aria-hidden="true"></i>
+                            </button>
+                            {% endif %}
+                            {% if delete_url_name %}
+                            <button type="button" class="btn btn-sm btn-outline-danger comm-client-action-tile"
+                                hx-get="{% url delete_url_name obj.pk %}" hx-target="#modal-body" onclick="openModal()"
+                                title="Borrar: eliminar este contacto de forma definitiva"
+                                aria-label="Borrar: eliminar este contacto de forma definitiva">
+                                <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% else %}
                         <div class="dropdown">
                             <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                                aria-expanded="false" style="border: none; background: transparent; color: #98a6ad;">
+                                aria-expanded="false" aria-label="Abrir menú de acciones para esta fila"
+                                title="Más acciones (menú)"
+                                style="border: none; background: transparent; color: #98a6ad;">
                                 <i class="fas fa-ellipsis-v"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
@@ -44,16 +89,20 @@
                                 {% endif %}
                                 {% if detail_url_name %}
                                 <li>
-                                    <a class="dropdown-item" href="{% url detail_url_name obj.pk %}">
-                                        <i class="fas fa-eye me-2" style="color: var(--primary-color);"></i> Ver
+                                    <a class="dropdown-item" href="{% url detail_url_name obj.pk %}"
+                                        title="Abrir la ficha completa de este registro"
+                                        aria-label="Ver: abrir ficha detallada">
+                                        <i class="fas fa-eye me-2" style="color: var(--primary-color);" aria-hidden="true"></i> Ver
                                     </a>
                                 </li>
                                 {% endif %}
                                 {% if update_url_name %}
                                 <li>
                                     <button class="dropdown-item" hx-get="{% url update_url_name obj.pk %}"
-                                        hx-target="#modal-body" onclick="openModal()">
-                                        <i class="fas fa-edit me-2" style="color: #98a6ad;"></i> Editar
+                                        hx-target="#modal-body" onclick="openModal()"
+                                        title="Editar los datos de este registro"
+                                        aria-label="Editar: modificar datos">
+                                        <i class="fas fa-edit me-2" style="color: #98a6ad;" aria-hidden="true"></i> Editar
                                     </button>
                                 </li>
                                 {% endif %}
@@ -63,13 +112,16 @@
                                 </li>
                                 <li>
                                     <button class="dropdown-item text-danger" hx-get="{% url delete_url_name obj.pk %}"
-                                        hx-target="#modal-body" onclick="openModal()">
-                                        <i class="fas fa-trash-alt me-2"></i> Borrar
+                                        hx-target="#modal-body" onclick="openModal()"
+                                        title="Eliminar este registro de forma definitiva"
+                                        aria-label="Borrar: eliminar de forma definitiva">
+                                        <i class="fas fa-trash-alt me-2" aria-hidden="true"></i> Borrar
                                     </button>
                                 </li>
                                 {% endif %}
                             </ul>
                         </div>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -104,6 +156,16 @@
                 })
             }
         });
+        try {
+            var _sy = sessionStorage.getItem('clientListScrollY');
+            if (_sy !== null && _sy !== '') {
+                var py = parseInt(_sy, 10);
+                if (!isNaN(py)) {
+                    setTimeout(function () { window.scrollTo(0, py); }, 150);
+                }
+                sessionStorage.removeItem('clientListScrollY');
+            }
+        } catch (e0) {}
     });
 </script>
 {% endblock %}

@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
@@ -1461,21 +1461,17 @@ def transfer_conversation(request, pk):
         "message": f"Conversación derivada a {new_user.get_full_name() or new_user.username}"
     })
 
-@login_required
-def open_client_email(request, client_id):
-    client = get_object_or_404(Client, pk=client_id)
-
+def _ensure_client_email_conversation(request, client):
+    """Obtiene o crea la conversación de email vinculada a un cliente."""
     contact, _ = Contact.objects.get_or_create(
         client=client,
         defaults={'preferred_channel': 'email'}
     )
-
     conversation = Conversation.objects.filter(
         contact=contact,
         channel='email',
         status__in=['normal', 'pending', 'open', 'assigned']
     ).first()
-
     if not conversation:
         conversation = Conversation.objects.create(
             contact=contact,
@@ -1484,15 +1480,45 @@ def open_client_email(request, client_id):
             priority='normal',
             subject=f"Email con {client.name}"
         )
-
         assign_conversation_to_agent(
             conversation,
             agent=request.user,
             assigned_by=request.user
         )
-    from django.urls import reverse
-    url = reverse('communications:dashboard')
+    return conversation
 
-    return redirect(f'{url}?channel=email&conversation={conversation.pk}')
+
+@login_required
+def client_email_compose_modal(request, client_id):
+    """Fragmento HTMX: redactar correo sin abandonar el listado de contactos."""
+    client = get_object_or_404(Client, pk=client_id)
+    conversation = _ensure_client_email_conversation(request, client)
+    email_account = EmailAccount.objects.filter(is_active=True).first()
+    email_compose_recipients_catalog = []
+    if email_account:
+        email_compose_recipients_catalog = _email_compose_recipient_catalog()
+    return_url = reverse('client_list')
+    return render(request, 'communications/partials/client_email_compose_htmx.html', {
+        'client': client,
+        'conversation': conversation,
+        'email_account': email_account,
+        'email_compose_recipients_catalog': email_compose_recipients_catalog,
+        'reply_cc_joined': '',
+        'return_url': return_url,
+    })
+
+
+@login_required
+def open_client_email(request, client_id):
+    """Abre el panel de comunicaciones en el hilo de email (enlace directo / favoritos)."""
+    client = get_object_or_404(Client, pk=client_id)
+    conversation = _ensure_client_email_conversation(request, client)
+    from urllib.parse import quote
+
+    url = reverse('communications:dashboard')
+    qs = f'channel=email&conversation={conversation.pk}&compose=1'
+    if client.email and str(client.email).strip():
+        qs += f'&to={quote(str(client.email).strip(), safe="")}'
+    return redirect(f'{url}?{qs}')
 
     
