@@ -4,6 +4,39 @@
         width: min(96vw, 1200px);
         max-width: 1200px;
     }
+    #emailRecipientSuggestList {
+        position: fixed;
+        z-index: 2000;
+        display: none;
+        max-height: 260px;
+        overflow-y: auto;
+        min-width: 280px;
+        max-width: min(640px, 92vw);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+        border-radius: 8px;
+        background: #fff;
+        border: 1px solid #ced4da;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    #emailRecipientSuggestList button {
+        width: 100%;
+        text-align: left;
+        border: none;
+        background: transparent;
+        padding: 9px 12px;
+        font-size: 0.875rem;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    #emailRecipientSuggestList button:hover,
+    #emailRecipientSuggestList button.active {
+        background: #e7f1ff;
+    }
+    #emailRecipientSuggestList .sug-meta {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
 </style>
 <div class="modal-header border-bottom">
     <h5 class="modal-title" id="clientEmailComposeTitle">
@@ -223,7 +256,11 @@
                 if (typeof closeModal === 'function') closeModal();
                 if (returnUrl) {
                     window.location.href = returnUrl;
+                    return;
                 }
+                try {
+                    if (typeof commMailRefreshList === 'function') commMailRefreshList();
+                } catch (e3) {}
             }).catch(function (err) {
                 console.error(err);
                 alert('Error al enviar mensaje: ' + (err && err.message ? err.message : err));
