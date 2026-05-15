@@ -1204,6 +1204,25 @@ def contacts_email_search(request):
     return JsonResponse({'results': results})
 
 
+@login_required
+def email_compose_modal(request):
+    email_account = EmailAccount.objects.filter(is_active=True).first()
+    email_compose_recipients_catalog = []
+    if email_account:
+        email_compose_recipients_catalog = _email_compose_recipient_catalog()
+
+    return_url = request.GET.get('return_url') or (reverse('communications:dashboard') + '?channel=email')
+
+    context = {
+        'email_account': email_account,
+        'email_compose_recipients_catalog': email_compose_recipients_catalog,
+        'client': None,
+        'conversation': None,
+        'reply_cc_joined': '',
+        'return_url': return_url,
+    }
+    return render(request, 'communications/partials/client_email_compose_htmx.html', context)
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def whatsapp_webhook(request):

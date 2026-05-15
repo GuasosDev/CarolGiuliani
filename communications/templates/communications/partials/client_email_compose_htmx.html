@@ -1,7 +1,13 @@
 {% load comm_mail %}
+<style>
+    #modal .modal-content {
+        width: min(96vw, 1200px);
+        max-width: 1200px;
+    }
+</style>
 <div class="modal-header border-bottom">
     <h5 class="modal-title" id="clientEmailComposeTitle">
-        <i class="fas fa-envelope me-2 text-primary" aria-hidden="true"></i>Correo a {{ client.name }}
+        <i class="fas fa-envelope me-2 text-primary" aria-hidden="true"></i>{% if client %}Correo a {{ client.name }}{% else %}Redactar correo{% endif %}
     </h5>
     <button type="button" class="btn-close" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()" aria-label="Cerrar ventana de redacción de correo"></button>
 </div>
@@ -10,14 +16,14 @@
     {{ email_compose_recipients_catalog|json_script:"email-compose-recipient-catalog" }}
     <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
         id="emailForm" enctype="multipart/form-data"
-        data-reply-to="{{ client.email|default:'' }}"
-        data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
+        data-reply-to="{% if client %}{{ client.email|default:'' }}{% endif %}"
+        data-reply-subject="{% if conversation %}{{ conversation.subject|default:''|decode_email_subject }}{% endif %}"
         data-reply-cc="{{ reply_cc_joined|default:'' }}"
-        data-conversation-id="{{ conversation.id }}"
+        data-conversation-id="{% if conversation %}{{ conversation.id }}{% endif %}"
         data-return-url="{{ return_url }}">
         {% csrf_token %}
         <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
-        <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{{ conversation.id }}">
+        <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{% if conversation %}{{ conversation.id }}{% endif %}">
 
         <div class="bg-white p-2 rounded border mb-2">
             <div id="emailFilePreview" class="mb-2" aria-live="polite"></div>
@@ -26,7 +32,7 @@
                 <input type="text" name="to_addresses" id="emailToInput"
                     class="form-control form-control-sm"
                     placeholder="Buscar contacto o grupo; varios correos por coma"
-                    value="{{ client.email|default:'' }}"
+                    value="{% if client %}{{ client.email|default:'' }}{% endif %}"
                     autocomplete="off"
                     spellcheck="false"
                     required
@@ -132,6 +138,10 @@
 
         var form = document.getElementById('emailForm');
         if (!form) return;
+        var convIn = document.getElementById('emailConversationIdInput');
+        if (convIn && (!convIn.value || !String(convIn.value).trim())) {
+            convIn.removeAttribute('name');
+        }
 
         form.addEventListener('submit', function (e) {
             e.preventDefault();

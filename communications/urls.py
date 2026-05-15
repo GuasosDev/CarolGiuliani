@@ -40,6 +40,7 @@ urlpatterns = [
     path('settings/', views.settings_view, name='settings'),
     path('settings/whatsapp-templates/', views.update_whatsapp_templates_settings, name='settings_whatsapp_templates'),
     path('contacts/email-search/', views.contacts_email_search, name='contacts_email_search'),
+    path('email/compose-modal/', views.email_compose_modal, name='email_compose_modal'),
     
     # Quick Replies
     path('quick-replies/', views.QuickReplyListView.as_view(), name='quick_replies'),

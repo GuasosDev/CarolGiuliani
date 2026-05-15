@@ -430,15 +430,22 @@
     function commMailCompose(mode) {
         mode = mode || 'new';
         if (mode === 'new') {
-            if (typeof window.commMailOpenComposeGlobal === 'function') {
-                window.commMailOpenComposeGlobal();
+            if (typeof htmx === 'undefined') {
+                window.location.href = "{% url 'communications:email_compose_modal' %}";
                 return;
             }
-            if (typeof window.commMailOpenCompose === 'function') {
-                window.commMailOpenCompose('new');
-                return;
+            try { if (typeof closeModal === 'function') closeModal(); } catch (e0) {}
+            try { if (typeof closeModalSecondary === 'function') closeModalSecondary(); } catch (e0b) {}
+            var modalBody = document.getElementById('modal-body');
+            if (modalBody) {
+                modalBody.innerHTML = '<div class="p-4 text-center text-muted"><div class="spinner-border text-primary mb-3" role="status"></div><div>Abriendo redacción…</div></div>';
             }
-            alert('No hay una cuenta de email activa configurada.');
+            if (typeof openModal === 'function') openModal();
+            var returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            htmx.ajax('GET', "{% url 'communications:email_compose_modal' %}?return_url=" + returnUrl, {
+                target: '#modal-body',
+                swap: 'innerHTML'
+            });
             return;
         }
 
