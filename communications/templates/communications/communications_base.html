@@ -640,10 +640,28 @@
         var modalEl = document.getElementById('emailComposeModalGlobal');
         if (!modalEl) return;
 
-        function commMailCleanupBackdrops() {
-            var anyVisibleModal = document.querySelector('.modal.show');
-            if (anyVisibleModal) return;
-            document.querySelectorAll('.modal-backdrop').forEach(function (b) { try { b.remove(); } catch (e) {} });
+        function commMailCleanupOverlays(exceptId) {
+            exceptId = exceptId || '';
+            document.querySelectorAll('.modal.show').forEach(function (m) {
+                if (!m || !m.id) return;
+                if (m.id === exceptId) return;
+                if (m.id === 'modal' || m.id === 'modal-secondary') return;
+                try {
+                    if (typeof bootstrap !== 'undefined') {
+                        var inst = bootstrap.Modal.getInstance(m);
+                        if (inst) {
+                            inst.hide();
+                            return;
+                        }
+                    }
+                } catch (e) {}
+                try {
+                    m.classList.remove('show');
+                    m.style.display = 'none';
+                    m.setAttribute('aria-hidden', 'true');
+                } catch (e2) {}
+            });
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) { try { b.remove(); } catch (e3) {} });
             document.body.classList.remove('modal-open');
             document.body.style.removeProperty('padding-right');
             document.body.style.removeProperty('overflow');
@@ -651,7 +669,7 @@
 
         window.commMailOpenComposeGlobal = function () {
             if (typeof bootstrap === 'undefined') return;
-            commMailCleanupBackdrops();
+            commMailCleanupOverlays(modalEl.id);
             var to = document.getElementById('emailToInputGlobal');
             var subj = document.getElementById('emailSubjectInputGlobal');
             var body = document.getElementById('emailBodyDivGlobal');
@@ -667,7 +685,7 @@
         };
 
         modalEl.addEventListener('hidden.bs.modal', function () {
-            setTimeout(commMailCleanupBackdrops, 0);
+            setTimeout(function () { commMailCleanupOverlays(modalEl.id); }, 0);
         });
 
         function initAutocomplete() {
