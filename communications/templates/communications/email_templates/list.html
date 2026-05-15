@@ -40,7 +40,8 @@
                     <p class="text-muted small mb-3 text-truncate">{{ template.description|default:"Sin descripción" }}</p>
                     
                     <div class="bg-light p-2 rounded small text-muted mb-0">
-                        <strong>Asunto:</strong> {{ template.subject_template|truncatechars:40 }}
+                        <strong>Asunto:</strong>
+                        {{ template.subject_template|striptags|truncatechars:40 }}
                     </div>
                 </div>
             </div>

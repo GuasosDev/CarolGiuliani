@@ -112,7 +112,7 @@ class EmailHandler:
 
             # traer TODOS
             status, messages = self.imap_connection.uid('search', None, 'X-GM-RAW',
-    'category:primary')
+    'category:primary OR category:promotions')
 
             if status != 'OK':
                 return []

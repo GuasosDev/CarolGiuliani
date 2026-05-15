@@ -22,11 +22,15 @@ css_sanitizer = CSSSanitizer(
         'border',
         'border-radius',
         'text-decoration',
+        # agregar
+        'max-height',
+        'object-fit',
+        'vertical-align',
     ]
 )
 ALLOWED_TAGS = [
     # estructura
-    'html', 'body',
+    'html', 'body', 'style',
     'div', 'span',
     'p', 'br', 'hr',
 
@@ -56,6 +60,9 @@ ALLOWED_TAGS = [
     # citas
     'blockquote',
     'cite',
+
+    'details',
+    'summary',
 ]
 
 def _strip_embedded_webmail_header(soup):
@@ -110,13 +117,14 @@ ALLOWED_ATTRIBUTES = {
     ],
 
     'img': [
-        'src',
-        'srcset',
-        'alt',
-        'width',
-        'height',
-        'style',
-        'class',
+    'src',
+    'srcset',
+    'alt',
+    'width',
+    'height',
+    'style',
+    'class',
+    'loading',
     ],
 
     'table': [
@@ -156,6 +164,8 @@ ALLOWED_ATTRIBUTES = {
     'div': ['style'],
     'span': ['style'],
     'p': ['style'],
+    'details': ['open'],
+    'summary': ['style'],
 }
 
 
@@ -176,7 +186,7 @@ def limpiar_email_html(html):
 
     soup = BeautifulSoup(html, "html.parser")
 
-    # Quitar bloque UI incrustado de algunos webmails (ej. "De X el dd-mm-aaaa" + Detalles/Texto)
+    # Quitar bloque UI incrustado
     _strip_embedded_webmail_header(soup)
 
     # eliminar comentarios
@@ -194,20 +204,59 @@ def limpiar_email_html(html):
         'form',
         'input',
         'button',
+        'select',
+        'option',
+        'textarea',
+        'nav',
+        'svg',
+        'canvas',
+        'video',
+        'audio',
     ]):
         tag.decompose()
 
+    # limpiar imágenes problemáticas
+    for img in soup.find_all("img"):
+
+        alt = img.get("alt", "").strip().lower()
+
+        # evitar mostrar "image.png"
+        if re.match(r"image\d*\.(png|jpg|jpeg|gif|webp)", alt):
+            img["alt"] = ""
+
+        # quitar tamaños fijos
+        img.attrs.pop("width", None)
+        img.attrs.pop("height", None)
+
+        current_style = img.get("style", "")
+
+        safe_style = """
+        max-width:100%;
+        height:auto;
+        object-fit:contain;
+        vertical-align:middle;
+        """
+
+        img["style"] = f"{current_style};{safe_style}"
+
+        src = img.get("src", "")
+
+        # eliminar tracking pixels
+        if "tracking" in src or "pixel" in src:
+            img.decompose()
+
     # asegurar links seguros
     for a in soup.find_all("a"):
+
         href = a.get("href")
 
         if href:
             a["target"] = "_blank"
             a["rel"] = "noopener noreferrer"
 
-        # convertir a string
+    # convertir a string
     content = unescape(str(soup))
-    
+
     # sanitizar
     cleaned = bleach.clean(
         content,
