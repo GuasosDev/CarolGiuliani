@@ -1071,6 +1071,21 @@ def update_whatsapp_templates_settings(request):
     return redirect('communications:settings')
 
 
+@login_required
+def contacts_email_search(request):
+    q = (request.GET.get('q') or '').strip()
+    qs = Client.objects.all()
+    if q:
+        qs = qs.filter(Q(name__icontains=q) | Q(email__icontains=q))
+    qs = qs.order_by('name')[:25]
+    results = [{
+        'id': c.pk,
+        'name': c.name,
+        'email': c.email,
+    } for c in qs if c.email]
+    return JsonResponse({'results': results})
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def whatsapp_webhook(request):
