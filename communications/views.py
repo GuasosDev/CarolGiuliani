@@ -239,6 +239,8 @@ def dashboard(request):
             )
         if channel_filter == 'email' and status_filter == 'inbox':
             status_filter = 'all'
+        if channel_filter == 'email' and (not status_filter or status_filter == 'all'):
+            conversations = conversations.exclude(status='closed')
     else:
         # Default behavior (no channel filter)
         if not status_filter:
