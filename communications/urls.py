@@ -20,6 +20,7 @@ urlpatterns = [
     path('client/<int:client_id>/whatsapp/<str:channel>/', open_client_whatsapp, name='open_client_whatsapp'),
     path('client/<int:client_id>/whatsapp/', open_client_whatsapp, {'channel': 'whatsapp'}, name='open_client_whatsapp_legacy'),
     path('conversation/<int:pk>/', views.conversation_detail, name='conversation_detail'),
+    path('email-message/<int:pk>/', views.email_message_detail, name='email_message_detail'),
     path('conversation/<int:pk>/status/', views.change_conversation_status, name='change_conversation_status'),
     path('conversation/<int:pk>/mark-unread/', views.mark_conversation_unread, name='mark_conversation_unread'),
     path('conversation/<int:pk>/mark-read/', views.mark_conversation_read, name='mark_conversation_read'),

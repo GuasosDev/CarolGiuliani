@@ -91,7 +91,37 @@
 
                 <div class="list-group list-group-flush">
 
-                    {% if current_status == 'inbox' %}
+                    {% if current_channel == 'email' %}
+                    {% for em in email_rows %}
+                    <button type="button"
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
+                        data-id="{{ em.id }}"
+                        data-contact-name="{% if em.message.conversation %}{{ em.message.conversation.get_display_name }}{% else %}Email{% endif %}"
+                        onclick="loadEmailMessage(this, '{{ em.id }}')">
+
+                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
+                                <span class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
+                                    {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
+                                </span>
+                            </div>
+                            <small class="text-muted text-nowrap flex-shrink-0">{{ em.message.created_at|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-truncate">
+                                Para: {{ em.to_addresses.0|default:em.email_account.email_address|default:"-" }}
+                            </small>
+                            <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                        </div>
+                    </button>
+                    {% empty %}
+                    <div class="text-center p-5 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
+                        <p>No hay emails en esta vista.</p>
+                    </div>
+                    {% endfor %}
+
+                    {% elif current_status == 'inbox' %}
                     {% for group in grouped_conversations %}
                     <div class="list-group-item bg-light fw-bold small text-uppercase text-muted py-1 px-3">
                         {{ group.client.name|default:"Desconocido" }}
@@ -531,6 +561,60 @@
         }
     }
 
+    function loadEmailMessage(element, id) {
+        if (window.conversationPollInterval) {
+            clearInterval(window.conversationPollInterval);
+            window.conversationPollInterval = null;
+        }
+
+        selectEmailMessage(element, id);
+
+        const panel = document.getElementById('conversation-detail-panel');
+        panel.innerHTML = `
+            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <p>Cargando email...</p>
+            </div>
+        `;
+
+        const url = `/communications/email-message/${id}/?partial=true`;
+
+        if (typeof htmx !== 'undefined') {
+            htmx.ajax('GET', url, {
+                target: '#conversation-detail-panel',
+                swap: 'innerHTML'
+            }).catch(err => {
+                console.error('HTMX Error:', err);
+                panel.innerHTML = `
+                    <div class="alert alert-danger m-4">
+                        <h4>Error al cargar el email</h4>
+                        <p>No se pudo cargar el email. Por favor intenta nuevamente.</p>
+                        <small class="text-muted">${err.message || 'Error desconocido'}</small>
+                        <br>
+                        <button class="btn btn-sm btn-outline-danger mt-3" onclick="loadEmailMessage(null, '${id}')">Reintentar</button>
+                    </div>
+                `;
+            });
+        } else {
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'HX-Request': 'true'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text();
+                })
+                .then(html => {
+                    panel.innerHTML = html;
+                })
+                .catch(err => {
+                    panel.innerHTML = `<div class="alert alert-danger m-3">Error fetch: ${err.message}</div>`;
+                });
+        }
+    }
+
     function selectConversation(element, id) {
         try {
             // Visual update
@@ -565,6 +649,33 @@
             window.history.pushState({}, '', url);
         } catch (e) {
             console.error('Error in selectConversation:', e);
+        }
+    }
+
+    function selectEmailMessage(element, id) {
+        try {
+            document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
+
+            if (!element && id) {
+                element = document.querySelector(`.conversation-item[data-id="${id}"]`);
+            }
+
+            if (element) {
+                element.classList.add('active', 'bg-light');
+
+                const headerTitle = document.getElementById('dashboard-header-title');
+                const nameFromData = element.getAttribute('data-contact-name');
+                if (headerTitle) {
+                    headerTitle.textContent = (nameFromData && nameFromData.trim()) ? nameFromData.trim() : 'Email';
+                }
+            }
+
+            const url = new URL(window.location);
+            url.searchParams.delete('conversation');
+            url.searchParams.set('email_message', id);
+            window.history.pushState({}, '', url);
+        } catch (e) {
+            console.error('Error in selectEmailMessage:', e);
         }
     }
 

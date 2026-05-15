@@ -207,6 +207,7 @@ def dashboard(request):
     channel_filter = request.GET.get('channel')
     user_filter = request.GET.get('user')
     search_q = (request.GET.get('q') or '').strip()
+    email_rows = None
     
     base_qs = get_agent_conversations(request.user).select_related(
         "contact__client"
@@ -236,6 +237,8 @@ def dashboard(request):
                 | Q(contact__client__name__icontains=search_q)
                 | Q(contact__client__email__icontains=search_q)
             )
+        if channel_filter == 'email' and status_filter == 'inbox':
+            status_filter = 'all'
     else:
         # Default behavior (no channel filter)
         if not status_filter:
@@ -293,8 +296,21 @@ def dashboard(request):
             direction='inbound',
             is_read=False,
         )
+        email_rows = None
         conversations = conversations.annotate(has_unread_inbound=Exists(unread_subq))
         if channel_filter == 'email':
+            email_rows = (
+                EmailMessage.objects.select_related(
+                    'message',
+                    'message__conversation',
+                    'message__conversation__contact',
+                    'message__conversation__contact__client',
+                    'email_account',
+                    'message__sender',
+                )
+                .filter(message__conversation__in=conversations)
+                .order_by('-message__created_at')[:100]
+            )
             conversations = conversations.order_by('-last_message_at', '-updated_at')[:50]
         else:
             conversations = conversations.order_by('-updated_at')[:50]
@@ -328,6 +344,7 @@ def dashboard(request):
     context = {
         'conversations': conversations,
         'grouped_conversations': grouped_conversations,
+        'email_rows': email_rows,
         'whatsapp_percent': whatsapp_percent,
         'email_percent': email_percent,
         'current_status': status_filter,
@@ -839,6 +856,94 @@ def conversation_detail(request, pk):
                     # Return 200 even for error so HTMX displays the message
                     return HttpResponse(f'<div class="alert alert-danger m-3">Error al cargar la conversación: {str(e)}</div>', status=200)
                 raise
+
+
+@login_required
+def email_message_detail(request, pk):
+    email_message = get_object_or_404(
+        EmailMessage.objects.select_related(
+            'message',
+            'message__conversation',
+            'message__conversation__contact',
+            'message__conversation__contact__client',
+            'email_account',
+            'message__sender',
+        ).prefetch_related('attachments'),
+        pk=pk,
+    )
+    conversation = email_message.message.conversation
+
+    allowed = (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+        or conversation.assigned_to == request.user
+        or (email_message.email_account and email_message.email_account.user_id == request.user.id)
+    )
+    if not allowed:
+        if not get_agent_conversations(request.user).filter(pk=conversation.pk).exists():
+            return HttpResponse('<div class="alert alert-danger m-3">No tienes permiso para ver este email.</div>', status=200)
+
+    if email_message.message.direction == 'inbound' and not email_message.message.is_read:
+        Message.objects.filter(pk=email_message.message.pk).update(is_read=True, read_at=timezone.now())
+
+    conversation.subject = email_message.subject
+
+    m = email_message.message
+    m.email_data = email_message
+    if email_message.html_body and str(email_message.html_body).strip():
+        raw_src = email_message.html_body
+    elif m.content and '<' in (m.content or '') and '>' in (m.content or ''):
+        raw_src = m.content
+    elif email_message.plain_body and str(email_message.plain_body).strip():
+        raw_src = plain_text_to_email_html(email_message.plain_body)
+    else:
+        raw_src = plain_text_to_email_html(m.content or '')
+    m.render_content = limpiar_email_html(raw_src)
+
+    from core.models import CompanySettings
+    company_settings = CompanySettings.load()
+
+    whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
+    email_account = EmailAccount.objects.filter(is_active=True).first()
+
+    counts = _get_conversation_counts(request.user)
+
+    quick_replies = QuickReply.objects.filter(
+        models.Q(created_by=request.user) | models.Q(is_global=True)
+    ).order_by('shortcut', 'title')
+
+    reply_cc_joined = ''
+    if email_message.cc_addresses:
+        reply_cc_joined = ', '.join(str(x).strip() for x in email_message.cc_addresses if x)
+
+    from django.contrib.auth.models import User as AuthUser
+    transfer_users = AuthUser.objects.filter(is_active=True).exclude(
+        pk=request.user.pk
+    ).order_by('first_name', 'username')
+
+    email_compose_recipients_catalog = []
+    if email_account:
+        email_compose_recipients_catalog = _email_compose_recipient_catalog()
+
+    context = {
+        'conversation': conversation,
+        'messages': [m],
+        'notes': conversation.internal_notes.all(),
+        'clients': Client.objects.all().order_by('name')[:100],
+        'sidebar_conversations': [],
+        'current_status': request.GET.get('status', conversation.status),
+        'current_channel': 'email',
+        'whatsapp_account': whatsapp_account,
+        'email_account': email_account,
+        'quick_replies': quick_replies,
+        'transfer_users': transfer_users,
+        'company_settings': company_settings,
+        'reply_cc_joined': reply_cc_joined,
+        'email_compose_recipients_catalog': email_compose_recipients_catalog,
+        **counts,
+    }
+
+    return render(request, 'communications/partials/conversation_content.html', context)
 
 
 @login_required
