@@ -96,6 +96,7 @@
                     <button type="button"
                         class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
                         data-id="{{ em.id }}"
+                        data-conversation-id="{% if em.message.conversation %}{{ em.message.conversation.id }}{% endif %}"
                         data-contact-name="{% if em.message.conversation %}{{ em.message.conversation.get_display_name }}{% else %}Email{% endif %}"
                         onclick="loadEmailMessage(this, '{{ em.id }}')">
 

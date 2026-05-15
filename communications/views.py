@@ -345,6 +345,7 @@ def dashboard(request):
         'conversations': conversations,
         'grouped_conversations': grouped_conversations,
         'email_rows': email_rows,
+        'email_account': EmailAccount.objects.filter(is_active=True).first(),
         'whatsapp_percent': whatsapp_percent,
         'email_percent': email_percent,
         'current_status': status_filter,
