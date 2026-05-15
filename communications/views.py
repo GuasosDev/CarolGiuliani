@@ -30,11 +30,46 @@ from .assignment_system import get_agent_conversations, assign_conversation_to_a
 from clients.models import Client
 from core.views import GenericCreateView
 from django.db.models import Exists, OuterRef, Prefetch, Q
-from .utils.html_cleaner import limpiar_email_html
+from .utils.html_cleaner import limpiar_email_html, plain_text_to_email_html
 from django.http import JsonResponse
 
 
 logger = logging.getLogger(__name__)
+
+
+def _email_compose_recipient_catalog():
+    """Clientes con email + grupos por etiqueta (ClientTag) para sugerencias al redactar."""
+    from clients.models import Client, ClientTag
+
+    catalog = []
+    for cl in (
+        Client.objects.exclude(email__exact='')
+        .only('id', 'name', 'email')
+        .order_by('name')[:500]
+    ):
+        em = (cl.email or '').strip()
+        if not em:
+            continue
+        catalog.append(
+            {
+                't': 'c',
+                'id': cl.id,
+                'l': ((cl.name or em).strip())[:200],
+                'e': em[:254],
+            }
+        )
+    for tag in ClientTag.objects.all().order_by('name')[:80]:
+        emails = [
+            str(e).strip()
+            for e in Client.objects.filter(tags=tag)
+            .exclude(email__exact='')
+            .values_list('email', flat=True)
+            .distinct()[:80]
+            if e and str(e).strip()
+        ]
+        if emails:
+            catalog.append({'t': 'g', 'id': tag.id, 'l': (tag.name or '')[:120], 'emails': emails[:80]})
+    return catalog
 
 
 @login_required
@@ -597,11 +632,14 @@ def change_conversation_status(request, pk):
     conversation = get_object_or_404(Conversation, pk=pk)
     
     # Check permission
-    if not (request.user.is_superuser or 
-            request.user.groups.filter(name='Supervisor').exists() or
-            conversation.assigned_to == request.user):
-        return HttpResponse('Unauthorized', status=403)
-        
+    if not (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+        or conversation.assigned_to == request.user
+    ):
+        if not get_agent_conversations(request.user).filter(pk=pk).exists():
+            return HttpResponse('Unauthorized', status=403)
+
     if request.method == 'POST':
         new_status = request.POST.get('status')
         if new_status in ['normal', 'pending', 'closed']:
@@ -635,6 +673,26 @@ def mark_conversation_unread(request, pk):
     return response
 
 
+@login_required
+@require_POST
+def mark_conversation_read(request, pk):
+    """Marca todos los mensajes entrantes del hilo como leídos (vista webmail)."""
+    conversation = get_object_or_404(Conversation, pk=pk)
+    if conversation.channel != 'email':
+        return HttpResponse(status=404)
+    if not (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+        or conversation.assigned_to == request.user
+    ):
+        if not get_agent_conversations(request.user).filter(pk=pk).exists():
+            return HttpResponse('Unauthorized', status=403)
+    conversation.messages.filter(direction='inbound').update(is_read=True, read_at=timezone.now())
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = json.dumps({'commRefreshConversationList': True})
+    return response
+
+
 class ContactCreateView(GenericCreateView):
     model = Contact
     fields = ['client', 'whatsapp_number', 'preferred_channel', 'notes']
@@ -662,9 +720,13 @@ def conversation_detail(request, pk):
                 # Mark inbound unread messages as read
         conversation.messages.filter(direction='inbound', is_read=False).update(is_read=True, read_at=timezone.now())
     
-        messages = conversation.messages.select_related('sender').all().order_by('created_at')
-        
-        from .utils.html_cleaner import limpiar_email_html
+        messages = (
+            conversation.messages.select_related('sender', 'email_data')
+            .prefetch_related('email_data__attachments')
+            .all()
+            .order_by('created_at')
+        )
+
         sent_by_re = re.compile(
             r'(?:\s*<br\s*/?>\s*)*\s*-{2,}\s*Enviado por:\s*(?P<name>.*?)(?:\s*-{2,}.*)?\s*$',
             re.IGNORECASE | re.DOTALL
@@ -677,7 +739,16 @@ def conversation_detail(request, pk):
             if m.direction == 'outbound' and getattr(m, 'sender', None):
                 m.envio_remitente = (m.sender.get_full_name() or m.sender.username or '').strip()
             if conversation.channel == 'email':
-                m.render_content = limpiar_email_html(m.content)
+                ed = getattr(m, 'email_data', None)
+                if ed and ed.html_body and str(ed.html_body).strip():
+                    raw_src = ed.html_body
+                elif m.content and '<' in (m.content or '') and '>' in (m.content or ''):
+                    raw_src = m.content
+                elif ed and ed.plain_body and str(ed.plain_body).strip():
+                    raw_src = plain_text_to_email_html(ed.plain_body)
+                else:
+                    raw_src = plain_text_to_email_html(m.content or '')
+                m.render_content = limpiar_email_html(raw_src)
             else:
                 m.render_content = m.content
 
@@ -713,11 +784,30 @@ def conversation_detail(request, pk):
             models.Q(created_by=request.user) | models.Q(is_global=True)
         ).order_by('shortcut', 'title')
 
+        reply_cc_joined = ''
+        if conversation.channel == 'email':
+            last_inbound = (
+                EmailMessage.objects.filter(
+                    message__conversation=conversation,
+                    message__direction='inbound',
+                )
+                .order_by('-message__created_at')
+                .first()
+            )
+            if last_inbound and last_inbound.cc_addresses:
+                reply_cc_joined = ', '.join(
+                    str(x).strip() for x in last_inbound.cc_addresses if x
+                )
+
         # Get users available for conversation transfer
         from django.contrib.auth.models import User as AuthUser
         transfer_users = AuthUser.objects.filter(is_active=True).exclude(
             pk=request.user.pk
         ).order_by('first_name', 'username')
+
+        email_compose_recipients_catalog = []
+        if email_account:
+            email_compose_recipients_catalog = _email_compose_recipient_catalog()
 
         context = {
             'conversation': conversation,
@@ -732,6 +822,8 @@ def conversation_detail(request, pk):
             'quick_replies': quick_replies,
             'transfer_users': transfer_users,
             'company_settings': company_settings,
+            'reply_cc_joined': reply_cc_joined,
+            'email_compose_recipients_catalog': email_compose_recipients_catalog,
             **counts # Unpack counts into context
         }
         

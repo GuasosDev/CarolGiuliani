@@ -348,18 +348,24 @@
         <button type="button" class="btn btn-toolbar-mail" title="Responder" onclick="commMailCompose('reply')">
             <span class="comm-mail-tb-ico"><i class="fas fa-reply"></i></span><span>Responder</span>
         </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Responder a todos" onclick="commMailCompose('reply')">
+        <button type="button" class="btn btn-toolbar-mail" title="Responder a todos" onclick="commMailCompose('reply-all')">
             <span class="comm-mail-tb-ico"><i class="fas fa-reply-all"></i></span><span>Responder a todos</span>
         </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Próximamente" disabled>
+        <button type="button" class="btn btn-toolbar-mail" title="Reenviar" onclick="commMailCompose('forward')">
             <span class="comm-mail-tb-ico"><i class="fas fa-share"></i></span><span>Reenviar</span>
         </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Próximamente" disabled>
+        <button type="button" class="btn btn-toolbar-mail" title="Mover a papelera" onclick="commMailMoveToTrash()">
             <span class="comm-mail-tb-ico"><i class="fas fa-trash-alt"></i></span><span>Eliminar</span>
         </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Próximamente" disabled>
-            <span class="comm-mail-tb-ico"><i class="fas fa-flag"></i></span><span>Marcar</span>
-        </button>
+        <div class="dropdown d-flex align-items-center">
+            <button type="button" class="btn btn-toolbar-mail dropdown-toggle" title="Marcar mensajes" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+                <span class="comm-mail-tb-ico"><i class="fas fa-flag"></i></span><span>Marcar</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end comm-mail-toolbar-menu py-1">
+                <li><button type="button" class="dropdown-item" onclick="commMailMarkUnread()">Como no leído</button></li>
+                <li><button type="button" class="dropdown-item" onclick="commMailMarkRead()">Como leído</button></li>
+            </ul>
+        </div>
         <div class="dropdown d-flex align-items-center">
             <button class="btn btn-toolbar-mail dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
                 <span class="comm-mail-tb-ico"><i class="fas fa-ellipsis-h"></i></span><span>Más</span>
@@ -379,6 +385,30 @@
         </form>
     </div>
     <script>
+    var __commMailUrlChangeStatus = "{% url 'communications:change_conversation_status' 999999 %}";
+    var __commMailUrlMarkUnread = "{% url 'communications:mark_conversation_unread' 999999 %}";
+    var __commMailUrlMarkRead = "{% url 'communications:mark_conversation_read' 999999 %}";
+    function commMailUrlById(tpl, id) {
+        return tpl.replace('999999', String(id));
+    }
+    function commMailGetCookie(name) {
+        var m = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return m ? decodeURIComponent(m[2]) : '';
+    }
+    function commMailCurrentConversationId() {
+        var p = new URLSearchParams(window.location.search);
+        var id = p.get('conversation');
+        if (id) return id;
+        var active = document.querySelector('.conversation-item.active');
+        return active ? active.getAttribute('data-id') : null;
+    }
+    function commMailClearDetailPanel() {
+        var panel = document.getElementById('conversation-detail-panel');
+        if (!panel) return;
+        panel.innerHTML = '<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted p-4">' +
+            '<div class="bg-white p-4 rounded-circle shadow-sm mb-3"><i class="far fa-comments fa-3x text-primary opacity-50"></i></div>' +
+            '<h5>Selecciona una conversación</h5><p class="small text-center">Elige un correo de la lista para verlo aquí.</p></div>';
+    }
     function commMailRefreshList() {
         var el = document.getElementById('dashboard-conversations-container');
         if (!el || typeof htmx === 'undefined') { window.location.reload(); return; }
@@ -397,6 +427,51 @@
         } else {
             alert('Selecciona una conversación de correo para redactar.');
         }
+    }
+    function commMailMoveToTrash() {
+        var id = commMailCurrentConversationId();
+        if (!id) { alert('Selecciona una conversación.'); return; }
+        if (!confirm('¿Mover esta conversación a la papelera?')) return;
+        var fd = new FormData();
+        fd.append('status', 'closed');
+        fd.append('csrfmiddlewaretoken', commMailGetCookie('csrftoken'));
+        fetch(commMailUrlById(__commMailUrlChangeStatus, id), {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': commMailGetCookie('csrftoken'), 'HX-Request': 'true' }
+        }).then(function (r) {
+            if (!r.ok) { alert('No se pudo eliminar (permisos o error de red).'); return; }
+            var u = new URL(window.location.href);
+            u.searchParams.delete('conversation');
+            window.history.replaceState({}, '', u);
+            commMailClearDetailPanel();
+            commMailRefreshList();
+        }).catch(function () { alert('Error de red al eliminar.'); });
+    }
+    function commMailMarkUnread() {
+        var id = commMailCurrentConversationId();
+        if (!id) { alert('Selecciona una conversación.'); return; }
+        fetch(commMailUrlById(__commMailUrlMarkUnread, id), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': commMailGetCookie('csrftoken') }
+        }).then(function (r) {
+            if (!r.ok) { alert('No se pudo marcar como no leído.'); return; }
+            commMailRefreshList();
+        }).catch(function () { alert('Error de red.'); });
+    }
+    function commMailMarkRead() {
+        var id = commMailCurrentConversationId();
+        if (!id) { alert('Selecciona una conversación.'); return; }
+        fetch(commMailUrlById(__commMailUrlMarkRead, id), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': commMailGetCookie('csrftoken') }
+        }).then(function (r) {
+            if (!r.ok) { alert('No se pudo marcar como leído.'); return; }
+            commMailRefreshList();
+        }).catch(function () { alert('Error de red.'); });
     }
     </script>
     {% else %}

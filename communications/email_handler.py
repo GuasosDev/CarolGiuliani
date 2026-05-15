@@ -8,6 +8,7 @@ import uuid
 import imaplib
 import smtplib
 import email
+from email import policy as email_policy
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -21,6 +22,8 @@ from .models import (
     EmailAccount, EmailMessage, EmailThread, Message,
     Conversation, Contact, EmailAttachment,User,QuickReply
 )
+from .utils.email_headers import decode_mime_header
+from .utils.html_cleaner import plain_text_to_email_html
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +126,7 @@ class EmailHandler:
                     continue
                 
                 raw_email = msg_data[0][1]
-                email_message = email.message_from_bytes(raw_email)
+                email_message = email.message_from_bytes(raw_email, policy=email_policy.default)
                 
                 # Process and store email
                 processed = self.process_incoming_email(email_message)
@@ -166,9 +169,11 @@ class EmailHandler:
         try:
             # Extract email headers
             from_address = parseaddr(email_message.get('From', ''))[1]
-            to_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('To', [])]
-            cc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Cc', [])]
-            subject = email_message.get('Subject', '(No Subject)')
+            to_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('To', []) if parseaddr(addr)[1]]
+            cc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Cc', []) if parseaddr(addr)[1]]
+            bcc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Bcc', []) if parseaddr(addr)[1]]
+            subject_header = email_message.get('Subject', '') or '(No Subject)'
+            subject = decode_mime_header(subject_header) or '(No Subject)'
             message_id = email_message.get('Message-ID', '')
             if not message_id:
                message_id = f"<no-id-{uuid.uuid4()}@local>"
@@ -183,25 +188,46 @@ class EmailHandler:
                 if exists:
                     logger.warning(f"Duplicate email skipped: {message_id}")
                     return None
-            # Extract body
+            # Extract body (preferir HTML para mostrar en el visor)
             html_body = None
             plain_body = None
-            
-            if email_message.is_multipart():
+            if hasattr(email_message, 'get_body'):
+                try:
+                    bp = email_message.get_body(preferencelist=('html', 'plain'))
+                except Exception:
+                    bp = None
+                if bp is not None:
+                    try:
+                        raw = bp.get_payload(decode=True)
+                        if raw:
+                            charset = bp.get_content_charset() or 'utf-8'
+                            txt = raw.decode(charset, errors='ignore')
+                            if bp.get_content_type() == 'text/html':
+                                html_body = txt
+                            else:
+                                plain_body = txt
+                    except Exception:
+                        pass
+            if html_body is None and plain_body is None:
                 for part in email_message.walk():
-                    content_type = part.get_content_type()
-                    
-                    if content_type == 'text/plain' and not plain_body:
-                        plain_body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
-                    elif content_type == 'text/html' and not html_body:
-                        html_body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
-            else:
-                content_type = email_message.get_content_type()
-                if content_type == 'text/plain':
-                    plain_body = email_message.get_payload(decode=True).decode('utf-8', errors='ignore')
-                elif content_type == 'text/html':
-                    html_body = email_message.get_payload(decode=True).decode('utf-8', errors='ignore')
-            
+                    if part.get_content_maintype() == 'multipart':
+                        continue
+                    ctype = part.get_content_type()
+                    if ctype not in ('text/plain', 'text/html'):
+                        continue
+                    try:
+                        payload = part.get_payload(decode=True)
+                        if not payload:
+                            continue
+                        charset = part.get_content_charset() or 'utf-8'
+                        txt = payload.decode(charset, errors='ignore')
+                        if ctype == 'text/html':
+                            html_body = txt
+                        elif plain_body is None:
+                            plain_body = txt
+                    except Exception:
+                        continue
+
             # Get or create contact based on email address
             contact = self.get_or_create_contact_from_email(from_address)
             
@@ -211,14 +237,18 @@ class EmailHandler:
                 conversation.user = self.account.user
                 conversation.save()
             
-            raw_body = plain_body or html_body or '(Empty message)'
-            clean_body = self.clean_email_body(raw_body)
+            if html_body and html_body.strip():
+                message_content = html_body.strip()
+            else:
+                plain_clean = self.clean_email_body(plain_body or '') if plain_body else ''
+                message_content = plain_text_to_email_html(plain_clean or '(Sin contenido)')
+
             # Create message
             message = Message.objects.create(
                 conversation=conversation,
                 message_type='email',
                 direction='inbound',
-                content=clean_body,
+                content=message_content,
                 sender_name=parseaddr(email_message.get('From', ''))[0] or from_address,
                 metadata={'date': date}
             )
@@ -239,6 +269,7 @@ class EmailHandler:
                 thread=email_thread,
                 to_addresses=to_addresses,
                 cc_addresses=cc_addresses,
+                bcc_addresses=bcc_addresses,
                 from_address=from_address
             )
             
@@ -392,6 +423,9 @@ class EmailHandler:
             if cc_addresses:
                 msg['Cc'] = ', '.join(cc_addresses)
 
+            if bcc_addresses:
+                msg['Bcc'] = ', '.join(bcc_addresses)
+
             msg_id = make_msgid()
             msg['Message-ID'] = msg_id
 
@@ -488,6 +522,7 @@ class EmailHandler:
                     email_message_id=msg_id,
                     to_addresses=to_addresses,
                     cc_addresses=cc_addresses or [],
+                    bcc_addresses=bcc_addresses or [],
                     from_address=self.account.email_address
                 )
 

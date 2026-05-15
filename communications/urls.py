@@ -22,6 +22,7 @@ urlpatterns = [
     path('conversation/<int:pk>/', views.conversation_detail, name='conversation_detail'),
     path('conversation/<int:pk>/status/', views.change_conversation_status, name='change_conversation_status'),
     path('conversation/<int:pk>/mark-unread/', views.mark_conversation_unread, name='mark_conversation_unread'),
+    path('conversation/<int:pk>/mark-read/', views.mark_conversation_read, name='mark_conversation_read'),
     path('conversation/<int:conversation_id>/add-note/', views.add_conversation_note, name='add_conversation_note'),
     path('conversation/<int:conversation_id>/details-modal/', views.contact_details_modal, name='contact_details_modal'),
     path('conversation/<int:conversation_id>/quick-create-client/', views.quick_create_client_modal, name='quick_create_client_modal'),

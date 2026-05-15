@@ -1,3 +1,5 @@
+{% load comm_mail %}
+{% if email_account %}{{ email_compose_recipients_catalog|json_script:"email-compose-recipient-catalog" }}{% endif %}
 <div class="omni-chat-wrapper d-flex flex-row h-100 flex-grow-1 border-0 shadow-none rounded-0 w-100"
     style="min-height: 100%;">
   <!--Main Chat Workspace --> 
@@ -22,6 +24,87 @@
             z-index: 1070 !important;
             position: relative;
             background: white !important;
+        }
+        .comm-compose-email-modal.modal-dialog {
+            max-width: min(1520px, 98vw) !important;
+            width: 98vw !important;
+            max-height: calc(100vh - 0.75rem);
+            height: auto;
+            margin: 0.35rem auto;
+            display: flex;
+            align-items: stretch;
+        }
+        #emailComposeModal .comm-compose-email-modal .modal-content {
+            max-height: calc(100vh - 0.75rem);
+            min-height: 0 !important;
+            overflow: hidden;
+            flex: 1 1 auto;
+            width: 100%;
+        }
+        #emailComposeModal .comm-compose-email-modal .modal-body {
+            overflow: hidden;
+            min-height: 0;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+        #emailComposeModal .comm-compose-email-modal #emailForm {
+            overflow: hidden;
+            min-height: 0;
+        }
+        #emailComposeModal .comm-compose-email-card {
+            overflow: hidden;
+            min-height: 0;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #emailComposeModal .comm-compose-email-card .comm-compose-msg-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        #emailComposeModal #emailBodyDiv {
+            flex: 1 1 auto;
+            min-height: 100px !important;
+            max-height: clamp(100px, 32vh, 300px) !important;
+            overflow-y: auto !important;
+        }
+        #emailRecipientSuggestList {
+            position: fixed;
+            z-index: 1085;
+            display: none;
+            max-height: 260px;
+            overflow-y: auto;
+            min-width: 280px;
+            max-width: min(640px, 92vw);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #ced4da;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        #emailRecipientSuggestList button {
+            width: 100%;
+            text-align: left;
+            border: none;
+            background: transparent;
+            padding: 9px 12px;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #f1f3f5;
+        }
+        #emailRecipientSuggestList button:hover,
+        #emailRecipientSuggestList button.active {
+            background: #e7f1ff;
+        }
+        #emailRecipientSuggestList .sug-meta {
+            font-size: 0.75rem;
+            color: #6c757d;
         }
         </style>
         <style>
@@ -698,7 +781,7 @@
 
                 <div class="msg-content-wrapper">
                    {% if conversation.channel == "email" and forloop.first %}
-                        <small class="text-muted d-block mb-1">{{ conversation.subject|default:"(Sin asunto)"|truncatechars:80 }}</small>
+                        <small class="text-muted d-block mb-1">{{ conversation.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:80 }}</small>
                     {% endif %}
                         <div class="msg-bubble text-break pt-1 d-inline-block text-start" onclick="onChatMessageClick(event, {{ m.id }})">
     
@@ -879,14 +962,14 @@
 
         {% if conversation.channel == 'email' %}
         <div class="modal fade" id="emailComposeModal" tabindex="-1" aria-labelledby="emailComposeModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header border-bottom">
+            <div class="modal-dialog comm-compose-email-modal">
+                <div class="modal-content d-flex flex-column">
+                    <div class="modal-header border-bottom flex-shrink-0 py-2">
                         <h5 class="modal-title" id="emailComposeModalLabel"><i class="fas fa-envelope me-2 text-primary"></i>Redactar correo</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
-                    <div class="modal-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="modal-body d-flex flex-column flex-grow-1 px-3 py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2 flex-shrink-0">
                             <div class="dropdown">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" title="Respuestas rápidas">
                                     <i class="fas fa-bolt me-1"></i> Respuestas rápidas
@@ -923,42 +1006,66 @@
                         </div>
                         {% if email_account %}
                         <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
-                            id="emailForm" enctype="multipart/form-data">
+                            id="emailForm" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1"
+                            style="min-height: 0;"
+                            data-reply-to="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
+                            data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
+                            data-reply-cc="{{ reply_cc_joined|default:'' }}"
+                            data-conversation-id="{{ conversation.id }}">
                             {% csrf_token %}
                             <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
-                            <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+                            <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{{ conversation.id }}">
 
-                            <div class="bg-white p-2 rounded border mb-2">
-                                <div id="emailFilePreview" class="mb-2"></div>
-                                <div class="mb-1 border-bottom pb-1 d-flex gap-2 align-items-center" style="line-height: 1;">
-                                    <div style="flex: 0 0 30%;">
-                                        <input type="email" name="to_addresses"
-                                            class="form-control form-control-sm border-0 px-0 py-0" 
-                                            style="font-size: 0.75rem; min-height: auto;"
-                                            placeholder="Para"
-                                            value="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
-                                            required>
-                                    </div>
-                                    <div class="flex-grow-1 border-start ps-2">
-                                        <input type="text" name="subject" id="emailSubjectInput"
-                                            class="form-control form-control-sm border-0 px-0 py-0 fw-bold"
-                                            style="font-size: 0.75rem; min-height: auto;"
-                                            placeholder="Asunto"
-                                            value="{% if conversation.subject %}Re: {{ conversation.subject|truncatechars:30 }}{% endif %}" required>
-                                    </div>
+                            <div class="bg-white p-2 rounded border mb-1 flex-grow-1 d-flex flex-column comm-compose-email-card">
+                                <div id="emailFilePreview" class="mb-1"></div>
+                                <label class="form-label small text-muted mb-0" for="emailToInput">Para</label>
+                                <div class="position-relative mb-1">
+                                    <input type="text" name="to_addresses" id="emailToInput"
+                                        class="form-control form-control-sm"
+                                        placeholder="Escribí para buscar contactos o grupos (etiquetas); varios correos separados por coma"
+                                        value=""
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        required>
                                 </div>
-                                <div class="d-flex align-items-start">
-                                    <div class="form-control border-0 shadow-none px-0" 
-                                         contenteditable="true" 
+                                <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
+                                <div class="position-relative mb-1">
+                                    <input type="text" name="cc_addresses" id="emailCcInput"
+                                        class="form-control form-control-sm"
+                                        placeholder="Con copia (opcional)"
+                                        value=""
+                                        autocomplete="off"
+                                        spellcheck="false">
+                                </div>
+                                <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
+                                <div class="position-relative mb-1">
+                                    <input type="text" name="bcc_addresses" id="emailBccInput"
+                                        class="form-control form-control-sm"
+                                        placeholder="Copia oculta (opcional)"
+                                        value=""
+                                        autocomplete="off"
+                                        spellcheck="false">
+                                </div>
+                                <label class="form-label small text-muted mb-0" for="emailSubjectInput">Asunto</label>
+                                <div class="mb-1">
+                                    <input type="text" name="subject" id="emailSubjectInput"
+                                        class="form-control form-control-sm fw-bold"
+                                        placeholder="Asunto"
+                                        value="" required>
+                                </div>
+                                <label class="form-label small text-muted mb-0" for="emailBodyDiv">Mensaje</label>
+                                <div class="d-flex align-items-stretch flex-grow-1 comm-compose-msg-wrap">
+                                    <div class="form-control flex-grow-1 border shadow-none"
+                                         contenteditable="true"
                                          id="emailBodyDiv"
-                                         style="min-height: 120px; max-height: 360px; overflow-y: auto;"
+                                         style="font-size: 0.9rem;"
                                          placeholder="Escribe el contenido del correo..."
                                          data-placeholder="Escribe el contenido del correo..."></div>
                                     <input type="hidden" name="body" id="emailBodyInput">
                                 </div>
                             </div>
 
-                            <div class="d-flex justify-content-end gap-2">
+                            <div class="d-flex justify-content-end gap-2 flex-shrink-0 pt-2 pb-1 mt-1 border-top">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                                 <button type="submit" class="btn btn-primary btn-sm px-4">
                                     <i class="fas fa-paper-plane me-2"></i> Enviar
@@ -976,18 +1083,86 @@
         </div>
         <script>
         (function () {
+            var modalEl = document.getElementById('emailComposeModal');
             window.commMailOpenCompose = function (mode) {
-                var modalEl = document.getElementById('emailComposeModal');
                 if (!modalEl || typeof bootstrap === 'undefined') return;
                 mode = mode || 'reply';
+                var form = document.getElementById('emailForm');
+                var to = document.getElementById('emailToInput');
                 var subj = document.getElementById('emailSubjectInput');
                 var body = document.getElementById('emailBodyDiv');
+                var convInput = document.getElementById('emailConversationIdInput');
+                var title = document.getElementById('emailComposeModalLabel');
+                var ccIn = document.getElementById('emailCcInput');
+                var bccIn = document.getElementById('emailBccInput');
+                var replyTo = (form && form.getAttribute('data-reply-to')) ? form.getAttribute('data-reply-to').trim() : '';
+                var replySubject = (form && form.getAttribute('data-reply-subject')) ? form.getAttribute('data-reply-subject').trim() : '';
+                var replyCc = (form && form.getAttribute('data-reply-cc')) ? form.getAttribute('data-reply-cc').trim() : '';
+                var convIdDefault = (form && form.getAttribute('data-conversation-id')) ? String(form.getAttribute('data-conversation-id')).trim() : '';
+
+                function setTitle(iconClass, text) {
+                    if (!title) return;
+                    title.innerHTML = '<i class="' + iconClass + ' me-2 text-primary"></i>' + text;
+                }
+
                 if (mode === 'new') {
+                    if (to) to.value = '';
                     if (subj) subj.value = '';
                     if (body) body.innerHTML = '';
+                    if (convInput) {
+                        convInput.value = '';
+                        convInput.removeAttribute('name');
+                    }
+                    if (ccIn) ccIn.value = '';
+                    if (bccIn) bccIn.value = '';
+                    setTitle('fas fa-pen', 'Redactar correo');
+                } else if (mode === 'forward') {
+                    if (to) to.value = '';
+                    if (subj) subj.value = replySubject ? ('Fwd: ' + replySubject) : 'Fwd: ';
+                    if (body) body.innerHTML = '<p></p><p>---------- Mensaje reenviado ----------</p>';
+                    if (convInput) {
+                        convInput.setAttribute('name', 'conversation_id');
+                        convInput.value = convIdDefault;
+                    }
+                    if (ccIn) ccIn.value = '';
+                    if (bccIn) bccIn.value = '';
+                    setTitle('fas fa-share', 'Reenviar correo');
+                } else if (mode === 'reply-all') {
+                    if (to) to.value = replyTo;
+                    if (subj) subj.value = replySubject ? ('Re: ' + replySubject) : 'Re: ';
+                    if (body) body.innerHTML = '';
+                    if (convInput) {
+                        convInput.setAttribute('name', 'conversation_id');
+                        convInput.value = convIdDefault;
+                    }
+                    if (ccIn) ccIn.value = replyCc;
+                    if (bccIn) bccIn.value = '';
+                    setTitle('fas fa-reply-all', 'Responder a todos');
+                } else {
+                    if (to) to.value = replyTo;
+                    if (subj) subj.value = replySubject ? ('Re: ' + replySubject) : 'Re: ';
+                    if (body) body.innerHTML = '';
+                    if (convInput) {
+                        convInput.setAttribute('name', 'conversation_id');
+                        convInput.value = convIdDefault;
+                    }
+                    if (ccIn) ccIn.value = '';
+                    if (bccIn) bccIn.value = '';
+                    setTitle('fas fa-reply', 'Responder');
                 }
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             };
+            if (modalEl) {
+                modalEl.addEventListener('hidden.bs.modal', function () {
+                    var convIn = document.getElementById('emailConversationIdInput');
+                    var frm = document.getElementById('emailForm');
+                    if (convIn && frm) {
+                        convIn.setAttribute('name', 'conversation_id');
+                        var defId = frm.getAttribute('data-conversation-id');
+                        convIn.value = defId != null ? String(defId) : '';
+                    }
+                });
+            }
         })();
         </script>
         {% else %}
@@ -1127,36 +1302,58 @@
             <div id="channel-email" class="channel-content {% if conversation.channel != 'email' %}d-none{% endif %}">
                 {% if email_account %}
                 <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
-                    id="emailForm" enctype="multipart/form-data">
+                    id="emailForm" enctype="multipart/form-data"
+                    data-reply-to="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
+                    data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
+                    data-reply-cc="{{ reply_cc_joined|default:'' }}"
+                    data-conversation-id="{{ conversation.id }}">
                     {% csrf_token %}
                     <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
-                    <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+                    <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{{ conversation.id }}">
 
                     <div class="bg-white p-2 rounded border mb-2">
                         <div id="emailFilePreview" class="mb-2"></div>
-                        <div class="mb-1 border-bottom pb-1 d-flex gap-2 align-items-center" style="line-height: 1;">
-                            <div style="flex: 0 0 30%;">
-                                <input type="email" name="to_addresses"
-                                    class="form-control form-control-sm border-0 px-0 py-0" 
-                                    style="font-size: 0.75rem; min-height: auto;"
-                                    placeholder="Para"
-                                    value="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
-                                    required>
-                            </div>
-                            <div class="flex-grow-1 border-start ps-2">
-                                <input type="text" name="subject" 
-                                    class="form-control form-control-sm border-0 px-0 py-0 fw-bold"
-                                    style="font-size: 0.75rem; min-height: auto;"
-                                    placeholder="Asunto"
-                                    value="{% if conversation.subject %}Re: {{ conversation.subject|truncatechars:30 }}{% endif %}" required>
-                            </div>
+                        <label class="form-label small text-muted mb-0" for="emailToInput">Para</label>
+                        <div class="position-relative mb-2">
+                            <input type="text" name="to_addresses" id="emailToInput"
+                                class="form-control form-control-sm"
+                                placeholder="Buscar contacto o grupo; varios correos por coma"
+                                value=""
+                                autocomplete="off"
+                                spellcheck="false"
+                                required>
                         </div>
+                        <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
+                        <div class="position-relative mb-2">
+                            <input type="text" name="cc_addresses" id="emailCcInput"
+                                class="form-control form-control-sm"
+                                placeholder="Con copia (opcional)"
+                                value=""
+                                autocomplete="off"
+                                spellcheck="false">
+                        </div>
+                        <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
+                        <div class="position-relative mb-2">
+                            <input type="text" name="bcc_addresses" id="emailBccInput"
+                                class="form-control form-control-sm"
+                                placeholder="Copia oculta (opcional)"
+                                value=""
+                                autocomplete="off"
+                                spellcheck="false">
+                        </div>
+                        <label class="form-label small text-muted mb-0" for="emailSubjectInput">Asunto</label>
+                        <div class="mb-2">
+                            <input type="text" name="subject" id="emailSubjectInput"
+                                class="form-control form-control-sm fw-bold"
+                                placeholder="Asunto"
+                                value="" required>
+                        </div>
+                        <label class="form-label small text-muted mb-0" for="emailBodyDiv">Mensaje</label>
                         <div class="d-flex align-items-start">
-                            
-                            <div class="form-control border-0 shadow-none px-0" 
-                                 contenteditable="true" 
+                            <div class="form-control border-0 shadow-none px-0"
+                                 contenteditable="true"
                                  id="emailBodyDiv"
-                                 style="min-height: 80px; max-height: 300px; overflow-y: auto;"
+                                 style="min-height: 120px; max-height: 320px; overflow-y: auto;"
                                  placeholder="Escribe el contenido del correo..."
                                  data-placeholder="Escribe el contenido del correo..."></div>
                             <input type="hidden" name="body" id="emailBodyInput">
@@ -1176,6 +1373,164 @@
                 {% endif %}
             </div>
         </div>
+        {% endif %}
+        {% if email_account %}
+        <script>
+        (function () {
+            function parseCatalog() {
+                try {
+                    var el = document.getElementById('email-compose-recipient-catalog');
+                    if (!el || !el.textContent) return [];
+                    return JSON.parse(el.textContent);
+                } catch (e) { return []; }
+            }
+            var catalog = parseCatalog();
+            var panel = null;
+            var activeInput = null;
+            var debTimer = null;
+
+            function ensurePanel() {
+                if (panel) return panel;
+                panel = document.createElement('ul');
+                panel.id = 'emailRecipientSuggestList';
+                panel.className = 'comm-email-recipient-suggest';
+                panel.setAttribute('role', 'listbox');
+                panel.setAttribute('aria-label', 'Sugerencias de destinatarios');
+                document.body.appendChild(panel);
+                return panel;
+            }
+            function hidePanel() {
+                if (panel) {
+                    panel.style.display = 'none';
+                    panel.innerHTML = '';
+                }
+            }
+            function tokenAtCursor(input) {
+                var v = input.value || '';
+                var pos = typeof input.selectionStart === 'number' ? input.selectionStart : v.length;
+                var before = v.slice(0, pos);
+                var i = before.lastIndexOf(',');
+                return ((i === -1 ? before : before.slice(i + 1)).trim().toLowerCase());
+            }
+            function replaceActiveToken(input, insertText) {
+                insertText = (insertText || '').trim();
+                if (!insertText) return;
+                var v = input.value || '';
+                var pos = typeof input.selectionStart === 'number' ? input.selectionStart : v.length;
+                var before = v.slice(0, pos);
+                var after = v.slice(pos);
+                var lastComma = before.lastIndexOf(',');
+                var start = lastComma + 1;
+                var newBefore = v.slice(0, start) + insertText;
+                input.value = newBefore + after;
+                var np = newBefore.length;
+                try { input.setSelectionRange(np, np); } catch (e) {}
+            }
+            function filterMatches(q) {
+                if (!q || q.length < 1) return [];
+                var out = [];
+                for (var i = 0; i < catalog.length && out.length < 14; i++) {
+                    var it = catalog[i];
+                    if (it.t === 'c') {
+                        var le = (it.l || '').toLowerCase();
+                        var ee = (it.e || '').toLowerCase();
+                        if (le.indexOf(q) !== -1 || ee.indexOf(q) !== -1) out.push(it);
+                    } else if (it.t === 'g') {
+                        var lg = (it.l || '').toLowerCase();
+                        if (lg.indexOf(q) !== -1) out.push(it);
+                        else if (it.emails) {
+                            for (var j = 0; j < it.emails.length; j++) {
+                                if ((it.emails[j] || '').toLowerCase().indexOf(q) !== -1) { out.push(it); break; }
+                            }
+                        }
+                    }
+                }
+                return out;
+            }
+            function positionPanel(input) {
+                var el = ensurePanel();
+                var r = input.getBoundingClientRect();
+                el.style.position = 'fixed';
+                el.style.display = 'block';
+                el.style.top = (r.bottom + 4) + 'px';
+                el.style.left = r.left + 'px';
+                el.style.width = Math.max(r.width, 300) + 'px';
+            }
+            function applyPick(it) {
+                if (!activeInput) return;
+                if (it.t === 'c') {
+                    replaceActiveToken(activeInput, it.e);
+                } else {
+                    replaceActiveToken(activeInput, (it.emails || []).join(', '));
+                }
+                hidePanel();
+                activeInput.focus();
+            }
+            function renderSuggest(matches) {
+                var el = ensurePanel();
+                el.innerHTML = '';
+                if (!matches.length || !activeInput) {
+                    hidePanel();
+                    return;
+                }
+                positionPanel(activeInput);
+                matches.forEach(function (it) {
+                    var li = document.createElement('li');
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.setAttribute('role', 'option');
+                    var span = document.createElement('span');
+                    span.className = 'fw-semibold';
+                    span.textContent = (it.t === 'g' ? '[Grupo] ' : '[Contacto] ') + (it.l || '');
+                    btn.appendChild(span);
+                    var meta = document.createElement('div');
+                    meta.className = 'sug-meta';
+                    meta.textContent = it.t === 'g' ? ((it.emails || []).length + ' direcciones') : (it.e || '');
+                    btn.appendChild(meta);
+                    btn.addEventListener('mousedown', function (ev) { ev.preventDefault(); applyPick(it); });
+                    li.appendChild(btn);
+                    el.appendChild(li);
+                });
+            }
+            function onInput(ev) {
+                activeInput = ev.target;
+                clearTimeout(debTimer);
+                debTimer = setTimeout(function () {
+                    catalog = parseCatalog();
+                    var t = tokenAtCursor(activeInput);
+                    if (t.length < 1) { hidePanel(); return; }
+                    renderSuggest(filterMatches(t));
+                }, 180);
+            }
+            function bindField(inp) {
+                if (!inp || inp.dataset.commRecipientSuggest) return;
+                inp.dataset.commRecipientSuggest = '1';
+                inp.addEventListener('input', onInput);
+                inp.addEventListener('focus', function (e) { activeInput = e.target; });
+                inp.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') hidePanel();
+                });
+                inp.addEventListener('blur', function () {
+                    setTimeout(function () { hidePanel(); }, 320);
+                });
+            }
+            function initRecipientSuggest() {
+                catalog = parseCatalog();
+                if (!catalog.length) return;
+                bindField(document.getElementById('emailToInput'));
+                bindField(document.getElementById('emailCcInput'));
+                bindField(document.getElementById('emailBccInput'));
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initRecipientSuggest);
+            } else {
+                initRecipientSuggest();
+            }
+            document.body.addEventListener('htmx:afterSwap', initRecipientSuggest);
+            var composeModal = document.getElementById('emailComposeModal');
+            if (composeModal) composeModal.addEventListener('hidden.bs.modal', hidePanel);
+        })();
+        </script>
         {% endif %}
         <script>
             document.getElementById('imageInputWhatsapp')?.addEventListener('change', function () {
@@ -2018,42 +2373,47 @@
                 fetch(form.action, {
                     method: 'POST',
                     body: formData,
+                    credentials: 'same-origin',
                     headers: {
-                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken') || '',
+                        'Accept': 'application/json'
                     }
                 })
-                    .then(response => {
-                        if (response.ok) {
-                            return response.json();
+                    .then(async function (response) {
+                        var ct = (response.headers.get('content-type') || '').toLowerCase();
+                        var data = {};
+                        if (ct.indexOf('application/json') !== -1) {
+                            try {
+                                var raw = await response.text();
+                                data = raw ? JSON.parse(raw) : {};
+                            } catch (parseErr) {
+                                data = { error: 'La respuesta JSON del servidor no es válida.' };
+                            }
+                        } else {
+                            var html = await response.text();
+                            var snippet = html.replace(/\s+/g, ' ').trim().slice(0, 200);
+                            if (snippet.indexOf('<!DOCTYPE') === 0 || snippet.indexOf('<html') === 0) {
+                                data = {
+                                    error: 'El servidor respondió con una página HTML (código ' + response.status + '). Suele ser sesión caducada, permisos o un error interno. Revisá la consola de red o iniciá sesión de nuevo.'
+                                };
+                            } else {
+                                data = { error: snippet || ('HTTP ' + response.status) };
+                            }
                         }
-                        return response.json().then(data => {
-                            let errorMsg = 'Error al enviar mensaje';
-                            if (data.error) {
-                                if (typeof data.error === 'string') {
-                                    errorMsg = data.error;
-                                } else if (typeof data.error === 'object') {
-                                    // Handle nested error objects (common in WhatsApp API)
-                                    if (data.error.message) {
-                                        errorMsg = data.error.message;
-                                    } else if (data.error.error && data.error.error.message) {
-                                        errorMsg = data.error.error.message;
-                                    } else {
-                                        try {
-                                            errorMsg = JSON.stringify(data.error);
-                                        } catch (e) {
-                                            errorMsg = 'Error desconocido en la respuesta';
-                                        }
-                                    }
+                        if (!response.ok) {
+                            var errorMsg = data.error || data.detail || ('Error al enviar mensaje (HTTP ' + response.status + ')');
+                            if (typeof errorMsg === 'object') {
+                                try {
+                                    if (errorMsg.message) errorMsg = errorMsg.message;
+                                    else if (errorMsg.error && errorMsg.error.message) errorMsg = errorMsg.error.message;
+                                    else errorMsg = JSON.stringify(errorMsg);
+                                } catch (e) {
+                                    errorMsg = 'Error desconocido';
                                 }
-                            } else if (data.detail) {
-                                errorMsg = data.detail;
                             }
                             throw new Error(errorMsg);
-                        }).catch(e => {
-                            // Fallback if json() fails or data.error is missing
-                            if (e.message) throw e;
-                            throw new Error('Error en la solicitud: ' + response.statusText);
-                        });
+                        }
+                        return data;
                     })
                     .then(data => {
                         // Clear inputs

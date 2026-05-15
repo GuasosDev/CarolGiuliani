@@ -297,11 +297,11 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
     def send_email(self, request, pk=None):
         """Send an email asynchronously"""
         account = self.get_object()
-        
+
         to_addresses = request.data.get('to_addresses', [])
         if isinstance(to_addresses, str):
             to_addresses = [addr.strip() for addr in to_addresses.split(',') if addr.strip()]
-        
+
         if not to_addresses:
             return Response({'error': 'Recipient addresses are required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -310,24 +310,39 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         html_body = request.data.get('html_body', '')
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
-       # agent_name = request.user.get_full_name() or request.user.username
-        
-        if conversation_id:
+        agent_name = request.user.get_full_name() or request.user.username
+
+        cc_addresses = request.data.get('cc_addresses', [])
+        if isinstance(cc_addresses, str):
+            cc_addresses = [addr.strip() for addr in cc_addresses.split(',') if addr.strip()]
+
+        bcc_addresses = request.data.get('bcc_addresses', [])
+        if isinstance(bcc_addresses, str):
+            bcc_addresses = [addr.strip() for addr in bcc_addresses.split(',') if addr.strip()]
+
+        conversation = None
+        if conversation_id not in (None, '', []):
             try:
                 conversation = Conversation.objects.get(id=conversation_id)
-            except Conversation.DoesNotExist:
-                pass
-        
-        
+            except (Conversation.DoesNotExist, ValueError, TypeError):
+                conversation = None
+
+        if conversation is None:
+            handler = EmailHandler(account)
+            primary_to = (to_addresses[0] or '').strip()
+            if not primary_to:
+                return Response({'error': 'Recipient addresses are required'}, status=status.HTTP_400_BAD_REQUEST)
+            contact = handler.get_or_create_contact_from_email(primary_to)
+            conversation = handler.get_or_create_conversation(contact, subject, None, None)
+
         if body and not html_body and ('<' in body and '>' in body):
             html_body = body
             from django.utils.html import strip_tags
             body = strip_tags(body)
 
-        # Add automatic signatures
         if body:
             body += f"\n\n---\n{agent_name}"
-            
+
         if html_body:
             html_body += f"""
             <br><br>
@@ -336,16 +351,10 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                 <b>{agent_name}</b><br>
                 {account.name}
             </p>
-            """        
-
-        from django.db import transaction
-        from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
-        from django.core.files.base import ContentFile
-        from ..tasks import send_queued_email
+            """
 
         try:
             with transaction.atomic():
-                # 1. Create base Message
                 content = body or html_body
                 if not content and attachments:
                     content = f"📎 {len(attachments)} archivo(s) adjunto(s)"
@@ -357,25 +366,23 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     message_type='email',
                     direction='outbound',
                     content=content,
-                    
                     sender_name=account.name,
                     metadata={'status': 'queued'}
                 )
 
-                # 2. Create EmailMessage (as draft)
                 email_msg = EmailMessage.objects.create(
                     message=msg,
                     email_account=account,
                     subject=subject,
                     html_body=html_body,
                     plain_body=body,
-                    email_message_id=f"pending-{msg.id}", # Will be updated by handler
+                    email_message_id=f"pending-{msg.id}",
                     to_addresses=to_addresses,
-                    cc_addresses=request.data.get('cc_addresses', []),
+                    cc_addresses=cc_addresses,
+                    bcc_addresses=bcc_addresses,
                     from_address=account.email_address
                 )
 
-                # 3. Save attachments
                 for attachment in attachments:
                     file_data = attachment.read()
                     attachment.seek(0)
@@ -387,10 +394,11 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     )
                     att.file.save(attachment.name, ContentFile(file_data), save=True)
 
-                # 4. Create Queue entry
                 queue_entry = EmailQueue.objects.create(
                     email_account=account,
                     to_addresses=to_addresses,
+                    cc_addresses=cc_addresses,
+                    bcc_addresses=bcc_addresses,
                     subject=subject,
                     html_body=html_body,
                     plain_body=body,
@@ -399,9 +407,8 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     status='pending'
                 )
 
-            # 5. Trigger task
             send_queued_email.apply_async(args=[queue_entry.id])
-            
+
             return Response({'status': 'queued', 'queue_id': queue_entry.id}, status=status.HTTP_202_ACCEPTED)
 
         except Exception as e:

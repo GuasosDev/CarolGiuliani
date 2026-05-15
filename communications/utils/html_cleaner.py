@@ -12,6 +12,11 @@ ALLOWED_TAGS = [
     'b', 'strong',
     'i', 'em',
     'u',
+    'font',
+    'center',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'pre', 'code',
+    'small', 'sub', 'sup',
 
     # listas
     'ul', 'ol', 'li',
@@ -28,6 +33,7 @@ ALLOWED_TAGS = [
 
     # citas
     'blockquote',
+    'cite',
 ]
 
 def _strip_embedded_webmail_header(soup):
@@ -113,10 +119,31 @@ ALLOWED_ATTRIBUTES = {
         'align',
     ],
 
+    'h1': ['style', 'class'],
+    'h2': ['style', 'class'],
+    'h3': ['style', 'class'],
+    'h4': ['style', 'class'],
+    'h5': ['style', 'class'],
+    'h6': ['style', 'class'],
+    'pre': ['style', 'class'],
+    'code': ['style', 'class'],
+    'font': ['color', 'face', 'size', 'style'],
+
     'div': ['style'],
     'span': ['style'],
     'p': ['style'],
 }
+
+
+def plain_text_to_email_html(text):
+    """Convierte cuerpo solo texto a HTML seguro para mostrar en el visor."""
+    if not text:
+        return ""
+    from django.utils.html import escape
+
+    t = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    return f'<div class="email-plain-body">{escape(t).replace(chr(10), "<br>")}</div>'
+
 
 def limpiar_email_html(html):
 
@@ -162,14 +189,8 @@ def limpiar_email_html(html):
         content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
-        protocols=['http', 'https', 'mailto', 'data'],
+        protocols=['http', 'https', 'mailto', 'data', 'cid'],
         strip=True
-    )
-
-    # convertir URLs texto en links
-    cleaned = bleach.linkify(
-        cleaned,
-        skip_tags=['a']
     )
 
     return cleaned.strip()
