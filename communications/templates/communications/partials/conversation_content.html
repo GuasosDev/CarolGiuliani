@@ -2486,10 +2486,29 @@
                             if (subjectInput) {
                                 subjectInput.value = '';
                             }
+
+                            const fileInput = document.getElementById('imageInputEmail');
+                            if (fileInput) {
+                                fileInput.value = '';
+                            }
+                            const preview = document.getElementById('emailFilePreview');
+                            if (preview) {
+                                preview.innerHTML = '';
+                            }
                         }
 
                         // Reload messages area
                         refreshMessages();
+
+                        if (channel === 'email') {
+                            try {
+                                const modalEl = document.getElementById('emailComposeModal');
+                                if (modalEl && typeof bootstrap !== 'undefined') {
+                                    const inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                                    inst.hide();
+                                }
+                            } catch (e) {}
+                        }
 
                         // Show success feedback (optional)
                         btn.innerHTML = '<i class="fas fa-check"></i> Enviado';

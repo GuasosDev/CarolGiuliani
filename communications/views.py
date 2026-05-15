@@ -301,7 +301,7 @@ def dashboard(request):
         email_rows = None
         conversations = conversations.annotate(has_unread_inbound=Exists(unread_subq))
         if channel_filter == 'email':
-            email_rows = (
+            email_rows_qs = (
                 EmailMessage.objects.select_related(
                     'message',
                     'message__conversation',
@@ -311,8 +311,14 @@ def dashboard(request):
                     'message__sender',
                 )
                 .filter(message__conversation__in=conversations)
-                .order_by('-message__created_at')[:100]
             )
+            if not status_filter or status_filter == 'all':
+                email_rows_qs = email_rows_qs.filter(message__direction='inbound')
+            elif status_filter == 'normal':
+                email_rows_qs = email_rows_qs.filter(message__direction='outbound')
+            elif status_filter == 'pending':
+                email_rows_qs = email_rows_qs.filter(message__direction='outbound')
+            email_rows = email_rows_qs.order_by('-message__created_at')[:100]
             conversations = conversations.order_by('-last_message_at', '-updated_at')[:50]
         else:
             conversations = conversations.order_by('-updated_at')[:50]
@@ -1220,6 +1226,7 @@ def email_compose_modal(request):
         'conversation': None,
         'reply_cc_joined': '',
         'return_url': return_url,
+        'quick_replies': QuickReply.objects.filter(channel='email').order_by('shortcut', 'title'),
     }
     return render(request, 'communications/partials/client_email_compose_htmx.html', context)
 
