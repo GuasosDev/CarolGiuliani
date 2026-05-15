@@ -455,8 +455,9 @@ div.dt-buttons {
     outline: 0;
 }
 
-/* Modal */
-.modal {
+/* Modal (Legacy: #modal / #modal-secondary). */
+#modal,
+#modal-secondary {
     display: none;
     position: fixed;
     z-index: 1000;
@@ -469,7 +470,8 @@ div.dt-buttons {
     backdrop-filter: blur(2px);
 }
 
-.modal-content {
+#modal .modal-content,
+#modal-secondary .modal-content {
     background-color: #fff;
     margin: 5% auto;
     padding: 0;
@@ -492,7 +494,8 @@ div.dt-buttons {
     }
 }
 
-.modal-header {
+#modal .modal-header,
+#modal-secondary .modal-header {
     padding: 15px 20px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
@@ -500,30 +503,35 @@ div.dt-buttons {
     align-items: center;
 }
 
-.modal-title {
+#modal .modal-title,
+#modal-secondary .modal-title {
     margin: 0;
     font-size: 1rem;
     color: var(--heading-color);
 }
 
-.modal-body {
+#modal .modal-body,
+#modal-secondary .modal-body {
     padding: 20px;
 }
 
-.modal-footer {
+#modal .modal-footer,
+#modal-secondary .modal-footer {
     padding: 15px 20px;
     border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
 }
 
-.close {
+#modal .close,
+#modal-secondary .close {
     font-size: 20px;
     color: #98a6ad;
     cursor: pointer;
 }
 
-.close:hover {
+#modal .close:hover,
+#modal-secondary .close:hover {
     color: var(--heading-color);
 }
 
