@@ -399,6 +399,11 @@
         var p = new URLSearchParams(window.location.search);
         var id = p.get('conversation');
         if (id) return id;
+        var em = p.get('email_message');
+        if (em) {
+            var el = document.querySelector('.conversation-item[data-id="' + String(em) + '"]');
+            if (el) return el.getAttribute('data-conversation-id') || el.getAttribute('data-id');
+        }
         var active = document.querySelector('.conversation-item.active');
         if (!active) return null;
         return active.getAttribute('data-conversation-id') || active.getAttribute('data-id');
@@ -441,7 +446,7 @@
     function commMailMoveToTrash() {
         var id = commMailCurrentConversationId();
         if (!id) { alert('Selecciona una conversación.'); return; }
-        if (!confirm('¿Mover esta conversación a la papelera?')) return;
+        if (!confirm('¿Eliminar este email?\n\nSe moverá a la Papelera.')) return;
         var fd = new FormData();
         fd.append('status', 'closed');
         fd.append('csrfmiddlewaretoken', commMailGetCookie('csrftoken'));
@@ -454,6 +459,7 @@
             if (!r.ok) { alert('No se pudo eliminar (permisos o error de red).'); return; }
             var u = new URL(window.location.href);
             u.searchParams.delete('conversation');
+            u.searchParams.delete('email_message');
             window.history.replaceState({}, '', u);
             commMailClearDetailPanel();
             commMailRefreshList();
