@@ -1,4 +1,5 @@
 {% extends "communications/communications_base.html" %}
+{% load comm_mail %}
 {% load static %}
 
 
@@ -104,11 +105,11 @@
                         {% if conv.channel == 'email' %}
                         <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
                             <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
-                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}fw-bold text-dark{% else %}fw-normal text-secondary{% endif %}">
-                                    {{ conv.subject|default:"(Sin asunto)"|truncatechars:56 }}
+                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
+                                    {{ conv.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
                                 </span>
                             </div>
-                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.updated_at|date:"d/m H:i" }}</small>
+                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.last_message_at|default:conv.updated_at|date:"d/m/Y H:i" }}</small>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <small class="text-muted text-truncate">{{ conv.get_display_name }}</small>
@@ -171,11 +172,11 @@
                         {% if current_channel == 'email' %}
                         <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
                             <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
-                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}fw-bold text-dark{% else %}fw-normal text-secondary{% endif %}">
-                                    {{ conv.subject|default:"(Sin asunto)"|truncatechars:56 }}
+                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
+                                    {{ conv.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
                                 </span>
                             </div>
-                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.created_at|date:"d/m/Y H:i" }}</small>
+                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.last_message_at|default:conv.updated_at|date:"d/m/Y H:i" }}</small>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <small class="text-muted text-truncate">{{ conv.get_display_name }}</small>
@@ -376,6 +377,10 @@
     }
     .comm-mail-dashboard-row .comm-email-subject.fw-normal.text-secondary {
         color: #5a7289 !important;
+    }
+    .comm-mail-dashboard-row .comm-email-subject.unread {
+        color: #0f2f50 !important;
+        font-weight: 800 !important;
     }
 
     /* Active: WhatsApp / otros — barra lateral azul */

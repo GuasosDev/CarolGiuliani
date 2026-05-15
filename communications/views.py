@@ -269,7 +269,7 @@ def dashboard(request):
             base_qs.select_related('contact__client')
             .prefetch_related('messages')
             .annotate(has_unread_inbound=Exists(unread_subq_inbox))
-            .order_by('-updated_at')[:100]
+            .order_by('-last_message_at', '-updated_at')[:100]
         )
         
         for conv in inbox_qs:
@@ -295,7 +295,7 @@ def dashboard(request):
         )
         conversations = conversations.annotate(has_unread_inbound=Exists(unread_subq))
         if channel_filter == 'email':
-            conversations = conversations.order_by('-created_at')[:50]
+            conversations = conversations.order_by('-last_message_at', '-updated_at')[:50]
         else:
             conversations = conversations.order_by('-updated_at')[:50]
         grouped_conversations = None
