@@ -1051,10 +1051,12 @@
                             data-reply-to="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
                             data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
                             data-reply-cc="{{ reply_cc_joined|default:'' }}"
-                            data-conversation-id="{{ conversation.id }}">
+                            data-conversation-id="{{ conversation.id }}"
+                            data-forward-email-message-id="{{ forward_email_message_id|default:'' }}">
                             {% csrf_token %}
                             <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
                             <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{{ conversation.id }}">
+                            <input type="hidden" name="source_email_message_id" id="emailSourceEmailMessageIdInput" value="">
 
                             <div class="bg-white p-2 rounded border mb-1 flex-grow-1 d-flex flex-column comm-compose-email-card">
                                 <div id="emailFilePreview" class="mb-1"></div>
@@ -1163,6 +1165,8 @@
                         convInput.value = '';
                         convInput.removeAttribute('name');
                     }
+                    var srcInNew = document.getElementById('emailSourceEmailMessageIdInput');
+                    if (srcInNew) srcInNew.value = '';
                     if (ccIn) ccIn.value = '';
                     if (bccIn) bccIn.value = '';
                     setTitle('fas fa-pen', 'Redactar correo');
@@ -1171,9 +1175,12 @@
                     if (subj) subj.value = replySubject ? ('Fwd: ' + replySubject) : 'Fwd: ';
                     if (body) body.innerHTML = '<p></p><p>---------- Mensaje reenviado ----------</p>';
                     if (convInput) {
-                        convInput.setAttribute('name', 'conversation_id');
-                        convInput.value = convIdDefault;
+                        convInput.value = '';
+                        convInput.removeAttribute('name');
                     }
+                    var srcId = (form && form.getAttribute('data-forward-email-message-id')) ? String(form.getAttribute('data-forward-email-message-id')).trim() : '';
+                    var srcIn = document.getElementById('emailSourceEmailMessageIdInput');
+                    if (srcIn) srcIn.value = srcId;
                     if (ccIn) ccIn.value = '';
                     if (bccIn) bccIn.value = '';
                     setTitle('fas fa-share', 'Reenviar correo');
@@ -1185,6 +1192,8 @@
                         convInput.setAttribute('name', 'conversation_id');
                         convInput.value = convIdDefault;
                     }
+                    var srcInAll = document.getElementById('emailSourceEmailMessageIdInput');
+                    if (srcInAll) srcInAll.value = '';
                     if (ccIn) ccIn.value = replyCc;
                     if (bccIn) bccIn.value = '';
                     setTitle('fas fa-reply-all', 'Responder a todos');
@@ -1196,6 +1205,8 @@
                         convInput.setAttribute('name', 'conversation_id');
                         convInput.value = convIdDefault;
                     }
+                    var srcInReply = document.getElementById('emailSourceEmailMessageIdInput');
+                    if (srcInReply) srcInReply.value = '';
                     if (ccIn) ccIn.value = '';
                     if (bccIn) bccIn.value = '';
                     setTitle('fas fa-reply', 'Responder');

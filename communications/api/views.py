@@ -327,6 +327,29 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
             except (Conversation.DoesNotExist, ValueError, TypeError):
                 conversation = None
 
+        source_email_message_id = request.data.get('source_email_message_id')
+        source_email = None
+        if source_email_message_id not in (None, '', [], 'null'):
+            try:
+                source_email = (
+                    EmailMessage.objects.select_related('message', 'message__conversation', 'email_account')
+                    .prefetch_related('attachments')
+                    .get(pk=int(source_email_message_id))
+                )
+            except (EmailMessage.DoesNotExist, ValueError, TypeError):
+                source_email = None
+
+        if source_email is not None:
+            src_conv = source_email.message.conversation if source_email.message_id else None
+            allowed = (
+                request.user.is_superuser
+                or request.user.groups.filter(name='Supervisor').exists()
+                or (src_conv and src_conv.assigned_to_id == request.user.id)
+                or (source_email.email_account and source_email.email_account.user_id == request.user.id)
+            )
+            if not allowed:
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
         if conversation is None:
             handler = EmailHandler(account)
             primary_to = (to_addresses[0] or '').strip()
@@ -339,6 +362,29 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
             html_body = body
             from django.utils.html import strip_tags
             body = strip_tags(body)
+
+        if source_email is not None:
+            from django.utils.html import strip_tags
+            forward_plain = source_email.plain_body or ''
+            forward_html = source_email.html_body or ''
+            if not forward_plain and forward_html:
+                forward_plain = strip_tags(forward_html)
+
+            forward_plain = ("\n\n---------- Mensaje reenviado ----------\n" + forward_plain).strip()
+            if forward_html:
+                forward_html = "<br><br><hr><p><b>Mensaje reenviado</b></p>" + forward_html
+            elif forward_plain:
+                forward_html = "<br><br><hr><pre style=\"white-space: pre-wrap;\">" + forward_plain.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</pre>"
+
+            if body:
+                body = (body.rstrip() + "\n\n" + forward_plain).strip()
+            else:
+                body = forward_plain
+
+            if html_body:
+                html_body = (html_body + forward_html)
+            else:
+                html_body = forward_html
 
         if body:
             body += f"\n\n---\n{agent_name}"
@@ -382,6 +428,24 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     bcc_addresses=bcc_addresses,
                     from_address=account.email_address
                 )
+
+                if source_email is not None:
+                    for src_att in source_email.attachments.all():
+                        try:
+                            src_att.file.open('rb')
+                            file_data = src_att.file.read()
+                        finally:
+                            try:
+                                src_att.file.close()
+                            except Exception:
+                                pass
+                        copied = EmailAttachment.objects.create(
+                            email_message=email_msg,
+                            filename=src_att.filename,
+                            mime_type=src_att.mime_type,
+                            size=src_att.size,
+                        )
+                        copied.file.save(src_att.filename, ContentFile(file_data), save=True)
 
                 for attachment in attachments:
                     file_data = attachment.read()

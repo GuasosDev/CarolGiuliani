@@ -805,6 +805,7 @@ def conversation_detail(request, pk):
         ).order_by('shortcut', 'title')
 
         reply_cc_joined = ''
+        forward_email_message_id = None
         if conversation.channel == 'email':
             last_inbound = (
                 EmailMessage.objects.filter(
@@ -818,6 +819,13 @@ def conversation_detail(request, pk):
                 reply_cc_joined = ', '.join(
                     str(x).strip() for x in last_inbound.cc_addresses if x
                 )
+            last_any = (
+                EmailMessage.objects.filter(message__conversation=conversation)
+                .order_by('-message__created_at')
+                .first()
+            )
+            if last_any:
+                forward_email_message_id = last_any.id
 
         # Get users available for conversation transfer
         from django.contrib.auth.models import User as AuthUser
@@ -843,6 +851,7 @@ def conversation_detail(request, pk):
             'transfer_users': transfer_users,
             'company_settings': company_settings,
             'reply_cc_joined': reply_cc_joined,
+            'forward_email_message_id': forward_email_message_id,
             'email_compose_recipients_catalog': email_compose_recipients_catalog,
             **counts # Unpack counts into context
         }
@@ -942,6 +951,7 @@ def email_message_detail(request, pk):
         'transfer_users': transfer_users,
         'company_settings': company_settings,
         'reply_cc_joined': reply_cc_joined,
+        'forward_email_message_id': email_message.id,
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
         **counts,
     }
