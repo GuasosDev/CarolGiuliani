@@ -4,38 +4,45 @@
         width: min(96vw, 1200px);
         max-width: 1200px;
     }
-    #emailRecipientSuggestList {
-        position: fixed;
+    .comm-email-suggest {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
         z-index: 2000;
         display: none;
-        max-height: 260px;
-        overflow-y: auto;
-        min-width: 280px;
-        max-width: min(640px, 92vw);
-        box-shadow: 0 8px 28px rgba(0,0,0,0.18);
-        border-radius: 8px;
+        max-height: 240px;
+        overflow: auto;
         background: #fff;
-        border: 1px solid #ced4da;
-        margin: 0;
-        padding: 0;
-        list-style: none;
+        border: 1px solid rgba(0,0,0,0.15);
+        border-radius: 8px;
+        box-shadow: 0 10px 22px rgba(0,0,0,0.10);
     }
-    #emailRecipientSuggestList button {
-        width: 100%;
-        text-align: left;
-        border: none;
-        background: transparent;
-        padding: 9px 12px;
-        font-size: 0.875rem;
-        border-bottom: 1px solid #f1f3f5;
+    .comm-email-suggest-item {
+        padding: 8px 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
     }
-    #emailRecipientSuggestList button:hover,
-    #emailRecipientSuggestList button.active {
-        background: #e7f1ff;
+    .comm-email-suggest-item:hover,
+    .comm-email-suggest-item.active {
+        background: rgba(13, 110, 253, 0.08);
     }
-    #emailRecipientSuggestList .sug-meta {
-        font-size: 0.75rem;
-        color: #6c757d;
+    .comm-email-suggest-name {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1f2937;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .comm-email-suggest-email {
+        font-size: 0.8rem;
+        color: #6b7280;
+        flex-shrink: 0;
     }
 </style>
 <div class="modal-header border-bottom">
@@ -71,6 +78,7 @@
                     required
                     title="Direcciones de correo del destinatario. Podés buscar en la agenda al escribir."
                     aria-label="Destinatarios en campo Para: escribí correos separados por coma o elegí sugerencias al escribir.">
+                <div id="emailToSuggest" class="comm-email-suggest"></div>
             </div>
             <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
             <div class="position-relative mb-2">
@@ -82,6 +90,7 @@
                     spellcheck="false"
                     title="Destinatarios en copia visibles, separados por coma."
                     aria-label="Campo copia (Cc): correos separados por coma.">
+                <div id="emailCcSuggest" class="comm-email-suggest"></div>
             </div>
             <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
             <div class="position-relative mb-2">
@@ -93,6 +102,7 @@
                     spellcheck="false"
                     title="Destinatarios en copia oculta, separados por coma."
                     aria-label="Campo copia oculta (Cco): correos separados por coma.">
+                <div id="emailBccSuggest" class="comm-email-suggest"></div>
             </div>
             <label class="form-label small text-muted mb-0" for="emailSubjectInput">Asunto</label>
             <div class="mb-2">
@@ -141,7 +151,6 @@
             </button>
         </div>
     </form>
-    {% include 'communications/partials/email_recipient_suggest_script.html' %}
     <script>
     (function () {
         function formatFileSize(bytes) {
@@ -168,6 +177,107 @@
                 prev.appendChild(ul);
             });
         }
+
+        function initFieldAutocomplete(inputId, suggestId) {
+            var input = document.getElementById(inputId);
+            var suggest = document.getElementById(suggestId);
+            if (!input || !suggest) return;
+
+            var endpoint = "{% url 'communications:contacts_email_search' %}";
+            var items = [];
+            var activeIndex = -1;
+            var lastQuery = '';
+            var timer = null;
+
+            function show() { suggest.style.display = 'block'; }
+            function hide() { suggest.style.display = 'none'; suggest.innerHTML = ''; activeIndex = -1; }
+            function getCurrentToken() {
+                var raw = input.value || '';
+                var parts = raw.split(',');
+                return (parts[parts.length - 1] || '').trim();
+            }
+            function replaceCurrentToken(nextEmail) {
+                nextEmail = (nextEmail || '').trim();
+                if (!nextEmail) return;
+                var raw = input.value || '';
+                var parts = raw.split(',');
+                parts[parts.length - 1] = ' ' + nextEmail;
+                var normalized = parts
+                    .map(function (p) { return (p || '').trim(); })
+                    .filter(function (p) { return p.length > 0; })
+                    .join(', ');
+                input.value = normalized + ', ';
+                try { input.focus(); } catch (e) {}
+                hide();
+            }
+            function render() {
+                suggest.innerHTML = '';
+                if (!items.length) { hide(); return; }
+                items.forEach(function (it, idx) {
+                    var row = document.createElement('div');
+                    row.className = 'comm-email-suggest-item' + (idx === activeIndex ? ' active' : '');
+                    row.innerHTML = '<div class="comm-email-suggest-name">' + (it.name || it.email) + '</div>' +
+                        '<div class="comm-email-suggest-email">' + it.email + '</div>';
+                    row.addEventListener('mousedown', function (e) {
+                        e.preventDefault();
+                        replaceCurrentToken(it.email);
+                    });
+                    suggest.appendChild(row);
+                });
+                show();
+            }
+            function fetchItems(q) {
+                var url = endpoint + '?q=' + encodeURIComponent(q || '');
+                return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) { return (data && data.results) ? data.results : []; })
+                    .catch(function () { return []; });
+            }
+            function schedule() {
+                var q = getCurrentToken();
+                if (!q) { hide(); return; }
+                if (q === lastQuery && suggest.style.display === 'block') return;
+                lastQuery = q;
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(function () {
+                    fetchItems(q).then(function (list) {
+                        items = list;
+                        activeIndex = -1;
+                        render();
+                    });
+                }, 200);
+            }
+
+            input.addEventListener('input', schedule);
+            input.addEventListener('focus', schedule);
+            input.addEventListener('keydown', function (e) {
+                if (suggest.style.display !== 'block') return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIndex = Math.min(items.length - 1, activeIndex + 1);
+                    render();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = Math.max(0, activeIndex - 1);
+                    render();
+                } else if (e.key === 'Enter') {
+                    if (activeIndex >= 0 && activeIndex < items.length) {
+                        e.preventDefault();
+                        replaceCurrentToken(items[activeIndex].email);
+                    }
+                } else if (e.key === 'Escape') {
+                    hide();
+                }
+            });
+            document.addEventListener('click', function (evt) {
+                if (evt.target === input || suggest.contains(evt.target)) return;
+                hide();
+            });
+        }
+
+        initFieldAutocomplete('emailToInput', 'emailToSuggest');
+        initFieldAutocomplete('emailCcInput', 'emailCcSuggest');
+        initFieldAutocomplete('emailBccInput', 'emailBccSuggest');
 
         var form = document.getElementById('emailForm');
         if (!form) return;
