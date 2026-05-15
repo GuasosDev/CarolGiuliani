@@ -498,8 +498,8 @@
 
     <style>
         #emailComposeModalGlobal .modal-dialog {
-            max-width: 1100px;
-            width: min(98vw, 1100px);
+            max-width: 1200px;
+            width: min(98vw, 1200px);
         }
         #emailComposeModalGlobal .comm-compose-email-modal .modal-content {
             height: min(92vh, 860px);
@@ -642,10 +642,26 @@
 
         function commMailCleanupOverlays(exceptId) {
             exceptId = exceptId || '';
+            try {
+                if (typeof window.closeModal === 'function') window.closeModal();
+            } catch (e0) {}
+            try {
+                if (typeof window.closeModalSecondary === 'function') window.closeModalSecondary();
+            } catch (e0b) {}
+
+            ['modal', 'modal-secondary'].forEach(function (id) {
+                var legacy = document.getElementById(id);
+                if (!legacy) return;
+                try {
+                    legacy.classList.remove('show');
+                    legacy.style.display = 'none';
+                    legacy.setAttribute('aria-hidden', 'true');
+                } catch (e1) {}
+            });
+
             document.querySelectorAll('.modal.show').forEach(function (m) {
                 if (!m || !m.id) return;
                 if (m.id === exceptId) return;
-                if (m.id === 'modal' || m.id === 'modal-secondary') return;
                 try {
                     if (typeof bootstrap !== 'undefined') {
                         var inst = bootstrap.Modal.getInstance(m);
