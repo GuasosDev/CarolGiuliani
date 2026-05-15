@@ -429,19 +429,24 @@
     }
     function commMailCompose(mode) {
         mode = mode || 'new';
+        if (mode === 'new') {
+            if (typeof window.commMailOpenComposeGlobal === 'function') {
+                window.commMailOpenComposeGlobal();
+                return;
+            }
+            if (typeof window.commMailOpenCompose === 'function') {
+                window.commMailOpenCompose('new');
+                return;
+            }
+            alert('No hay una cuenta de email activa configurada.');
+            return;
+        }
+
         if (typeof window.commMailOpenCompose === 'function') {
             window.commMailOpenCompose(mode);
             return;
         }
-        if (mode !== 'new') {
-            alert('Selecciona un correo de la lista para responder o reenviar.');
-            return;
-        }
-        if (typeof window.commMailOpenComposeGlobal === 'function') {
-            window.commMailOpenComposeGlobal();
-            return;
-        }
-        alert('No hay una cuenta de email activa configurada.');
+        alert('Selecciona un correo de la lista para responder o reenviar.');
     }
     function commMailMoveToTrash() {
         var id = commMailCurrentConversationId();
@@ -492,8 +497,12 @@
     </script>
 
     <style>
+        #emailComposeModalGlobal .modal-dialog {
+            max-width: 980px;
+            width: min(98vw, 980px);
+        }
         #emailComposeModalGlobal .comm-compose-email-modal .modal-content {
-            height: min(84vh, 760px);
+            height: min(92vh, 860px);
         }
         #emailComposeModalGlobal .comm-compose-email-modal .modal-body {
             min-height: 0;
@@ -545,7 +554,7 @@
     </style>
 
     <div class="modal fade" id="emailComposeModalGlobal" tabindex="-1" aria-labelledby="emailComposeModalGlobalLabel" aria-hidden="true">
-        <div class="modal-dialog comm-compose-email-modal">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable comm-compose-email-modal">
             <div class="modal-content d-flex flex-column">
                 <div class="modal-header border-bottom flex-shrink-0 py-2">
                     <h5 class="modal-title" id="emailComposeModalGlobalLabel"><i class="fas fa-pen me-2 text-primary"></i>Redactar correo</h5>
@@ -631,8 +640,18 @@
         var modalEl = document.getElementById('emailComposeModalGlobal');
         if (!modalEl) return;
 
+        function commMailCleanupBackdrops() {
+            var anyVisibleModal = document.querySelector('.modal.show');
+            if (anyVisibleModal) return;
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) { try { b.remove(); } catch (e) {} });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+            document.body.style.removeProperty('overflow');
+        }
+
         window.commMailOpenComposeGlobal = function () {
             if (typeof bootstrap === 'undefined') return;
+            commMailCleanupBackdrops();
             var to = document.getElementById('emailToInputGlobal');
             var subj = document.getElementById('emailSubjectInputGlobal');
             var body = document.getElementById('emailBodyDivGlobal');
@@ -646,6 +665,10 @@
             bootstrap.Modal.getOrCreateInstance(modalEl).show();
             try { if (to) to.focus(); } catch (e) {}
         };
+
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            setTimeout(commMailCleanupBackdrops, 0);
+        });
 
         function initAutocomplete() {
             var input = document.getElementById('emailToInputGlobal');
