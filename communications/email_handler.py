@@ -7,6 +7,7 @@ from email.utils import formataddr, parseaddr, make_msgid
 import uuid
 import imaplib
 import smtplib
+import ssl
 import email
 from email import policy as email_policy
 from email.mime.text import MIMEText
@@ -35,6 +36,7 @@ class EmailHandler:
         self.account = email_account
         self.imap_connection = None
         self.smtp_connection = None
+        self.last_smtp_error = None
     
     def connect_imap(self, timeout=30):
         """Connect to IMAP server"""
@@ -63,20 +65,56 @@ class EmailHandler:
     
     def connect_smtp(self, timeout=30):
         """Connect to SMTP server"""
+        self.last_smtp_error = None
         try:
-            if self.account.smtp_use_tls:
-                self.smtp_connection = smtplib.SMTP(
-                    self.account.smtp_host,
-                    self.account.smtp_port,
-                    timeout=timeout
-                )
-                self.smtp_connection.starttls()
-            else:
+            smtp_host = (self.account.smtp_host or '').strip()
+            smtp_port = int(self.account.smtp_port or 0)
+            if not smtp_host or not smtp_port:
+                self.last_smtp_error = "SMTP host/puerto no configurado"
+                return False
+
+            ctx = ssl.create_default_context()
+
+            use_starttls = bool(self.account.smtp_use_tls)
+            use_ssl = not use_starttls
+
+            if smtp_port == 465:
+                use_ssl = True
+                use_starttls = False
+            elif smtp_port == 587:
+                use_starttls = True
+                use_ssl = False
+
+            if use_ssl:
                 self.smtp_connection = smtplib.SMTP_SSL(
-                    self.account.smtp_host,
-                    self.account.smtp_port,
+                    smtp_host,
+                    smtp_port,
+                    timeout=timeout,
+                    context=ctx,
+                )
+                try:
+                    self.smtp_connection.ehlo()
+                except Exception:
+                    pass
+            else:
+                self.smtp_connection = smtplib.SMTP(
+                    smtp_host,
+                    smtp_port,
                     timeout=timeout
                 )
+                try:
+                    self.smtp_connection.ehlo()
+                except Exception:
+                    pass
+                if use_starttls:
+                    try:
+                        self.smtp_connection.starttls(context=ctx)
+                        try:
+                            self.smtp_connection.ehlo()
+                        except Exception:
+                            pass
+                    except smtplib.SMTPNotSupportedError:
+                        pass
             
             password = self.account.get_password()
             self.smtp_connection.login(self.account.username, password)
@@ -84,6 +122,7 @@ class EmailHandler:
             return True
             
         except Exception as e:
+            self.last_smtp_error = str(e) or e.__class__.__name__
             logger.error(f"SMTP connection error ({self.account.email_address}) on {self.account.smtp_host}:{self.account.smtp_port}: {str(e)}\n{traceback.format_exc()}")
             return False
     
@@ -434,7 +473,7 @@ class EmailHandler:
                bcc_addresses=None, attachments=None, conversation=None, signature=None, email_msg=None):
 
         if not self.connect_smtp():
-            return False, "Failed to connect to SMTP server"
+            return False, (self.last_smtp_error or "Failed to connect to SMTP server")
 
         try:
             # =========================
