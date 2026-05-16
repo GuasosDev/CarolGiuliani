@@ -72,6 +72,20 @@ def _email_compose_recipient_catalog():
     return catalog
 
 
+def _get_user_email_account(user):
+    account = EmailAccount.objects.filter(is_active=True, user=user).first()
+    if account:
+        return account
+    user_email = (getattr(user, 'email', None) or '').strip()
+    if user_email:
+        return EmailAccount.objects.filter(
+            is_active=True,
+            user__isnull=True,
+            email_address__iexact=user_email,
+        ).first()
+    return None
+
+
 @login_required
 def import_contacts_csv(request):
     """View to import contacts from a CSV file"""
@@ -353,7 +367,7 @@ def dashboard(request):
         'conversations': conversations,
         'grouped_conversations': grouped_conversations,
         'email_rows': email_rows,
-        'email_account': EmailAccount.objects.filter(is_active=True).first(),
+        'email_account': _get_user_email_account(request.user),
         'whatsapp_percent': whatsapp_percent,
         'email_percent': email_percent,
         'current_status': status_filter,
@@ -800,7 +814,7 @@ def conversation_detail(request, pk):
         ).order_by('-updated_at')[:50]
         
         whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
-        email_account = EmailAccount.objects.filter(is_active=True).first()
+        email_account = _get_user_email_account(request.user)
         
         # Get counts using helper
         counts = _get_conversation_counts(request.user)
@@ -922,7 +936,7 @@ def email_message_detail(request, pk):
     company_settings = CompanySettings.load()
 
     whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
-    email_account = EmailAccount.objects.filter(is_active=True).first()
+    email_account = _get_user_email_account(request.user)
 
     counts = _get_conversation_counts(request.user)
 
@@ -1212,7 +1226,7 @@ def contacts_email_search(request):
 
 @login_required
 def email_compose_modal(request):
-    email_account = EmailAccount.objects.filter(is_active=True).first()
+    email_account = _get_user_email_account(request.user)
     email_compose_recipients_catalog = []
     if email_account:
         email_compose_recipients_catalog = _email_compose_recipient_catalog()
@@ -1652,7 +1666,7 @@ def client_email_compose_modal(request, client_id):
     """Fragmento HTMX: redactar correo sin abandonar el listado de contactos."""
     client = get_object_or_404(Client, pk=client_id)
     conversation = _ensure_client_email_conversation(request, client)
-    email_account = EmailAccount.objects.filter(is_active=True).first()
+    email_account = _get_user_email_account(request.user)
     email_compose_recipients_catalog = []
     if email_account:
         email_compose_recipients_catalog = _email_compose_recipient_catalog()

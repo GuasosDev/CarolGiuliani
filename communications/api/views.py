@@ -282,6 +282,16 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
     queryset = EmailAccount.objects.all()
     serializer_class = EmailAccountSerializer
     permission_classes = [IsAuthenticated, IsAgentOrSupervisor]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser or user.groups.filter(name='Supervisor').exists():
+            return qs
+        user_email = (getattr(user, 'email', None) or '').strip()
+        if user_email:
+            return qs.filter(Q(user=user) | Q(user__isnull=True, email_address__iexact=user_email))
+        return qs.filter(user=user)
     
     @action(detail=True, methods=['post'])
     def sync_now(self, request, pk=None):
@@ -297,6 +307,18 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
     def send_email(self, request, pk=None):
         """Send an email asynchronously"""
         account = self.get_object()
+        if not (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+            user_email = (getattr(request.user, 'email', None) or '').strip()
+            allowed = (
+                account.user_id == request.user.id
+                or (
+                    user_email
+                    and account.user_id is None
+                    and (account.email_address or '').strip().lower() == user_email.lower()
+                )
+            )
+            if not allowed:
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
         to_addresses = request.data.get('to_addresses', [])
         if isinstance(to_addresses, str):

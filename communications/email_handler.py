@@ -515,7 +515,14 @@ class EmailHandler:
             # =========================
             # ENVIAR
             # =========================
-            self.smtp_connection.send_message(msg)
+            to_addrs = []
+            if to_addresses:
+                to_addrs.extend([x for x in to_addresses if x])
+            if cc_addresses:
+                to_addrs.extend([x for x in cc_addresses if x])
+            if bcc_addresses:
+                to_addrs.extend([x for x in bcc_addresses if x])
+            self.smtp_connection.send_message(msg, to_addrs=to_addrs or None)
            
             # =========================
             # GUARDAR EN DB
