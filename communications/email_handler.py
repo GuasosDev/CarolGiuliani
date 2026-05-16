@@ -149,11 +149,51 @@ class EmailHandler:
         try:
             self.imap_connection.select(folder)
 
-            # traer TODOS
-            status, messages = self.imap_connection.uid('search', None, 'X-GM-RAW',
-    'category:primary OR category:promotions')
+            status = None
+            messages = None
+
+            def _imap_caps_text():
+                caps = getattr(self.imap_connection, "capabilities", None) or []
+                parts = []
+                for c in caps:
+                    if isinstance(c, bytes):
+                        try:
+                            parts.append(c.decode(errors="ignore"))
+                        except Exception:
+                            continue
+                    else:
+                        parts.append(str(c))
+                return " ".join(parts).upper()
+
+            caps_text = _imap_caps_text()
+            supports_gmail_raw = (
+                self.account.provider == "gmail"
+                or "X-GM-EXT-1" in caps_text
+                or "GMAIL" in (self.account.imap_host or "").upper()
+            )
+
+            if supports_gmail_raw:
+                status, messages = self.imap_connection.uid(
+                    "search",
+                    None,
+                    "X-GM-RAW",
+                    "category:primary OR category:promotions",
+                )
+
+            if status != "OK":
+                criteria = ["ALL"]
+                if self.account.last_sync_at:
+                    criteria = ["SINCE", self.account.last_sync_at.strftime("%d-%b-%Y")]
+                status, messages = self.imap_connection.uid("search", None, *criteria)
 
             if status != 'OK':
+                try:
+                    logger.error(
+                        f"IMAP search failed ({self.account.email_address}) "
+                        f"status={status} criteria={criteria if 'criteria' in locals() else 'X-GM-RAW'} messages={messages}"
+                    )
+                except Exception:
+                    pass
                 return []
 
             email_uids = messages[0].split()
