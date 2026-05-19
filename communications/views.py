@@ -196,22 +196,16 @@ def add_conversation_note(request, conversation_id):
 
 def get_agent_conversations(user):
     """
-    Devuelve todas las conversaciones visibles para el usuario:
-    1. Conversaciones asignadas a él (WhatsApp o Email).
-    2. Conversaciones de Email vinculadas a sus cuentas configuradas.
-    3. Todas si es superusuario o supervisor.
+    Conversaciones visibles para el agente:
+    - Asignadas a él, o sin asignar (bandeja común).
+    - Supervisores / superusuarios: todas.
+    Ya no se mezcla por dueño de cuenta IMAP (evita que dos recepcionistas vean lo mismo).
     """
     if user.is_superuser or user.groups.filter(name='Supervisor').exists():
         return Conversation.objects.all()
-        
-    # IDs de conversaciones de email vinculadas a las cuentas del usuario
-    email_convo_ids = EmailMessage.objects.filter(
-        email_account__user=user
-    ).values_list('message__conversation_id', flat=True)
-    
-    # Retornar conversaciones asignadas al usuario O vinculadas por email
+
     return Conversation.objects.filter(
-        models.Q(assigned_to=user) | models.Q(id__in=email_convo_ids)
+        models.Q(assigned_to=user) | models.Q(assigned_to__isnull=True)
     ).distinct()
 @login_required
 def dashboard(request):
@@ -1634,30 +1628,28 @@ def transfer_conversation(request, pk):
         "message": f"Conversación derivada a {new_user.get_full_name() or new_user.username}"
     })
 
-def _ensure_client_email_conversation(request, client):
-    """Obtiene o crea la conversación de email vinculada a un cliente."""
+def _ensure_client_email_conversation(request, client, subject=''):
+    """
+    Crea una conversación nueva para redactar desde contactos (no reutiliza hilos viejos).
+    El agrupamiento por asunto ocurre al sincronizar respuestas entrantes.
+    """
     contact, _ = Contact.objects.get_or_create(
         client=client,
         defaults={'preferred_channel': 'email'}
     )
-    conversation = Conversation.objects.filter(
+    display_subject = (subject or '').strip() or f"Email con {client.name}"
+    conversation = Conversation.objects.create(
         contact=contact,
         channel='email',
-        status__in=['normal', 'pending', 'open', 'assigned']
-    ).first()
-    if not conversation:
-        conversation = Conversation.objects.create(
-            contact=contact,
-            channel='email',
-            status='normal',
-            priority='normal',
-            subject=f"Email con {client.name}"
-        )
-        assign_conversation_to_agent(
-            conversation,
-            agent=request.user,
-            assigned_by=request.user
-        )
+        status='normal',
+        priority='normal',
+        subject=display_subject[:255],
+    )
+    assign_conversation_to_agent(
+        conversation,
+        agent=request.user,
+        assigned_by=request.user,
+    )
     return conversation
 
 

@@ -25,6 +25,12 @@ from .models import (
 )
 from .utils.email_headers import decode_mime_header
 from .utils.html_cleaner import plain_text_to_email_html
+from .utils.email_threading import (
+    clean_message_id,
+    normalize_email_subject,
+    subjects_match,
+    _OPEN_CONVERSATION_STATUSES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -416,77 +422,115 @@ class EmailHandler:
         )
 
         return contact
-    def get_or_create_conversation(self, contact, subject, in_reply_to, references):
-
-        # 1️⃣ Buscar por In-Reply-To
-        if in_reply_to:
+    def _conversation_from_message_id(self, message_id):
+        """Busca conversación por Message-ID (In-Reply-To / References)."""
+        mid = clean_message_id(message_id)
+        if not mid:
+            return None
+        for lookup in (mid, f'<{mid}>'):
             email_msg = EmailMessage.objects.filter(
-                email_message_id=in_reply_to
-            ).select_related("message__conversation").first()
-
+                email_message_id=lookup
+            ).select_related('message__conversation').first()
             if email_msg:
                 return email_msg.message.conversation
+        return None
 
-        # 2️⃣ Buscar por References
-        if references:
-            refs = references.split()
-            email_msg = EmailMessage.objects.filter(
-                email_message_id__in=refs
-            ).select_related("message__conversation").first()
+    def _find_open_conversation_by_contact_and_subject(self, contact, subject):
+        """Mismo contacto + mismo asunto normalizado en conversación abierta."""
+        norm = normalize_email_subject(subject)
+        if not norm:
+            return None
 
-            if email_msg:
-                return email_msg.message.conversation
-
-        # 3️⃣ Buscar conversación abierta del mismo contacto
-        conversation = Conversation.objects.filter(
+        open_convos = Conversation.objects.filter(
             contact=contact,
             channel='email',
-            status__in=['open', 'pending', 'normal']
-        ).order_by('-updated_at').first()
+            status__in=_OPEN_CONVERSATION_STATUSES,
+        ).order_by('-updated_at')
 
-        if conversation:
-            return conversation
+        for conv in open_convos:
+            if subjects_match(conv.subject, subject):
+                return conv
 
-        # 4️⃣ Crear nueva conversación
+        email_msgs = EmailMessage.objects.filter(
+            message__conversation__contact=contact,
+            message__conversation__channel='email',
+            message__conversation__status__in=_OPEN_CONVERSATION_STATUSES,
+        ).select_related('message__conversation').order_by('-message__created_at')
+
+        seen = set()
+        for em in email_msgs:
+            conv = em.message.conversation
+            if conv.id in seen:
+                continue
+            if subjects_match(em.subject, subject):
+                seen.add(conv.id)
+                return conv
+        return None
+
+    def get_or_create_conversation(self, contact, subject, in_reply_to, references):
+        # 1) Hilo RFC: In-Reply-To
+        if in_reply_to:
+            conv = self._conversation_from_message_id(in_reply_to)
+            if conv:
+                return conv
+
+        # 2) Hilo RFC: References (cualquier id de la cadena)
+        if references:
+            for ref in references.split():
+                conv = self._conversation_from_message_id(ref)
+                if conv:
+                    return conv
+
+        # 3) Mismo contacto + mismo asunto (normalizado), conversación abierta
+        conv = self._find_open_conversation_by_contact_and_subject(contact, subject)
+        if conv:
+            return conv
+
+        # 4) Nuevo hilo / conversación
+        display_subject = decode_mime_header(subject or '') or '(Sin asunto)'
         conversation = Conversation.objects.create(
             contact=contact,
             channel='email',
             status='normal',
             priority='normal',
-            subject=subject,
-            
- 
+            subject=display_subject[:255],
         )
 
         from .assignment_system import assign_conversation_to_agent
         assign_conversation_to_agent(conversation)
 
         return conversation
-    
+
     def get_or_create_thread(self, conversation, subject, in_reply_to, references):
-        """Get or create email thread"""
-        # Try to find existing thread
-        if in_reply_to:
-            existing_thread = EmailThread.objects.filter(
-                conversation=conversation,
-                messages__email_message_id=in_reply_to
-            ).first()
-            
-            if existing_thread:
-                existing_thread.last_message_at = timezone.now()
-                existing_thread.save()
-                return existing_thread
-        
-        # Create new thread
-        thread = EmailThread.objects.create(
-            subject=subject,
+        """Hilo dentro de la conversación (EmailThread)."""
+        reply_mid = clean_message_id(in_reply_to)
+        if reply_mid:
+            for lookup in (reply_mid, f'<{reply_mid}>'):
+                existing_thread = EmailThread.objects.filter(
+                    conversation=conversation,
+                    messages__email_message_id=lookup,
+                ).first()
+                if existing_thread:
+                    existing_thread.last_message_at = timezone.now()
+                    existing_thread.save(update_fields=['last_message_at'])
+                    return existing_thread
+
+        norm = normalize_email_subject(subject)
+        if norm:
+            for thread in EmailThread.objects.filter(conversation=conversation):
+                if subjects_match(thread.subject, subject):
+                    thread.last_message_at = timezone.now()
+                    thread.save(update_fields=['last_message_at'])
+                    return thread
+
+        display_subject = decode_mime_header(subject or '') or '(Sin asunto)'
+        return EmailThread.objects.create(
+            subject=display_subject[:500],
             conversation=conversation,
             first_message_at=timezone.now(),
             last_message_at=timezone.now(),
-            participants=[]
+            participants=[],
         )
-        
-        return thread
     
     def save_attachment(self, email_message, filename, file_data, mime_type):
         """Save email attachment"""
