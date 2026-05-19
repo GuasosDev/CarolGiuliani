@@ -179,11 +179,12 @@ class EmailHandler:
             )
 
             if supports_gmail_raw:
+                criteria = 'X-GM-RAW "category:primary OR category:promotions"'
+
                 status, messages = self.imap_connection.uid(
-                    "search",
+                    'SEARCH',
                     None,
-                    "X-GM-RAW",
-                    "category:primary OR category:promotions",
+                    criteria
                 )
 
             if status != "OK":

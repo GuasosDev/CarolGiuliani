@@ -1602,6 +1602,7 @@ def transfer_conversation(request, pk):
         )
 
     new_user_id = request.POST.get('user_id')
+    
 
     if not new_user_id:
         return render(request, "communications/partials/transfer_modal.html", {
@@ -1621,9 +1622,9 @@ def transfer_conversation(request, pk):
 
     from .assignment_system import reassign_conversation
     reassign_conversation(conversation, new_user, request.user)
-    conversation.status = 'closed'
+    conversation.status = 'normal' 
     conversation.save()
-    # 🔥 RESPUESTA HTMX (HTML, no JSON)
+    
     return render(request, "communications/partials/transfer_success.html", {
         "message": f"Conversación derivada a {new_user.get_full_name() or new_user.username}"
     })
