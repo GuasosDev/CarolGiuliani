@@ -265,7 +265,20 @@ class EmailHandler:
                 return body.split(sep)[0].strip()
 
         return body.strip()
-    
+    def normalize_subject(self, subject):
+        import re
+
+        if not subject:
+            return "(No Subject)"
+
+        subject = re.sub(
+            r'^(re|rv|fw|fwd):\s*',
+            '',
+            subject,
+            flags=re.IGNORECASE
+        )
+
+        return subject.strip()
     def process_incoming_email(self, email_message, imap_uid=None):
         """Process an incoming email and create database records"""
         try:
@@ -275,7 +288,8 @@ class EmailHandler:
             cc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Cc', []) if parseaddr(addr)[1]]
             bcc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Bcc', []) if parseaddr(addr)[1]]
             subject_header = email_message.get('Subject', '') or '(No Subject)'
-            subject = decode_mime_header(subject_header) or '(No Subject)'
+            raw_subject = decode_mime_header(subject_header) or '(No Subject)'
+            subject = self.normalize_subject(raw_subject)
             message_id = email_message.get('Message-ID', '')
             if not message_id:
                message_id = f"<no-id-{uuid.uuid4()}@local>"
