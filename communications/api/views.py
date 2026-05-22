@@ -6,6 +6,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
+from datetime import timedelta
 from django.db.models import Q, Count
 from ..models import (
     Contact, Conversation, Message, InternalNote, QuickReply,
@@ -172,6 +174,8 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         message_text = (request.data.get('message') or '').strip()
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
+
+        to_number_norm = normalize_phone_number(to_number)
         
         conversation = None
         if conversation_id:
@@ -179,6 +183,32 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
                 conversation = Conversation.objects.get(id=conversation_id)
             except Conversation.DoesNotExist:
                 conversation = None
+
+        if conversation is None and to_number_norm:
+            contact = Contact.objects.filter(whatsapp_number=to_number_norm).first()
+            if contact:
+                conversation = Conversation.objects.filter(
+                    contact=contact,
+                    channel='whatsapp',
+                    status__in=['normal', 'assigned', 'pending', 'open'],
+                ).order_by('-updated_at').first()
+
+        if conversation is not None:
+            last_inbound_wa = (
+                conversation.messages.filter(message_type='whatsapp', direction='inbound')
+                .order_by('-created_at')
+                .first()
+            )
+            allowed_freeform = False
+            if last_inbound_wa and last_inbound_wa.created_at:
+                allowed_freeform = last_inbound_wa.created_at >= (timezone.now() - timedelta(hours=24))
+            if not allowed_freeform:
+                return Response(
+                    {
+                        'error': 'Fuera de la ventana de 24 hs. Solo podés enviar plantillas hasta que el cliente responda.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
         if not attachments:
             if not message_text:
                 return Response({'error': 'Por favor escribe un mensaje o adjunta archivos antes de enviar.'}, status=status.HTTP_400_BAD_REQUEST)

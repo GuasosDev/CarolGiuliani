@@ -1269,8 +1269,14 @@
                     
                     <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary"
                         style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                        {% if wa_freeform_blocked %}
+                        <div class="alert alert-warning py-2 small mb-2" role="alert" id="wa24hAlert">
+                            {{ wa_freeform_block_reason }}
+                        </div>
+                        {% endif %}
                         <textarea class="form-control border-0 shadow-none" name="message" rows="1"
-                            placeholder="Escribe un mensaje de WhatsApp..."></textarea>
+                            {% if wa_freeform_blocked %}disabled aria-disabled="true"{% endif %}
+                            placeholder="{% if wa_freeform_blocked %}Bloqueado por ventana 24 hs (usá Plantillas){% else %}Escribe un mensaje de WhatsApp...{% endif %}"></textarea>
 
                         <div class="d-flex align-items-end gap-2">
                             {% if company_settings.whatsapp_templates_enabled %}
@@ -1279,7 +1285,7 @@
                             </button>
                             {% endif %}
                             <div class="dropdown">
-                                <button type="button" class="tool-btn" data-bs-toggle="dropdown" title="Respuestas Rápidas">
+                                <button type="button" class="tool-btn" data-bs-toggle="dropdown" title="Respuestas Rápidas" {% if wa_freeform_blocked %}disabled aria-disabled="true"{% endif %}>
                                     <i class="fas fa-bolt"></i>
                                 </button>
                                 <div class="dropdown-menu dropdown-menu-end p-0 shadow-lg"
@@ -1320,15 +1326,15 @@
                                 </div>
                             </div>
 
-                            <button type="button" onclick="openFileSelector()" class="tool-btn" title="Adjuntar">
+                            <button type="button" onclick="openFileSelector()" class="tool-btn" title="Adjuntar" {% if wa_freeform_blocked %}disabled aria-disabled="true"{% endif %}>
                                 <i class="fas fa-paperclip"></i>
                             </button>
-                            <button type="button" onclick="toggleWhatsappVoiceRecording()" class="tool-btn" id="whatsappMicBtn" title="Enviar audio">
+                            <button type="button" onclick="toggleWhatsappVoiceRecording()" class="tool-btn" id="whatsappMicBtn" title="Enviar audio" {% if wa_freeform_blocked %}disabled aria-disabled="true"{% endif %}>
                                 <i class="fas fa-microphone"></i>
                             </button>
                         </div>
 
-                        <button type="submit" class="btn-send ms-2 text-success" style="border:none; background:none;">
+                        <button type="submit" class="btn-send ms-2 text-success" style="border:none; background:none;" {% if wa_freeform_blocked %}disabled aria-disabled="true" title="Fuera de ventana 24 hs"{% endif %}>
                             <i class="fas fa-paper-plane fa-lg"></i>
                         </button>
                     </div>

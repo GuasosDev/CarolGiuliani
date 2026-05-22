@@ -841,6 +841,29 @@ def conversation_detail(request, pk):
             if last_any:
                 forward_email_message_id = last_any.id
 
+        wa_freeform_blocked = False
+        wa_freeform_block_reason = ''
+        wa_freeform_expires_at = None
+        if conversation.channel == 'whatsapp':
+            from datetime import timedelta
+            last_inbound_wa = (
+                conversation.messages.filter(message_type='whatsapp', direction='inbound')
+                .order_by('-created_at')
+                .first()
+            )
+            if last_inbound_wa and last_inbound_wa.created_at:
+                wa_freeform_expires_at = last_inbound_wa.created_at + timedelta(hours=24)
+                if wa_freeform_expires_at < timezone.now():
+                    wa_freeform_blocked = True
+                    wa_freeform_block_reason = (
+                        'Fuera de la ventana de 24 hs. Solo podés enviar plantillas hasta que el cliente responda.'
+                    )
+            else:
+                wa_freeform_blocked = True
+                wa_freeform_block_reason = (
+                    'Aún no hubo respuesta del cliente. Solo podés enviar plantillas hasta que responda.'
+                )
+
         # Get users available for conversation transfer
         from django.contrib.auth.models import User as AuthUser
         transfer_users = AuthUser.objects.filter(is_active=True).exclude(
@@ -867,6 +890,9 @@ def conversation_detail(request, pk):
             'reply_cc_joined': reply_cc_joined,
             'forward_email_message_id': forward_email_message_id,
             'email_compose_recipients_catalog': email_compose_recipients_catalog,
+            'wa_freeform_blocked': wa_freeform_blocked,
+            'wa_freeform_block_reason': wa_freeform_block_reason,
+            'wa_freeform_expires_at': wa_freeform_expires_at,
             **counts # Unpack counts into context
         }
         
