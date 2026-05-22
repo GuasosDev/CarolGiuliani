@@ -18,7 +18,7 @@ from .serializers import (
     EmailTemplateSerializer, EmailSignatureSerializer
 )
 from .permissions import IsAgentOrSupervisor, IsSupervisorOrAdmin, IsAssignedAgent
-from ..whatsapp_handler import WhatsAppHandler
+from ..whatsapp_handler import WhatsAppHandler, normalize_phone_number
 from ..email_handler import EmailHandler
 from ..assignment_system import assign_conversation_to_agent, reassign_conversation
 from django.db import transaction
@@ -231,15 +231,56 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         template_name = (request.data.get('template_name') or request.data.get('name') or '').strip()
         language_code = (request.data.get('language_code') or request.data.get('language') or '').strip()
 
+        to_number = normalize_phone_number(to_number)
+        if not to_number:
+            return Response({'error': 'El destinatario no tiene un número de teléfono válido configurado.'}, status=status.HTTP_400_BAD_REQUEST)
+
         if not template_name or not language_code:
             return Response({'error': 'Template y lenguaje son obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
 
         conversation = None
-        if conversation_id:
+        if conversation_id not in (None, '', [], 'null'):
             try:
                 conversation = Conversation.objects.get(id=conversation_id)
             except Conversation.DoesNotExist:
                 conversation = None
+        else:
+            contact = Contact.objects.filter(whatsapp_number=to_number).first()
+            if contact is None:
+                contact = Contact.objects.create(
+                    whatsapp_number=to_number,
+                    preferred_channel='whatsapp',
+                )
+            conversation = (
+                Conversation.objects.filter(
+                    contact=contact,
+                    channel='whatsapp',
+                    status__in=['normal', 'assigned', 'pending', 'open'],
+                )
+                .order_by('-updated_at')
+                .first()
+            )
+            if conversation is None:
+                conversation = Conversation.objects.create(
+                    contact=contact,
+                    channel='whatsapp',
+                    status='normal',
+                    priority='normal',
+                )
+
+        if conversation is not None:
+            can_take = (
+                conversation.assigned_to_id is None
+                or conversation.assigned_to_id == request.user.id
+                or request.user.is_superuser
+                or request.user.groups.filter(name='Supervisor').exists()
+            )
+            if can_take:
+                assign_conversation_to_agent(conversation, agent=request.user, assigned_by=request.user)
+                if getattr(conversation, 'closed_at', None):
+                    conversation.closed_at = None
+                    conversation.status = 'normal'
+                    conversation.save(update_fields=['closed_at', 'status', 'updated_at'])
 
         body_params = []
         try:
