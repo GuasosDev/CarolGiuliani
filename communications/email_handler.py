@@ -184,7 +184,7 @@ class EmailHandler:
                 status, messages = self.imap_connection.uid(
                     'SEARCH',
                     None,
-                    criteria
+                    'ALL'
                 )
 
             if status != "OK":

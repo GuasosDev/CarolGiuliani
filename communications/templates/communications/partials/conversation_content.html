@@ -683,7 +683,51 @@
         body.dark-mode .email-read-body {
             color: #e2e8f0 !important;
         }
-         </style>
+        .email-body {
+                background: white;
+                border-radius: 12px;
+                padding: 16px;
+                overflow-x: auto;
+                max-width: 100%;
+                color: #222;
+                line-height: 1.5;
+            }
+
+            .email-body img {
+                max-width: 100% !important;
+                height: auto !important;
+                border-radius: 6px;
+            }
+
+            .email-body iframe {
+                width: 100% !important;
+                min-height: 315px;
+                border: none;
+                border-radius: 8px;
+            }
+
+            .email-body table {
+                max-width: 100% !important;
+                width: auto !important;
+            }
+
+            .email-body video {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+
+            .email-body a {
+                word-break: break-word;
+            }
+            .attachment-card img {
+                opacity: 1 !important;
+                filter: none !important;
+                mix-blend-mode: normal !important;
+            }
+            .attachment-card {
+                background: #fff !important;
+            }
+             </style>
 
        <div class="omni-chat-header bg-white border-bottom d-flex flex-column align-items-stretch {% if conversation.channel == 'email' %}email-read-topbar{% else %}py-2 px-3 gap-2{% endif %}">
             {% if conversation.channel == 'email' %}
@@ -825,7 +869,32 @@
                     {% endif %}
                         <div class="msg-bubble text-break pt-1 d-inline-block text-start" onclick="onChatMessageClick(event, {{ m.id }})">
     
+                                   {% if conversation.channel == "email" %}
+
+                            <div class="email-message-wrapper">
+
+                                {% if forloop.first %}
+                                    <small class="text-muted d-block mb-2">
+                                        {{ conversation.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:80 }}
+                                    </small>
+                                {% endif %}
+
+                                <div class="email-body">
                                     {{ m.render_content|safe }}
+                                </div>
+
+                            </div>
+
+                            {% else %}
+
+                            <div class="msg-bubble text-break pt-1 d-inline-block text-start"
+                                onclick="onChatMessageClick(event, {{ m.id }})">
+
+                                {{ m.render_content|safe }}
+
+                            </div>
+
+                            {% endif %}
                                       
                                                             
                           
