@@ -1,8 +1,10 @@
 import re
 import bleach
+
 from bs4 import BeautifulSoup, Comment
 from html import unescape
 from bleach.css_sanitizer import CSSSanitizer
+
 
 css_sanitizer = CSSSanitizer(
     allowed_css_properties=[
@@ -16,21 +18,23 @@ css_sanitizer = CSSSanitizer(
         'height',
         'max-width',
         'min-width',
+        'max-height',
         'display',
         'margin',
         'padding',
         'border',
         'border-radius',
         'text-decoration',
-        # agregar
-        'max-height',
         'object-fit',
         'vertical-align',
+        'line-height',
     ]
 )
+
+
 ALLOWED_TAGS = [
     # estructura
-    'html', 'body', 'style',
+    'html', 'body',
     'div', 'span',
     'p', 'br', 'hr',
 
@@ -40,9 +44,15 @@ ALLOWED_TAGS = [
     'u',
     'font',
     'center',
+    'small',
+    'sub',
+    'sup',
+
+    # headings
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+
+    # code
     'pre', 'code',
-    'small', 'sub', 'sup',
 
     # listas
     'ul', 'ol', 'li',
@@ -50,56 +60,24 @@ ALLOWED_TAGS = [
     # links
     'a',
 
-    # tablas (emails usan esto)
+    # tablas
     'table', 'thead', 'tbody', 'tfoot',
     'tr', 'td', 'th',
 
-    # imágenes
+    # media
     'img',
+    'video',
+    'source',
 
-    # citas
+    # embeds
+    'iframe',
+
+    # misc
     'blockquote',
     'cite',
-
     'details',
     'summary',
 ]
-
-def _strip_embedded_webmail_header(soup):
-    """
-    Elimina el primer bloque que parece cabecera de visor webmail (no el cuerpo del correo).
-    Patrón típico: texto "De … el dd-mm-aaaa" junto con enlaces "Detalles" y "Texto".
-    """
-    container = soup.body if soup.body else soup
-    if not container:
-        return
-    pattern_date = re.compile(r"\s+el\s+\d{1,2}-\d{1,2}-\d{4}\b", re.I)
-    pattern_de = re.compile(r"\bDe\s+\S", re.I)
-
-    def is_chrome_block(node):
-        if not hasattr(node, "get_text"):
-            return False
-        t = node.get_text(" ", strip=True)[:500]
-        if not t:
-            return False
-        return (
-            pattern_de.search(t)
-            and pattern_date.search(t)
-            and "Detalles" in t
-            and "Texto" in t
-        )
-
-    for child in list(container.children):
-        if is_chrome_block(child):
-            child.decompose()
-            return
-
-    first_div = container.find("div", recursive=False)
-    if first_div:
-        for sub in list(first_div.children):
-            if is_chrome_block(sub):
-                sub.decompose()
-                return
 
 
 ALLOWED_ATTRIBUTES = {
@@ -117,14 +95,42 @@ ALLOWED_ATTRIBUTES = {
     ],
 
     'img': [
-    'src',
-    'srcset',
-    'alt',
-    'width',
-    'height',
-    'style',
-    'class',
-    'loading',
+        'src',
+        'srcset',
+        'alt',
+        'width',
+        'height',
+        'style',
+        'class',
+        'loading',
+    ],
+
+    'video': [
+        'src',
+        'controls',
+        'autoplay',
+        'muted',
+        'loop',
+        'poster',
+        'style',
+        'width',
+        'height',
+    ],
+
+    'source': [
+        'src',
+        'type',
+    ],
+
+    'iframe': [
+        'src',
+        'width',
+        'height',
+        'allowfullscreen',
+        'frameborder',
+        'style',
+        'loading',
+        'referrerpolicy',
     ],
 
     'table': [
@@ -151,32 +157,89 @@ ALLOWED_ATTRIBUTES = {
         'align',
     ],
 
-    'h1': ['style', 'class'],
-    'h2': ['style', 'class'],
-    'h3': ['style', 'class'],
-    'h4': ['style', 'class'],
-    'h5': ['style', 'class'],
-    'h6': ['style', 'class'],
-    'pre': ['style', 'class'],
-    'code': ['style', 'class'],
-    'font': ['color', 'face', 'size', 'style'],
+    'font': [
+        'color',
+        'face',
+        'size',
+        'style',
+    ],
 
     'div': ['style'],
     'span': ['style'],
     'p': ['style'],
+
     'details': ['open'],
     'summary': ['style'],
 }
 
 
+SOCIAL_DOMAINS = [
+    "instagram.com",
+    "youtube.com",
+    "youtu.be",
+    "tiktok.com",
+    "facebook.com",
+    "twitter.com",
+    "x.com",
+]
+
+
+def _strip_embedded_webmail_header(soup):
+
+    container = soup.body if soup.body else soup
+
+    if not container:
+        return
+
+    pattern_date = re.compile(
+        r"\s+el\s+\d{1,2}-\d{1,2}-\d{4}\b",
+        re.I
+    )
+
+    pattern_de = re.compile(r"\bDe\s+\S", re.I)
+
+    def is_chrome_block(node):
+
+        if not hasattr(node, "get_text"):
+            return False
+
+        t = node.get_text(" ", strip=True)[:500]
+
+        if not t:
+            return False
+
+        return (
+            pattern_de.search(t)
+            and pattern_date.search(t)
+            and "Detalles" in t
+            and "Texto" in t
+        )
+
+    for child in list(container.children):
+
+        if is_chrome_block(child):
+            child.decompose()
+            return
+
+
 def plain_text_to_email_html(text):
-    """Convierte cuerpo solo texto a HTML seguro para mostrar en el visor."""
+
     if not text:
         return ""
+
     from django.utils.html import escape
 
-    t = (text or "").replace("\r\n", "\n").replace("\r", "\n")
-    return f'<div class="email-plain-body">{escape(t).replace(chr(10), "<br>")}</div>'
+    t = (
+        text
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+    )
+
+    return (
+        '<div class="email-plain-body">'
+        f'{escape(t).replace(chr(10), "<br>")}'
+        '</div>'
+    )
 
 
 def limpiar_email_html(html):
@@ -186,19 +249,19 @@ def limpiar_email_html(html):
 
     soup = BeautifulSoup(html, "html.parser")
 
-    # Quitar bloque UI incrustado
     _strip_embedded_webmail_header(soup)
-
-    # eliminar comentarios
+     # eliminar css embebido
+    for style in soup.find_all("style"):
+        style.decompose()
+    # eliminar comentarios HTML
     for comment in soup.find_all(
         string=lambda text: isinstance(text, Comment)
     ):
         comment.extract()
 
-    # eliminar contenido peligroso
+    # eliminar scripts peligrosos
     for tag in soup([
         'script',
-        'iframe',
         'object',
         'embed',
         'form',
@@ -207,66 +270,105 @@ def limpiar_email_html(html):
         'select',
         'option',
         'textarea',
-        'nav',
-        'svg',
         'canvas',
-        'video',
-        'audio',
     ]):
         tag.decompose()
 
-    # limpiar imágenes problemáticas
+    
+
+    # limpiar imágenes
     for img in soup.find_all("img"):
 
-        alt = img.get("alt", "").strip().lower()
+        alt = (img.get("alt") or "").strip().lower()
 
-        # evitar mostrar "image.png"
-        if re.match(r"image\d*\.(png|jpg|jpeg|gif|webp)", alt):
+        # ocultar nombres basura tipo image001.png
+        if re.match(
+            r"image\d*\.(png|jpg|jpeg|gif|webp)",
+            alt
+        ):
             img["alt"] = ""
 
-        # quitar tamaños fijos
-        img.attrs.pop("width", None)
-        img.attrs.pop("height", None)
+        current_style = img.get("style") or ""
 
-        current_style = img.get("style", "")
+        img["style"] = f"""
+            {current_style};
+            max-width:100%;
+            height:auto;
+            object-fit:contain;
+            """
+        img["loading"] = "lazy"
 
-        safe_style = """
-        max-width:100%;
-        height:auto;
-        object-fit:contain;
-        vertical-align:middle;
-        """
-
-        img["style"] = f"{current_style};{safe_style}"
-
-        src = img.get("src", "")
-
-        # eliminar tracking pixels
-        if "tracking" in src or "pixel" in src:
+        src = (img.get("src") or "").lower()
+        
+        if src.startswith("data:image") and len(src) > 500000:
             img.decompose()
+            continue
+        # eliminar tracking pixels
+        if (
+            "tracking" in src
+            or "pixel" in src
+            or "openrate" in src
+        ):
+            img.decompose()
+            continue
 
-    # asegurar links seguros
+    # links seguros
     for a in soup.find_all("a"):
 
-        href = a.get("href")
+        href = a.get("href") or ""
 
         if href:
+
             a["target"] = "_blank"
             a["rel"] = "noopener noreferrer"
 
-    # convertir a string
+            current_style = a.get("style") or ""
+
+            # conservar links visibles
+            a["style"] = (
+                current_style
+                + ";word-break:break-word;"
+            )
+
+   # iframes seguros
+    for iframe in soup.find_all("iframe"):
+
+        src = (iframe.get("src") or "").lower()
+
+        allowed = any(domain in src for domain in [
+            "youtube.com",
+            "youtu.be",
+            "vimeo.com",
+        ])
+
+        if not allowed:
+            iframe.decompose()
+            continue
+
+        iframe["style"] = """
+            max-width:100%;
+            border:none;
+        """
+
+        iframe["loading"] = "lazy"
+        iframe["referrerpolicy"] = "no-referrer"
+
+
     content = unescape(str(soup))
 
-    # sanitizar
     cleaned = bleach.clean(
         content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
-        protocols=['http', 'https', 'mailto', 'data', 'cid'],
+        protocols=[
+            'http',
+            'https',
+            'mailto',
+            'data',
+            'cid',
+        ],
         strip=True,
         css_sanitizer=css_sanitizer
     )
 
     return cleaned.strip()
-        
-        
