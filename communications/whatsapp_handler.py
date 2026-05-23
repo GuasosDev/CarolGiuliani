@@ -59,7 +59,7 @@ class WhatsAppHandler:
             'Content-Type': 'application/json',
         }
     
-    def send_text_message(self, to_number, message_text, conversation=None, sender_user=None):
+    def send_text_message(self, to_number, message_text, conversation=None, sender_user=None, metadata=None):
         """Send a text message via WhatsApp"""
         to_number = normalize_phone_number(to_number)
         
@@ -88,13 +88,16 @@ class WhatsAppHandler:
             message_id = result.get('messages', [{}])[0].get('id')
             
             if conversation:
+                msg_meta = {'to': to_number}
+                if metadata and isinstance(metadata, dict):
+                    msg_meta.update(metadata)
                 message = Message.objects.create(
                     conversation=conversation,
                     message_type='whatsapp',
                     direction='outbound',
                     content=message_text,
                     sender=sender_user,
-                    metadata={'to': to_number}
+                    metadata=msg_meta
                 )
                 
                 WhatsAppMessage.objects.create(
@@ -655,13 +658,11 @@ def _handle_welcome_menu(handler, contact, conversation, text):
                 logger.info(f"Menu selection {chosen_number} by contact {contact.pk}: assigned to {item.assigned_user}")
                 return
             else:
-                # Invalid option – resend the menu
-                invalid_msg = f"Opción no válida. Por favor elija un número del menú:\n\n{menu_state.menu.build_message_text()}"
+                invalid_msg = "Opción no válida. Por favor respondé con un número del menú enviado anteriormente."
                 handler.send_text_message(contact.whatsapp_number, invalid_msg, conversation=conversation)
                 return
         except ValueError:
-            # Not a number – treat as a new keyword check, clear state
-            menu_state.delete()
+            return
     except ContactMenuState.DoesNotExist:
         pass
 
@@ -672,11 +673,30 @@ def _handle_welcome_menu(handler, contact, conversation, text):
 
     keywords = [kw.strip().lower() for kw in active_menu.trigger_keywords if kw.strip()]
     if text_stripped in keywords:
+        from django.utils import timezone
+        from datetime import timedelta
+
+        now = timezone.localtime(timezone.now())
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+        already_shown_today = Message.objects.filter(
+            conversation__contact=contact,
+            message_type='whatsapp',
+            direction='outbound',
+            created_at__gte=start,
+            created_at__lt=end,
+            metadata__welcome_menu=True,
+            metadata__welcome_menu_id=active_menu.id,
+        ).exists()
+        if already_shown_today:
+            return
+
         menu_text = active_menu.build_message_text()
         handler.send_text_message(
             contact.whatsapp_number,
             menu_text,
-            conversation=conversation
+            conversation=conversation,
+            metadata={'welcome_menu': True, 'welcome_menu_id': active_menu.id}
         )
         # Save state so we know this contact is expecting a selection
         ContactMenuState.objects.update_or_create(
