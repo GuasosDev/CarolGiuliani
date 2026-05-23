@@ -524,6 +524,8 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             
             # Auto-assign to an agent
             assign_conversation_to_agent(conversation)
+
+        was_closed = (conversation.status == 'closed')
         
         # Create message
         base_metadata = {'from': from_number, 'timestamp': timestamp}
@@ -612,7 +614,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
 
         # ── Welcome Menu Logic (only for text messages) ──────────────────────
         if message_type == 'text':
-            _handle_welcome_menu(handler, contact, conversation, content)
+            _handle_welcome_menu(handler, contact, conversation, content, force_show=was_closed)
         # ─────────────────────────────────────────────────────────────────────
 
         # Broadcast via WebSocket
@@ -627,7 +629,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         return False
 
 
-def _handle_welcome_menu(handler, contact, conversation, text):
+def _handle_welcome_menu(handler, contact, conversation, text, force_show=False):
     """
     Check if the incoming text matches a welcome menu trigger keyword or
     is a menu selection response. Handles auto-response and conversation routing.
@@ -679,17 +681,18 @@ def _handle_welcome_menu(handler, contact, conversation, text):
         now = timezone.localtime(timezone.now())
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end = start + timedelta(days=1)
-        already_shown_today = Message.objects.filter(
-            conversation__contact=contact,
-            message_type='whatsapp',
-            direction='outbound',
-            created_at__gte=start,
-            created_at__lt=end,
-            metadata__welcome_menu=True,
-            metadata__welcome_menu_id=active_menu.id,
-        ).exists()
-        if already_shown_today:
-            return
+        if not force_show:
+            already_shown_today = Message.objects.filter(
+                conversation__contact=contact,
+                message_type='whatsapp',
+                direction='outbound',
+                created_at__gte=start,
+                created_at__lt=end,
+                metadata__welcome_menu=True,
+                metadata__welcome_menu_id=active_menu.id,
+            ).exists()
+            if already_shown_today:
+                return
 
         menu_text = active_menu.build_message_text()
         handler.send_text_message(
