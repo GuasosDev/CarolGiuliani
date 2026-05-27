@@ -90,6 +90,13 @@ class Conversation(models.Model):
         blank=True
     )
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='conversations')
+    email_account = models.ForeignKey(
+        'EmailAccount',
+        on_delete=models.CASCADE,
+        related_name='conversations',
+        null=True,
+        blank=True
+    )
     channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, verbose_name="Canal")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='normal', verbose_name="Estado")
     assigned_to = models.ForeignKey(
@@ -461,6 +468,7 @@ class EmailAccount(models.Model):
 
 class EmailMessage(models.Model):
     """Email-specific message data"""
+    
     message = models.OneToOneField(Message, on_delete=models.CASCADE, related_name='email_data')
     email_account = models.ForeignKey(EmailAccount, on_delete=models.CASCADE, related_name='messages')
     imap_uid = models.CharField(
@@ -474,7 +482,7 @@ class EmailMessage(models.Model):
     plain_body = models.TextField(blank=True, null=True, verbose_name="Cuerpo Texto Plano")
     
     # Email headers for threading
-    email_message_id = models.CharField(max_length=255, unique=True, verbose_name="Message-ID")
+    email_message_id = models.CharField(max_length=255, verbose_name="Message-ID")
     in_reply_to = models.CharField(max_length=255, blank=True, null=True, verbose_name="In-Reply-To")
     references = models.TextField(blank=True, null=True, verbose_name="References")
     
@@ -486,20 +494,37 @@ class EmailMessage(models.Model):
     cc_addresses = models.JSONField(default=list, blank=True, verbose_name="CC")
     bcc_addresses = models.JSONField(default=list, blank=True, verbose_name="BCC")
     from_address = models.EmailField(verbose_name="De")
-    
+   
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Mensaje de Email"
         verbose_name_plural = "Mensajes de Email"
-        unique_together = ('email_account', 'imap_uid')
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=['email_account', 'imap_uid'],
+                name='unique_imap_uid_per_account'
+            ),
+            models.UniqueConstraint(
+                fields=['email_account', 'email_message_id'],
+                name='unique_message_id_per_account'
+            )
+        ]
     def __str__(self):
         return f"Email: {self.subject}"
 
 
 class EmailThread(models.Model):
     """Groups related emails together"""
+    email_account = models.ForeignKey(
+        EmailAccount,
+        on_delete=models.CASCADE,
+        related_name='threads',
+        null=True,
+       blank=True
+    )
     subject = models.CharField(max_length=500, verbose_name="Asunto")
     participants = models.JSONField(default=list, verbose_name="Participantes")
     

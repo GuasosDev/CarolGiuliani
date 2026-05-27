@@ -219,7 +219,7 @@ def dashboard(request):
     
     base_qs = get_agent_conversations(request.user).select_related(
         "contact__client"
-    ).prefetch_related("messages")
+    )
     
     # Base filtering
     conversations = base_qs
@@ -280,9 +280,14 @@ def dashboard(request):
         )
         inbox_qs = (
             base_qs.select_related('contact__client')
-            .prefetch_related('messages')
+            .prefetch_related(Prefetch(
+                    'messages',
+                    queryset=Message.objects.order_by('-created_at')[:1],
+                    to_attr='latest_message'
+                )
+            )
             .annotate(has_unread_inbound=Exists(unread_subq_inbox))
-            .order_by('-last_message_at', '-updated_at')[:100]
+            .order_by('-last_message_at', '-updated_at')[:1000]
         )
         
         for conv in inbox_qs:
@@ -326,10 +331,10 @@ def dashboard(request):
                 email_rows_qs = email_rows_qs.filter(message__direction='outbound')
             elif status_filter == 'pending':
                 email_rows_qs = email_rows_qs.filter(message__direction='outbound')
-            email_rows = email_rows_qs.order_by('-message__created_at')[:100]
-            conversations = conversations.order_by('-last_message_at', '-updated_at')[:50]
+            email_rows = email_rows_qs.order_by('-message__created_at')[:1000]
+            conversations = conversations.order_by('-last_message_at', '-updated_at')
         else:
-            conversations = conversations.order_by('-updated_at')[:50]
+            conversations = conversations.order_by('-updated_at')
         grouped_conversations = None
 
     clients = Client.objects.all().order_by('name')[:200]

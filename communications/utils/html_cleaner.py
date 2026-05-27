@@ -278,7 +278,12 @@ def limpiar_email_html(html):
 
     # limpiar imágenes
     for img in soup.find_all("img"):
+        
+        if not hasattr(img, "attrs"):
+            continue
 
+        if img.attrs is None:
+            continue 
         alt = (img.get("alt") or "").strip().lower()
 
         # ocultar nombres basura tipo image001.png
