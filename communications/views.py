@@ -32,7 +32,7 @@ from core.views import GenericCreateView
 from django.db.models import Exists, OuterRef, Prefetch, Q
 from .utils.html_cleaner import limpiar_email_html, plain_text_to_email_html
 from django.http import JsonResponse
-
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +220,20 @@ def dashboard(request):
     base_qs = get_agent_conversations(request.user).select_related(
         "contact__client"
     )
-    
+    user_email_account = _get_user_email_account(request.user)
+
+    if user_email_account:
+        allowed_email_conversations = EmailMessage.objects.filter(
+            email_account=user_email_account
+        ).values_list('message__conversation_id', flat=True)
+
+        base_qs = base_qs.filter(
+            Q(channel='email', id__in=allowed_email_conversations)
+            | ~Q(channel='email')
+        ).distinct()
+    else:
+        # si no tiene email configurado, ocultar emails
+        base_qs = base_qs.exclude(channel='email')
     # Base filtering
     conversations = base_qs
     
@@ -314,6 +327,13 @@ def dashboard(request):
         email_rows = None
         conversations = conversations.annotate(has_unread_inbound=Exists(unread_subq))
         if channel_filter == 'email':
+            user_email_account = _get_user_email_account(request.user)
+            email_conversation_ids = EmailMessage.objects.filter(
+                email_account=user_email_account
+            ).values_list('message__conversation_id', flat=True)
+            conversations = conversations.filter(
+                id__in=email_conversation_ids
+            ).distinct()
             email_rows_qs = (
                 EmailMessage.objects.select_related(
                     'message',
@@ -323,7 +343,7 @@ def dashboard(request):
                     'email_account',
                     'message__sender',
                 )
-                .filter(message__conversation__in=conversations)
+                .filter(message__conversation__in=conversations, email_account=user_email_account)
             )
             if not status_filter or status_filter == 'all':
                 email_rows_qs = email_rows_qs.filter(message__direction='inbound')
