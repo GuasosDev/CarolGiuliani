@@ -287,11 +287,22 @@
         <div class="dropdown comm-mail-folder-wrap d-flex align-items-center">
             <button class="btn comm-mail-folder-trigger dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
                 <span class="comm-mail-ico-box"><i class="fas fa-inbox" aria-hidden="true"></i></span>
-                <span>{% if current_status == 'normal' %}Enviados{% elif current_status == 'pending' %}Borradores{% elif current_status == 'closed' %}Papelera{% elif current_status == 'all' or not current_status %}Entrada{% else %}Bandeja{% endif %}</span>
+                <span>
+{% if current_folder == 'sent' %}
+    Enviados
+{% elif current_folder == 'drafts' %}
+    Borradores
+{% elif current_folder == 'trash' %}
+    Papelera
+{% else %}
+    Entrada
+{% endif %}
+</span>
             </button>
             <ul class="dropdown-menu comm-mail-folder-menu py-1">
                 <li>
-                    <a class="dropdown-item {% if current_status == 'all' or not current_status %}active{% endif %}" href="{% url 'communications:dashboard' %}?channel=email&status=all">
+                    <a class="dropdown-item {% if current_folder == 'inbox' or not current_folder %}active{% endif %}" 
+   href="{% url 'communications:dashboard' %}?channel=email&folder=inbox">
                         <span class="comm-mail-folder-row">
                             <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-inbox"></i></span>
                             <span>Entrada</span>
@@ -305,18 +316,25 @@
                             <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-file-alt"></i></span>
                             <span>Borradores</span>
                         </span>
-                        <span class="comm-mail-folder-badge">{{ pending_count }}</span>
+                        <span class="comm-mail-folder-badge">0</span>
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item {% if current_status == 'normal' %}active{% endif %}" href="{% url 'communications:dashboard' %}?channel=email&status=normal">
-                        <span class="comm-mail-folder-row">
-                            <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
-                            <span>Enviados</span>
+                <a class="dropdown-item {% if current_folder == 'sent' %}active{% endif %}" 
+   href="{% url 'communications:dashboard' %}?channel=email&folder=sent">
+
+                    <span class="comm-mail-folder-row">
+                        <span class="comm-mail-folder-ico">
+                            <i class="fas fa-paper-plane"></i>
                         </span>
-                        <span class="comm-mail-folder-badge">{{ normal_count }}</span>
-                    </a>
-                </li>
+                        <span>Enviados</span>
+                    </span>
+
+                    <span class="comm-mail-folder-badge">
+                        {{ sent_count }}
+                    </span>
+                </a>
+</li>
                 <li><hr class="dropdown-divider my-1 opacity-50"></li>
                 <li>
                     <span class="dropdown-item disabled d-flex align-items-center justify-content-between gap-2">
@@ -1066,6 +1084,9 @@
            class="sidebar-icon-btn {% if current_channel == 'internal' %}active{% endif %}" title="Interno">
             <i class="fas fa-comments" style="color: #6c757d;"></i>
             <span>Interno</span>
+            {% if internal_count > 0 %}
+            <span class="sidebar-badge">{{ internal_count }}</span>
+            {% endif %}
         </a>
 
         <div class="sidebar-divider"></div>

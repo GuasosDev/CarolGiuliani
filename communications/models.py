@@ -110,7 +110,11 @@ class Conversation(models.Model):
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal', verbose_name="Prioridad")
     tags = models.JSONField(default=list, blank=True, verbose_name="Etiquetas")
     subject = models.CharField(max_length=255, blank=True, null=True, verbose_name="Asunto")
-    
+    participants = models.JSONField(
+    default=list,
+    blank=True,
+    verbose_name="Participantes"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     closed_at = models.DateTimeField(null=True, blank=True)
@@ -494,7 +498,12 @@ class EmailMessage(models.Model):
     cc_addresses = models.JSONField(default=list, blank=True, verbose_name="CC")
     bcc_addresses = models.JSONField(default=list, blank=True, verbose_name="BCC")
     from_address = models.EmailField(verbose_name="De")
-   
+    email_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha del Email"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

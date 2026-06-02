@@ -32,6 +32,9 @@ from .utils.email_threading import (
     _OPEN_CONVERSATION_STATUSES,
 )
 from django.db import transaction, IntegrityError
+from email.utils import parsedate_to_datetime
+from django.utils.timezone import make_aware, is_naive
+
 logger = logging.getLogger(__name__)
 
 
@@ -230,9 +233,23 @@ class EmailHandler:
 
                     email_message = email.message_from_bytes(raw_email)
 
+                    email_date = None
+
+                    if email_message.get("Date"):
+                        try:
+                            email_date = parsedate_to_datetime(email_message.get("Date"))
+                            if email_date and is_naive(email_date):
+                                email_date = make_aware(email_date)
+
+                        except Exception as e:
+                            logger.exception(e)
+
+                            logger.warning(f"EMAIL DATE: {email_date}")
+
                     processed = self.process_incoming_email(
                         email_message,
-                        imap_uid=uid_str
+                        imap_uid=uid_str,
+                        email_date=email_date
                     )
 
                     if processed:
@@ -294,7 +311,7 @@ class EmailHandler:
         return subject.strip()
 
 
-    def process_incoming_email(self, email_message, imap_uid=None):
+    def process_incoming_email(self, email_message, imap_uid=None,email_date=None):
         """Process an incoming email and create database records"""
 
         try:
@@ -435,10 +452,25 @@ class EmailHandler:
                         in_reply_to,
                         references
                     )
+                    # Participants
+                    participants = set()
+
+                    if from_address:
+                        participants.add(from_address)
+
+                    participants.update(to_addresses or [])
+                    participants.update(cc_addresses or [])
+                    participants.update(bcc_addresses or [])
+
+                    conversation.participants = list(participants)
+
+                    update_fields = ['participants']
 
                     if conversation.user is None and self.account.user:
                         conversation.user = self.account.user
-                        conversation.save()
+                        update_fields.append('user')
+
+                    conversation.save(update_fields=update_fields)
 
                     # Thread
                     email_thread = self.get_or_create_thread(
@@ -479,6 +511,7 @@ class EmailHandler:
                             'cc_addresses': cc_addresses,
                             'bcc_addresses': bcc_addresses,
                             'from_address': from_address,
+                            'email_date': email_date,
                         }
                     )
 

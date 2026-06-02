@@ -1,11 +1,29 @@
 {% for m in messages %}
-<div class="omni-msg-row inbound" data-message-id="{{ m.id }}" data-author-id="{{ m.author_id }}">
-    <div class="omni-avatar bg-secondary msg-avatar">{{ m.author.username|make_list|first|upper }}</div>
+<div class="omni-msg-row {% if m.author_id == request.user.id %}outbound justify-content-end{% else %}inbound justify-content-start{% endif %}"
+     data-message-id="{{ m.id }}"
+     data-author-id="{{ m.author_id }}">
+
+    {% if m.author_id != request.user.id %}
+    <div class="omni-avatar bg-secondary msg-avatar">
+        {{ m.author.username|make_list|first|upper }}
+    </div>
+    {% endif %}
+
     <div class="msg-content-wrapper">
+
+        {% if m.author_id != request.user.id %}
         <div class="msg-header">
             <span class="fw-bold text-dark">{{ m.author.username }}</span>
         </div>
-        <div class="msg-bubble text-break pt-1 d-inline-block text-start">
+        {% endif %}
+
+        <div class="msg-bubble text-break pt-1 d-inline-block text-start
+            {% if m.author_id == request.user.id %}
+                bg-primary text-white
+            {% else %}
+                bg-white
+            {% endif %}
+        ">
             {{ m.content|linebreaksbr }}
 
             {% if m.file %}
@@ -13,31 +31,90 @@
                     {% if mt|slice:":6" == "image/" %}
                         <div class="mt-2">
                             <a href="{{ m.file.url }}" target="_blank" class="d-block">
-                                <img src="{{ m.file.url }}" alt="{{ m.original_filename|default:'Imagen' }}" style="max-width: 280px; height: auto; border-radius: 8px;">
+                                <img src="{{ m.file.url }}"
+                                     alt="{{ m.original_filename|default:'Imagen' }}"
+                                     style="max-width: 280px; height: auto; border-radius: 8px;">
                             </a>
                         </div>
+
                     {% elif mt|slice:":6" == "audio/" %}
                         <div class="mt-2">
                             <audio controls style="width: 280px;">
                                 <source src="{{ m.file.url }}" type="{{ mt }}">
                             </audio>
                         </div>
+
                     {% else %}
                         <div class="mt-2">
-                            <a href="{{ m.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-paperclip me-2"></i>{{ m.original_filename|default:"Adjunto" }}
+                            <a href="{{ m.file.url }}"
+                               target="_blank"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-paperclip me-2"></i>
+                                {{ m.original_filename|default:"Adjunto" }}
                             </a>
                         </div>
                     {% endif %}
                 {% endwith %}
             {% endif %}
         </div>
+
         <div class="message-meta d-flex justify-content-between">
             <span>{{ m.created_at|time:"h:i A" }}</span>
         </div>
     </div>
+
+    {% if m.author_id == request.user.id %}
+    <div class="omni-avatar bg-primary text-white msg-avatar ms-2">
+        {{ m.author.username|make_list|first|upper }}
+    </div>
+    {% endif %}
+
 </div>
+
 {% empty %}
-<div class="text-center text-muted my-auto w-100">No hay mensajes en el chat interno.</div>
+<div class="text-center text-muted my-auto w-100">
+    No hay mensajes en el chat interno.
+</div>
 {% endfor %}
 
+<style>
+
+
+ .omni-msg-row {
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+}
+
+.omni-msg-row.outbound {
+    justify-content: flex-end;
+}
+
+.omni-msg-row.inbound {
+    justify-content: flex-start;
+}
+
+.omni-msg-row.outbound .msg-content-wrapper {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.omni-msg-row.inbound .msg-content-wrapper {
+    align-items: flex-start;
+}
+
+.msg-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    max-width: 75%;
+}
+
+.omni-msg-row.outbound .msg-bubble {
+    border-bottom-right-radius: 6px;
+}
+
+.omni-msg-row.inbound .msg-bubble {
+    border-bottom-left-radius: 6px;
+} 
+ 
+</style>

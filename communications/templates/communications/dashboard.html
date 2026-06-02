@@ -106,7 +106,7 @@
                                     {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
                                 </span>
                             </div>
-                            <small class="text-muted text-nowrap flex-shrink-0">{{ em.message.created_at|date:"d/m/Y H:i" }}</small>
+                            <small class="text-muted text-nowrap flex-shrink-0">{{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}</small>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <small class="text-muted text-truncate">
@@ -245,7 +245,11 @@
                             <small class="text-muted text-truncate d-block" style="max-width: 100%;">
                                 {% with last_msg=conv.messages.last %}
                                 {% if last_msg %}
-                                {{ last_msg.content|truncatechars:35 }}
+                                {% if last_msg.email_data.plain_body %}
+                                    {{ last_msg.email_data.plain_body|striptags|truncatechars:50 }}
+                                {% else %}
+                                    {{ last_msg.content|striptags|truncatechars:50 }}
+                                {% endif %}
                                 {% else %}
                                 <span class="fst-italic text-muted">Sin mensajes...</span>
                                 {% endif %}
@@ -262,7 +266,108 @@
                     {% endfor %}
                     {% endif %}
 
-                </div>
+</div>
+
+{% if current_channel == 'email' %}
+
+    {% if email_rows.paginator.num_pages > 1 %}
+    <div class="border-top p-2 bg-white">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+
+                {% if email_rows.has_previous %}
+                <li class="page-item">
+                    <a class="page-link"
+                    href="?page={{ email_rows.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                        Anterior
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for num in email_rows.paginator.page_range %}
+                    {% if num >= email_rows.number|add:'-2' and num <= email_rows.number|add:'2' %}
+
+                        {% if email_rows.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link"
+                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+
+                    {% endif %}
+                {% endfor %}
+
+                {% if email_rows.has_next %}
+                <li class="page-item">
+                    <a class="page-link"
+                    href="?page={{ email_rows.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                        Siguiente
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+{% else %}
+
+    {% if conversations.paginator.num_pages > 1 %}
+    <div class="border-top p-2 bg-white">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+
+                {% if conversations.has_previous %}
+                <li class="page-item">
+                    <a class="page-link"
+                    href="?page={{ conversations.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                        Anterior
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for num in conversations.paginator.page_range %}
+                    {% if num >= conversations.number|add:'-2' and num <= conversations.number|add:'2' %}
+
+                        {% if conversations.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link"
+                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+
+                    {% endif %}
+                {% endfor %}
+
+                {% if conversations.has_next %}
+                <li class="page-item">
+                    <a class="page-link"
+                    href="?page={{ conversations.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                        Siguiente
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+{% endif %}
+
             </div>
         </div>
 

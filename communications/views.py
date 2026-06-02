@@ -33,6 +33,7 @@ from django.db.models import Exists, OuterRef, Prefetch, Q
 from .utils.html_cleaner import limpiar_email_html, plain_text_to_email_html
 from django.http import JsonResponse
 from django.db.models import Q
+from django.core.paginator import Paginator
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +212,7 @@ def get_agent_conversations(user):
 def dashboard(request):
     """Main communication dashboard"""
     # Get user's conversations
+    folder_filter = request.GET.get('folder')
     status_filter = request.GET.get('status')
     channel_filter = request.GET.get('channel')
     user_filter = request.GET.get('user')
@@ -324,16 +326,30 @@ def dashboard(request):
             direction='inbound',
             is_read=False,
         )
+
         email_rows = None
-        conversations = conversations.annotate(has_unread_inbound=Exists(unread_subq))
+
+        conversations = conversations.annotate(
+            has_unread_inbound=Exists(unread_subq)
+        )
+
+        page_number = request.GET.get('page')
+
+      # =====================================================
+        # EMAIL VIEW
+        # =====================================================
         if channel_filter == 'email':
+
             user_email_account = _get_user_email_account(request.user)
+
             email_conversation_ids = EmailMessage.objects.filter(
                 email_account=user_email_account
             ).values_list('message__conversation_id', flat=True)
+
             conversations = conversations.filter(
                 id__in=email_conversation_ids
             ).distinct()
+
             email_rows_qs = (
                 EmailMessage.objects.select_related(
                     'message',
@@ -343,18 +359,76 @@ def dashboard(request):
                     'email_account',
                     'message__sender',
                 )
-                .filter(message__conversation__in=conversations, email_account=user_email_account)
+                .filter(
+                    message__conversation__in=conversations,
+                    email_account=user_email_account
+                )
             )
-            if not status_filter or status_filter == 'all':
-                email_rows_qs = email_rows_qs.filter(message__direction='inbound')
-            elif status_filter == 'normal':
-                email_rows_qs = email_rows_qs.filter(message__direction='outbound')
-            elif status_filter == 'pending':
-                email_rows_qs = email_rows_qs.filter(message__direction='outbound')
-            email_rows = email_rows_qs.order_by('-message__created_at')[:1000]
-            conversations = conversations.order_by('-last_message_at', '-updated_at')
+
+            # ==========================================
+            # FOLDERS
+            # ==========================================
+
+            if folder_filter == 'sent':
+
+                email_rows_qs = email_rows_qs.filter(
+                    message__direction='outbound'
+                )
+
+            elif folder_filter == 'trash':
+
+                email_rows_qs = email_rows_qs.filter(
+                    message__conversation__status='closed'
+                )
+
+            else:
+                # inbox default
+
+                email_rows_qs = email_rows_qs.filter(
+                    message__direction='inbound'
+                )
+
+            # ==========================================
+            # SEARCH
+            # ==========================================
+
+            if search_q:
+                email_rows_qs = email_rows_qs.filter(
+                    Q(subject__icontains=search_q) |
+                    Q(from_address__icontains=search_q) |
+                    Q(to_addresses__icontains=search_q)
+                )
+
+            # ==========================================
+            # ORDER
+            # ==========================================
+
+            email_rows_qs = email_rows_qs.order_by(
+                '-message__created_at'
+            )
+
+            paginator = Paginator(email_rows_qs, 20)
+
+            email_rows = paginator.get_page(page_number)
+
+            conversations = conversations.order_by(
+                '-last_message_at',
+                '-updated_at'
+            )
+
+        # =====================================================
+        # NORMAL / MULTICHANNEL VIEW
+        # =====================================================
         else:
-            conversations = conversations.order_by('-updated_at')
+
+            conversations = conversations.order_by(
+                '-updated_at'
+            )
+
+            paginator = Paginator(conversations, 20)
+
+            conversations = paginator.get_page(page_number)
+
         grouped_conversations = None
 
     clients = Client.objects.all().order_by('name')[:200]
@@ -390,6 +464,7 @@ def dashboard(request):
         'whatsapp_percent': whatsapp_percent,
         'email_percent': email_percent,
         'current_status': status_filter,
+        'current_folder': folder_filter,
         'current_channel': channel_filter,
         'current_user': user_filter,
         'available_users': available_users,
@@ -403,25 +478,91 @@ def dashboard(request):
 
 def _get_conversation_counts(user, channel=None):
     """Helper to get conversation counts for the sidebar and filters"""
+
     base_qs = get_agent_conversations(user)
+
+    user_email_account = _get_user_email_account(user)
+
+    # FILTRAR emails SOLO de la cuenta del usuario
+    if user_email_account:
+        allowed_email_conversations = EmailMessage.objects.filter(
+            email_account=user_email_account
+        ).values_list(
+            'message__conversation_id',
+            flat=True
+        )
+
+        base_qs = base_qs.filter(
+            Q(channel='email', id__in=allowed_email_conversations)
+            | ~Q(channel='email')
+        ).distinct()
+
+    else:
+        # si no tiene cuenta email configurada
+        base_qs = base_qs.exclude(channel='email')
+
+    # Counts sidebar
+    whatsapp_pending = base_qs.filter(
+        channel='whatsapp',
+        status='pending'
+    ).count()
+
+    email_pending = base_qs.filter(
+        channel='email',
+        status='pending'
+    ).count()
+
+    # CHAT INTERNO
+    read_state = InternalChatReadState.objects.filter(
+        user=user
+    ).first()
+
+    internal_count_qs = InternalChatMessage.objects.exclude(
+        author=user
+    )
+
+    if read_state:
+        internal_count_qs = internal_count_qs.filter(
+            created_at__gt=read_state.last_read_at
+        )
+
+    internal_count = internal_count_qs.count()
     
-    # Counts for the sidebar (ONLY pending conversations as requested)
-    whatsapp_pending = base_qs.filter(channel='whatsapp', status='pending').count()
-    email_pending = base_qs.filter(channel='email', status='pending').count()
-    
-    # Filter base_qs if a channel is selected for the top filters
+    sent_count = EmailMessage.objects.filter(
+        email_account=user_email_account,
+        message__direction='outbound'
+    ).count()
+
+    # filtros superiores
     filter_qs = base_qs
+
     if channel and channel != 'multichannel':
         filter_qs = filter_qs.filter(channel=channel)
-    
+
     return {
         'normal_count': filter_qs.filter(status='normal').count(),
+
         'pending_count': filter_qs.filter(status='pending').count(),
+
         'closed_count': filter_qs.filter(status='closed').count(),
-        'unread_count': filter_qs.filter(messages__is_read=False, messages__direction='inbound').distinct().count(),
+
+        'unread_count': filter_qs.filter(
+            messages__is_read=False,
+            messages__direction='inbound'
+        ).distinct().count(),
+
         'whatsapp_count': whatsapp_pending,
         'email_count': email_pending,
-        'total_channel_count': whatsapp_pending + email_pending,
+
+        'internal_count': internal_count,
+
+        'total_channel_count': (
+            whatsapp_pending +
+            email_pending +
+            internal_count
+        ),
+        'sent_count': sent_count,
+
         'current_filter_total': filter_qs.count(),
     }
 
@@ -1088,7 +1229,7 @@ def supervisor_dashboard(request):
     
     # Get metrics
     total_conversations = conversations_qs.count()
-    open_conversations = conversations_qs.filter(status__in=['normal', 'pending']).count()
+    open_conversations = conversations_qs.filter(status__in=['normal']).count()
     
     # Closed today logic (reflecting filters if provided)
     closed_qs = conversations_qs.filter(status='closed')
