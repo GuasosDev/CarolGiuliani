@@ -478,7 +478,8 @@ class EmailHandler:
                         conversation,
                         subject,
                         in_reply_to,
-                        references
+                        references,
+                        email_date
                     )
 
                     # Message
@@ -514,7 +515,21 @@ class EmailHandler:
                             'email_date': email_date,
                         }
                     )
+                    if email_date:
+                        if (
+                            not conversation.last_message_at
+                            or email_date > conversation.last_message_at
+                        ):
+                            conversation.last_message_at = email_date
+                            conversation.last_message_preview = (
+                                plain_body[:200]
+                                if plain_body else message_content[:200]
+                            )
 
+                            conversation.save(update_fields=[
+                                'last_message_at',
+                                'last_message_preview'
+                            ])
                     if not created:
 
                         logger.warning(
@@ -616,7 +631,7 @@ class EmailHandler:
             contact=contact,
             channel='email',
             status__in=_OPEN_CONVERSATION_STATUSES,
-        ).order_by('-updated_at')
+        ).order_by('-last_message_at')
 
         for conv in open_convos:
             if subjects_match(conv.subject, subject):
@@ -627,7 +642,7 @@ class EmailHandler:
             message__conversation__contact=contact,
             message__conversation__channel='email',
             message__conversation__status__in=_OPEN_CONVERSATION_STATUSES,
-        ).select_related('message__conversation').order_by('-message__created_at')
+        ).select_related('message__conversation').order_by('-email_date')
 
         seen = set()
         for em in email_msgs:
@@ -674,7 +689,7 @@ class EmailHandler:
 
         return conversation
 
-    def get_or_create_thread(self,account, conversation, subject, in_reply_to, references):
+    def get_or_create_thread(self,account, conversation, subject, in_reply_to, references, email_date=None):
         """Hilo dentro de la conversación (EmailThread)."""
         reply_mid = clean_message_id(in_reply_to)
         if reply_mid:
@@ -684,7 +699,7 @@ class EmailHandler:
                     messages__email_message_id=lookup,
                 ).first()
                 if existing_thread:
-                    existing_thread.last_message_at = timezone.now()
+                    existing_thread.last_message_at = email_date or timezone.now()
                     existing_thread.save(update_fields=['last_message_at'])
                     return existing_thread
 
@@ -692,7 +707,7 @@ class EmailHandler:
         if norm:
             for thread in EmailThread.objects.filter(conversation=conversation):
                 if subjects_match(thread.subject, subject):
-                    thread.last_message_at = timezone.now()
+                    thread.last_message_at = email_date or timezone.now()
                     thread.save(update_fields=['last_message_at'])
                     return thread
 
@@ -701,8 +716,8 @@ class EmailHandler:
             email_account=account,
             subject=display_subject[:500],
             conversation=conversation,
-            first_message_at=timezone.now(),
-            last_message_at=timezone.now(),
+            first_message_at=email_date or timezone.now(),
+            last_message_at=email_date or timezone.now(),
             participants=[],
         )
     
@@ -852,7 +867,8 @@ class EmailHandler:
                     to_addresses=to_addresses,
                     cc_addresses=cc_addresses or [],
                     bcc_addresses=bcc_addresses or [],
-                    from_address=self.account.email_address
+                    from_address=self.account.email_address,
+                    email_date=timezone.now(), 
                 )
 
                 if attachments:

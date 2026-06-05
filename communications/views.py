@@ -297,7 +297,7 @@ def dashboard(request):
             base_qs.select_related('contact__client')
             .prefetch_related(Prefetch(
                     'messages',
-                    queryset=Message.objects.order_by('-created_at')[:1],
+                    queryset=Message.objects.order_by('-email_date')[:1],
                     to_attr='latest_message'
                 )
             )
@@ -373,7 +373,7 @@ def dashboard(request):
 
                 email_rows_qs = email_rows_qs.filter(
                     message__direction='outbound'
-                )
+                ).order_by('-email_date')
 
             elif folder_filter == 'trash':
 
@@ -386,7 +386,7 @@ def dashboard(request):
 
                 email_rows_qs = email_rows_qs.filter(
                     message__direction='inbound'
-                )
+                ).order_by('-email_date')
 
             # ==========================================
             # SEARCH
@@ -404,7 +404,7 @@ def dashboard(request):
             # ==========================================
 
             email_rows_qs = email_rows_qs.order_by(
-                '-message__created_at'
+                '-email_date'
             )
 
             paginator = Paginator(email_rows_qs, 20)
