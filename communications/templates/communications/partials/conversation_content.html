@@ -1496,7 +1496,11 @@
                         <div class="modal-body">
                             <div class="mb-2">
                                 <label class="form-label fw-bold mb-1">Cliente</label>
-                                <input type="text" class="form-control" id="waQuotaCliente" placeholder="Nombre del cliente">
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" id="waQuotaCliente" placeholder="Buscar cliente..."
+                                        autocomplete="off" spellcheck="false">
+                                    <div id="waQuotaClienteSuggest" class="comm-email-suggest d-none"></div>
+                                </div>
                             </div>
                             <div class="row g-2">
                                 <div class="col-12 col-md-4">
@@ -2420,6 +2424,93 @@
                     const inp = document.getElementById(id);
                     if (!inp) return;
                     inp.addEventListener('input', updateWaQuotaPreview);
+                });
+            })();
+
+            (function initWaQuotaClienteAutocomplete() {
+                const input = document.getElementById('waQuotaCliente');
+                const suggest = document.getElementById('waQuotaClienteSuggest');
+                if (!input || !suggest) return;
+                if (input.dataset.waClientSuggest) return;
+                input.dataset.waClientSuggest = '1';
+
+                const endpoint = "{% url 'communications:clients_search' %}";
+                let items = [];
+                let activeIndex = -1;
+                let lastQuery = '';
+                let timer = null;
+
+                function show() { suggest.classList.remove('d-none'); }
+                function hide() { suggest.classList.add('d-none'); suggest.innerHTML = ''; activeIndex = -1; }
+
+                function render() {
+                    suggest.innerHTML = '';
+                    if (!items.length) { hide(); return; }
+                    items.forEach((it, idx) => {
+                        const row = document.createElement('div');
+                        row.className = 'comm-email-suggest-item' + (idx === activeIndex ? ' active' : '');
+                        const label = (it && it.name) ? String(it.name) : '';
+                        row.innerHTML = `<div class="comm-email-suggest-name">${label}</div>`;
+                        row.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            input.value = label;
+                            updateWaQuotaPreview();
+                            hide();
+                            try { input.focus(); } catch (e2) {}
+                        });
+                        suggest.appendChild(row);
+                    });
+                    show();
+                }
+
+                function fetchItems(q) {
+                    const url = endpoint + '?q=' + encodeURIComponent(q || '');
+                    return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(r => r.json())
+                        .then(data => (data && data.results) ? data.results : [])
+                        .catch(() => []);
+                }
+
+                function schedule() {
+                    const q = (input.value || '').trim();
+                    if (!q) { hide(); return; }
+                    if (q === lastQuery && !suggest.classList.contains('d-none')) return;
+                    lastQuery = q;
+                    if (timer) clearTimeout(timer);
+                    timer = setTimeout(async function () {
+                        items = await fetchItems(q);
+                        activeIndex = -1;
+                        render();
+                    }, 220);
+                }
+
+                input.addEventListener('input', schedule);
+                input.addEventListener('focus', schedule);
+                input.addEventListener('keydown', function (e) {
+                    if (suggest.classList.contains('d-none')) return;
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        activeIndex = Math.min(items.length - 1, activeIndex + 1);
+                        render();
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        activeIndex = Math.max(0, activeIndex - 1);
+                        render();
+                    } else if (e.key === 'Enter') {
+                        if (activeIndex >= 0 && items[activeIndex]) {
+                            e.preventDefault();
+                            const it = items[activeIndex];
+                            const label = (it && it.name) ? String(it.name) : '';
+                            input.value = label;
+                            updateWaQuotaPreview();
+                            hide();
+                        }
+                    } else if (e.key === 'Escape') {
+                        hide();
+                    }
+                });
+                input.addEventListener('blur', function () {
+                    setTimeout(hide, 220);
                 });
             })();
 

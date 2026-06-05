@@ -1411,6 +1411,17 @@ def contacts_email_search(request):
 
 
 @login_required
+def clients_search(request):
+    q = (request.GET.get('q') or '').strip()
+    qs = Client.objects.all()
+    if q:
+        qs = qs.filter(Q(name__icontains=q) | Q(email__icontains=q))
+    qs = qs.order_by('name')[:25]
+    results = [{'id': c.pk, 'name': c.name} for c in qs]
+    return JsonResponse({'results': results})
+
+
+@login_required
 def email_compose_modal(request):
     email_account = _get_user_email_account(request.user)
     email_compose_recipients_catalog = []
