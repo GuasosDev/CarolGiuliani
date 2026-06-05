@@ -688,7 +688,7 @@ class InternalChatMessage(models.Model):
     class Meta:
         ordering = ['created_at']
         indexes = [
-            models.Index(fields=['created_at']),
+            models.Index(fields=['created_at'], name='communications_created_at_idx'),
         ]
 
     def __str__(self):
