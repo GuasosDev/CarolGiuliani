@@ -654,7 +654,7 @@ class EmailHandler:
                 return conv
         return None
 
-    def get_or_create_conversation(self, account, contact, subject, in_reply_to, references):
+    def get_or_create_conversation(self, account, contact, subject, in_reply_to, references=None):
         # 1) Hilo RFC: In-Reply-To
         if in_reply_to:
             conv = self._conversation_from_message_id(account,in_reply_to)
