@@ -68,26 +68,6 @@
             }
         });
     </script>
-   <style>
-        .topbar-search {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .topbar-search-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #888;
-            pointer-events: none;
-        }
-
-        .topbar-search-input {
-            padding-left: 30px; /* espacio para la lupa */
-        }
-   </style>
     {% if user.is_authenticated %}
     <style id="user-personalization">
         :root {

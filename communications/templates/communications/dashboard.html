@@ -1,91 +1,19 @@
 {% extends "communications/communications_base.html" %}
 {% load comm_mail %}
 {% load static %}
-
-
-
-{% block comm_css %}
-<style>
-    .comm-main-panel {
-        padding: 0 !important;
-        overflow: hidden !important;
-    }
-    .navbar {
-        margin-bottom: 0 !important;
-    }
-
-    .comm-split-row {
-        flex-wrap: nowrap !important;
-        align-items: stretch;
-    }
-
-    #conversation-list-panel {
-        width: 340px;
-        min-width: 240px;
-        max-width: 520px;
-    }
-
-    #conversation-splitter {
-        flex: 0 0 10px;
-        cursor: col-resize;
-        background: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.08) 4px, rgba(0,0,0,0.08) 6px, transparent 10px);
-        transition: background-color 0.15s;
-    }
-
-    #conversation-splitter:hover {
-        background: linear-gradient(90deg, transparent 0, rgba(102, 88, 221, 0.35) 4px, rgba(102, 88, 221, 0.35) 6px, transparent 10px);
-    }
-
-    body.comm-resizing {
-        user-select: none;
-        cursor: col-resize !important;
-    }
-
-    /* Tema correo: celeste / azul oscuro suave (lista + detalle) */
-    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell {
-        background: linear-gradient(180deg, #f6fafd 0%, #edf4fa 55%, #e8f1f8 100%) !important;
-        border-color: #c5d8eb !important;
-        box-shadow: 0 1px 2px rgba(15, 52, 96, 0.06), 0 4px 14px rgba(30, 80, 130, 0.05) !important;
-    }
-    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .list-group-item {
-        background: transparent;
-        border-color: rgba(30, 73, 118, 0.09);
-    }
-    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .comm-email-inbox-item:not(.active):hover {
-        background: linear-gradient(90deg, rgba(224, 242, 254, 0.55) 0%, rgba(239, 246, 255, 0.75) 100%) !important;
-    }
-    .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .conversation-item.active {
-        background: linear-gradient(90deg, #dbeafe 0%, #eff6ff 100%) !important;
-        border-left: none !important;
-        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.22);
-    }
-    .comm-mail-dashboard-row #conversation-detail-panel.comm-mail-shell-detail {
-        background: linear-gradient(180deg, #f3f8fc 0%, #ebf3fa 100%) !important;
-        border-color: #c5d8eb !important;
-        box-shadow: 0 1px 2px rgba(15, 52, 96, 0.06), 0 4px 14px rgba(30, 80, 130, 0.05) !important;
-    }
-    .comm-mail-dashboard-row #conversation-splitter:hover {
-        background: linear-gradient(90deg, transparent 0, rgba(37, 99, 235, 0.22) 4px, rgba(14, 116, 144, 0.18) 6px, transparent 10px);
-    }
-    body.dark-mode .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell {
-        background: linear-gradient(180deg, #252d38 0%, #1e2630 100%) !important;
-        border-color: #3d4f63 !important;
-    }
-    body.dark-mode .comm-mail-dashboard-row #conversation-detail-panel.comm-mail-shell-detail {
-        background: linear-gradient(180deg, #232b35 0%, #1a222b 100%) !important;
-        border-color: #3d4f63 !important;
-    }
-</style>
-{% endblock %}
-
 {% block comm_content %}
-<div class="d-flex h-100 flex-grow-1 gap-3 overflow-hidden px-3{% if current_channel == 'email' %} comm-mail-dashboard-row{% endif %}">
+{% if current_channel == 'email' %}
+<div class="comm-main-toolbar-wrap">
+    {% include "communications/partials/email_toolbar.html" %}
+</div>
+{% endif %}
+<div class="comm-dashboard-shell d-flex h-100 flex-grow-1 overflow-hidden{% if current_channel == 'email' %} comm-mail-dashboard-row{% endif %}" data-comm-dashboard data-current-channel="{{ current_channel|default:'all' }}">
     <!-- Main Content Area: 2 Columns (Status column removed) -->
 
     <!-- Column 1: Conversation List (3 cols) -->
-    <div class="bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0{% if current_channel == 'email' %} comm-mail-shell{% endif %}" id="conversation-list-panel">
+    <div class="comm-dashboard-panel comm-list-panel bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0{% if current_channel == 'email' %} comm-mail-shell{% endif %}" id="conversation-list-panel">
             <!-- Scrollable List -->
-            <div class="flex-grow-1 overflow-auto" id="dashboard-conversations-container"
+            <div class="comm-dashboard-conversations flex-grow-1 overflow-auto" id="dashboard-conversations-container"
                 hx-get="{{ request.get_full_path }}" hx-trigger="every 15s"
                 hx-select="#dashboard-conversations-container" hx-swap="outerHTML">
 
@@ -371,13 +299,17 @@
             </div>
         </div>
 
-    <div id="conversation-splitter" aria-label="Redimensionar panel" class="mx-1 d-none d-md-block"></div>
+    <div id="conversation-splitter" aria-label="Redimensionar panel" class="comm-splitter mx-1 d-none d-md-block"></div>
 
     <!-- Column 3: Conversation Detail (Rest) -->
-    <div class="bg-white d-flex flex-column h-100 position-relative p-0 border rounded-4 shadow-sm overflow-hidden flex-grow-1{% if current_channel == 'email' %} comm-mail-shell-detail{% endif %}" id="conversation-detail-panel"
-        style="{% if current_channel != 'email' %}background-color: #f8f9fa;{% endif %}">
+    <div class="comm-detail-panel-wrap">
+        <button type="button" id="conversation-detail-back" class="comm-mobile-detail-back" aria-label="Volver a la lista">
+            <i class="fas fa-arrow-left"></i>
+            <span>Volver</span>
+        </button>
+        <div class="comm-dashboard-panel comm-detail-panel bg-white d-flex flex-column h-100 position-relative p-0 border rounded-4 shadow-sm overflow-hidden flex-grow-1{% if current_channel == 'email' %} comm-mail-shell-detail{% endif %}{% if current_channel != 'email' %} comm-detail-panel-default{% endif %}" id="conversation-detail-panel">
             <!-- Empty State -->
-            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <div class="comm-empty-state d-flex flex-column align-items-center justify-content-center h-100 text-muted">
                 <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
                     <i class="far fa-comments fa-3x text-primary opacity-50"></i>
                 </div>
@@ -389,6 +321,7 @@
                 </div>
             </div>
         </div>
+    </div>
 
         <!-- Columna 2: Lista de Conversaciones -->
         <!--<div class="col-md-4 border-end bg-white d-flex flex-column p-3" style="overflow-y: auto;">
@@ -449,375 +382,8 @@
         </div>-->
 
 </div>
+{% endblock %}
 
-<style>
-    /* Custom Scrollbar for the list */
-    #dashboard-conversations-container::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    #dashboard-conversations-container::-webkit-scrollbar-track {
-        background: #f1f1f1;
-    }
-
-    #dashboard-conversations-container::-webkit-scrollbar-thumb {
-        background: #ccc;
-        border-radius: 3px;
-    }
-
-    /* Status Circle Styles */
-    .status-circle-btn {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-decoration: none;
-        opacity: 0.6;
-        transition: all 0.2s ease;
-    }
-
-    .status-circle-btn:hover,
-    .status-circle-btn.active {
-        opacity: 1;
-        transform: scale(1.1);
-    }
-
-    .status-circle {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        border: 2px solid transparent;
-        transition: all 0.2s;
-    }
-
-    .status-circle-btn.active .status-circle {
-        border-color: #333;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .status-label {
-        font-size: 0.65rem;
-        display: none;
-        /* Hide label by default, show on hover? Or just keep hidden for clean look */
-    }
-
-    .status-circle-btn:hover .status-label {
-        display: block;
-    }
-
-    .comm-mail-dashboard-row .comm-email-subject.fw-bold.text-dark {
-        color: #15375c !important;
-    }
-    .comm-mail-dashboard-row .comm-email-subject.fw-normal.text-secondary {
-        color: #5a7289 !important;
-    }
-    .comm-mail-dashboard-row .comm-email-subject.unread {
-        color: #0f2f50 !important;
-        font-weight: 800 !important;
-    }
-
-    /* Active: WhatsApp / otros — barra lateral azul */
-    .conversation-item.active:not(.comm-email-inbox-item) {
-        background-color: #f8f9fa !important;
-        border-left: 4px solid #0d6efd !important;
-    }
-
-    /* Lista correo: sin franja lateral; activo = fondo celeste + borde interior muy suave */
-    .comm-email-inbox-item {
-        border-left: none !important;
-    }
-    .comm-email-inbox-item.active {
-        background: linear-gradient(90deg, #dbeafe 0%, #eff6ff 100%) !important;
-        border-left: none !important;
-        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.22);
-    }
-    .comm-email-inbox-item:not(.active):hover {
-        background-color: rgba(224, 242, 254, 0.45) !important;
-    }
-</style>
-
-<script>
-    document.body.addEventListener('commRefreshConversationList', function () {
-        var el = document.getElementById('dashboard-conversations-container');
-        if (!el || typeof htmx === 'undefined') return;
-        var path = window.location.pathname + window.location.search;
-        htmx.ajax('GET', path, {
-            source: el,
-            target: '#dashboard-conversations-container',
-            swap: 'outerHTML',
-            select: '#dashboard-conversations-container'
-        });
-    });
-</script>
-<script>
-    (function () {
-        const panel = document.getElementById('conversation-list-panel');
-        const splitter = document.getElementById('conversation-splitter');
-        if (!panel || !splitter) return;
-
-        const minWidth = 240;
-        const maxWidth = 520;
-        const storageKey = 'communications.conversationListWidth';
-
-        const saved = Number(window.localStorage.getItem(storageKey));
-        if (!Number.isNaN(saved) && saved >= minWidth && saved <= maxWidth) {
-            panel.style.width = `${saved}px`;
-        }
-
-        let startX = 0;
-        let startWidth = 0;
-        let dragging = false;
-
-        splitter.addEventListener('pointerdown', (e) => {
-            dragging = true;
-            startX = e.clientX;
-            startWidth = panel.getBoundingClientRect().width;
-            document.body.classList.add('comm-resizing');
-            splitter.setPointerCapture(e.pointerId);
-            e.preventDefault();
-        });
-
-        splitter.addEventListener('pointermove', (e) => {
-            if (!dragging) return;
-            const dx = e.clientX - startX;
-            const next = Math.min(maxWidth, Math.max(minWidth, Math.round(startWidth + dx)));
-            panel.style.width = `${next}px`;
-        });
-
-        const stop = (e) => {
-            if (!dragging) return;
-            dragging = false;
-            document.body.classList.remove('comm-resizing');
-            const current = Math.round(panel.getBoundingClientRect().width);
-            window.localStorage.setItem(storageKey, String(current));
-            if (e && e.pointerId != null) splitter.releasePointerCapture(e.pointerId);
-        };
-
-        splitter.addEventListener('pointerup', stop);
-        splitter.addEventListener('pointercancel', stop);
-    })();
-
-    // Handle conversation selection state and loading
-    function loadConversation(element, id) {
-        // Clear any existing polling interval from the previous conversation
-        if (window.conversationPollInterval) {
-            clearInterval(window.conversationPollInterval);
-            window.conversationPollInterval = null;
-        }
-
-        // 1. Visual Selection
-        selectConversation(element, id);
-
-        // 2. Show Loading State
-        const panel = document.getElementById('conversation-detail-panel');
-        panel.innerHTML = `
-            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
-                <div class="spinner-border text-primary mb-3" role="status"></div>
-                <p>Cargando conversación...</p>
-            </div>
-        `;
-
-        // 3. Fetch Content via HTMX API manually to ensure scripts run
-        const url = `/communications/conversation/${id}/?partial=true`;
-
-        if (typeof htmx !== 'undefined') {
-            htmx.ajax('GET', url, {
-                target: '#conversation-detail-panel',
-                swap: 'innerHTML'
-            }).then(() => {
-                // Success callback (optional, HTMX handles swap)
-                console.log('Chat loaded via HTMX');
-            }).catch(err => {
-                console.error('HTMX Error:', err);
-                panel.innerHTML = `
-                    <div class="alert alert-danger m-4">
-                        <h4>Error al cargar el chat</h4>
-                        <p>No se pudo cargar la conversación. Por favor intenta nuevamente.</p>
-                        <small class="text-muted">${err.message || 'Error desconocido'}</small>
-                        <br>
-                        <button class="btn btn-sm btn-outline-danger mt-3" onclick="loadConversation(null, '${id}')">Reintentar</button>
-                    </div>
-                `;
-            });
-        } else {
-            // Fallback if HTMX is missing
-            console.warn('HTMX not found, using fetch');
-            fetch(url, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'HX-Request': 'true'
-                }
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    return response.text();
-                })
-                .then(html => {
-                    panel.innerHTML = html;
-                    // Note: Scripts in html won't run with innerHTML. 
-                    // We might need to manually execute them or rely on HTMX being present.
-                    // Since base.html has HTMX, this path is unlikely.
-                })
-                .catch(err => {
-                    panel.innerHTML = `<div class="alert alert-danger m-3">Error fetch: ${err.message}</div>`;
-                });
-        }
-    }
-
-    function loadEmailMessage(element, id) {
-        if (window.conversationPollInterval) {
-            clearInterval(window.conversationPollInterval);
-            window.conversationPollInterval = null;
-        }
-
-        selectEmailMessage(element, id);
-
-        const panel = document.getElementById('conversation-detail-panel');
-        panel.innerHTML = `
-            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
-                <div class="spinner-border text-primary mb-3" role="status"></div>
-                <p>Cargando email...</p>
-            </div>
-        `;
-
-        const url = `/communications/email-message/${id}/?partial=true`;
-
-        if (typeof htmx !== 'undefined') {
-            htmx.ajax('GET', url, {
-                target: '#conversation-detail-panel',
-                swap: 'innerHTML'
-            }).catch(err => {
-                console.error('HTMX Error:', err);
-                panel.innerHTML = `
-                    <div class="alert alert-danger m-4">
-                        <h4>Error al cargar el email</h4>
-                        <p>No se pudo cargar el email. Por favor intenta nuevamente.</p>
-                        <small class="text-muted">${err.message || 'Error desconocido'}</small>
-                        <br>
-                        <button class="btn btn-sm btn-outline-danger mt-3" onclick="loadEmailMessage(null, '${id}')">Reintentar</button>
-                    </div>
-                `;
-            });
-        } else {
-            fetch(url, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'HX-Request': 'true'
-                }
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    return response.text();
-                })
-                .then(html => {
-                    panel.innerHTML = html;
-                })
-                .catch(err => {
-                    panel.innerHTML = `<div class="alert alert-danger m-3">Error fetch: ${err.message}</div>`;
-                });
-        }
-    }
-
-    function selectConversation(element, id) {
-        try {
-            // Visual update
-            document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
-
-            // If element is null (retry), try to find it
-            if (!element && id) {
-                element = document.querySelector(`.conversation-item[data-id="${id}"]`);
-            }
-
-            if (element) {
-                element.classList.add('active', 'bg-light');
-
-                // Update Header Title with Client Name
-                const headerTitle = document.getElementById('dashboard-header-title');
-                const nameFromData = element.getAttribute('data-contact-name');
-                if (headerTitle) {
-                    if (nameFromData && nameFromData.trim()) {
-                        headerTitle.textContent = nameFromData.trim();
-                    } else {
-                        const clientNameEl = element.querySelector('.fw-bold.text-dark');
-                        if (clientNameEl) {
-                            headerTitle.textContent = clientNameEl.textContent.trim();
-                        }
-                    }
-                }
-            }
-
-            // URL update (without reloading)
-            const url = new URL(window.location);
-            url.searchParams.set('conversation', id);
-            window.history.pushState({}, '', url);
-        } catch (e) {
-            console.error('Error in selectConversation:', e);
-        }
-    }
-
-    function selectEmailMessage(element, id) {
-        try {
-            document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active', 'bg-light'));
-
-            if (!element && id) {
-                element = document.querySelector(`.conversation-item[data-id="${id}"]`);
-            }
-
-            if (element) {
-                element.classList.add('active', 'bg-light');
-
-                const headerTitle = document.getElementById('dashboard-header-title');
-                const nameFromData = element.getAttribute('data-contact-name');
-                if (headerTitle) {
-                    headerTitle.textContent = (nameFromData && nameFromData.trim()) ? nameFromData.trim() : 'Email';
-                }
-            }
-
-            const url = new URL(window.location);
-            url.searchParams.delete('conversation');
-            url.searchParams.set('email_message', id);
-            window.history.pushState({}, '', url);
-        } catch (e) {
-            console.error('Error in selectEmailMessage:', e);
-        }
-    }
-
-    // Restore selection after HTMX swaps (polling)
-    document.body.addEventListener('htmx:afterSwap', function (evt) {
-        // If the conversation list was refreshed
-        if (evt.detail.target.id === 'dashboard-conversations-container') {
-            const urlParams = new URLSearchParams(window.location.search);
-            const activeId = urlParams.get('conversation');
-
-            if (activeId) {
-                // Find the element by data-id
-                const el = document.querySelector(`.conversation-item[data-id="${activeId}"]`);
-                if (el) {
-                    el.classList.add('active', 'bg-light');
-                    // We don't necessarily need to update the header here if it's already set,
-                    // but if we wanted to be sure:
-                    // const clientNameEl = el.querySelector('.fw-bold.text-dark');
-                    // if (clientNameEl) document.getElementById('dashboard-header-title').textContent = clientNameEl.textContent.trim();
-                }
-            }
-        }
-    });
-
-    // Restore selection on initial load if present in URL
-    document.addEventListener('DOMContentLoaded', function () {
-        const urlParams = new URLSearchParams(window.location.search);
-        const activeId = urlParams.get('conversation');
-        if (activeId) {
-            const el = document.querySelector(`.conversation-item[data-id="${activeId}"]`);
-            if (el) {
-                el.click(); // Simulate click to load the conversation and update header
-            }
-        }
-    });
-</script>
-
-
+{% block comm_js %}
+<script src="{% static 'communications/js/dashboard.js' %}"></script>
 {% endblock %}

@@ -283,125 +283,7 @@
             color: #e2e8f0;
         }
     </style>
-    <div class="comm-mail-toolbar flex-grow-1">
-        <div class="dropdown comm-mail-folder-wrap d-flex align-items-center">
-            <button class="btn comm-mail-folder-trigger dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
-                <span class="comm-mail-ico-box"><i class="fas fa-inbox" aria-hidden="true"></i></span>
-                <span>
-{% if current_folder == 'sent' %}
-    Enviados
-{% elif current_folder == 'drafts' %}
-    Borradores
-{% elif current_folder == 'trash' %}
-    Papelera
-{% else %}
-    Entrada
-{% endif %}
-</span>
-            </button>
-            <ul class="dropdown-menu comm-mail-folder-menu py-1">
-                <li>
-                    <a class="dropdown-item {% if current_folder == 'inbox' or not current_folder %}active{% endif %}" 
-   href="{% url 'communications:dashboard' %}?channel=email&folder=inbox">
-                        <span class="comm-mail-folder-row">
-                            <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-inbox"></i></span>
-                            <span>Entrada</span>
-                        </span>
-                        <span class="comm-mail-folder-badge">{{ current_filter_total }}</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item {% if current_status == 'pending' %}active{% endif %}" href="{% url 'communications:dashboard' %}?channel=email&status=pending">
-                        <span class="comm-mail-folder-row">
-                            <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-file-alt"></i></span>
-                            <span>Borradores</span>
-                        </span>
-                        <span class="comm-mail-folder-badge">0</span>
-                    </a>
-                </li>
-                <li>
-                <a class="dropdown-item {% if current_folder == 'sent' %}active{% endif %}" 
-   href="{% url 'communications:dashboard' %}?channel=email&folder=sent">
-
-                    <span class="comm-mail-folder-row">
-                        <span class="comm-mail-folder-ico">
-                            <i class="fas fa-paper-plane"></i>
-                        </span>
-                        <span>Enviados</span>
-                    </span>
-
-                    <span class="comm-mail-folder-badge">
-                        {{ sent_count }}
-                    </span>
-                </a>
-</li>
-                <li><hr class="dropdown-divider my-1 opacity-50"></li>
-                <li>
-                    <span class="dropdown-item disabled d-flex align-items-center justify-content-between gap-2">
-                        <span class="comm-mail-folder-row">
-                            <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
-                            <span>SPAM</span>
-                        </span>
-                        <span class="comm-mail-folder-badge">0</span>
-                    </span>
-                </li>
-                <li>
-                    <a class="dropdown-item {% if current_status == 'closed' %}active{% endif %}" href="{% url 'communications:dashboard' %}?channel=email&status=closed">
-                        <span class="comm-mail-folder-row">
-                            <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-trash-alt"></i></span>
-                            <span>Papelera</span>
-                        </span>
-                        <span class="comm-mail-folder-badge">{{ closed_count }}</span>
-                    </a>
-                </li>
-            </ul>
-        </div>
-        <span class="comm-mail-toolbar-sep" aria-hidden="true"></span>
-        <button type="button" class="btn btn-toolbar-mail" title="Actualizar lista" onclick="commMailRefreshList()">
-            <span class="comm-mail-tb-ico"><i class="fas fa-sync-alt"></i></span><span>Actualizar</span>
-        </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Redactar" onclick="commMailCompose('new')">
-            <span class="comm-mail-tb-ico"><i class="fas fa-pen"></i></span><span>Redactar</span>
-        </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Responder" onclick="commMailCompose('reply')">
-            <span class="comm-mail-tb-ico"><i class="fas fa-reply"></i></span><span>Responder</span>
-        </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Responder a todos" onclick="commMailCompose('reply-all')">
-            <span class="comm-mail-tb-ico"><i class="fas fa-reply-all"></i></span><span>Responder a todos</span>
-        </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Reenviar" onclick="commMailCompose('forward')">
-            <span class="comm-mail-tb-ico"><i class="fas fa-share"></i></span><span>Reenviar</span>
-        </button>
-        <button type="button" class="btn btn-toolbar-mail" title="Mover a papelera" onclick="commMailMoveToTrash()">
-            <span class="comm-mail-tb-ico"><i class="fas fa-trash-alt"></i></span><span>Eliminar</span>
-        </button>
-        <div class="dropdown d-flex align-items-center">
-            <button type="button" class="btn btn-toolbar-mail dropdown-toggle" title="Marcar mensajes" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
-                <span class="comm-mail-tb-ico"><i class="fas fa-flag"></i></span><span>Marcar</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end comm-mail-toolbar-menu py-1">
-                <li><button type="button" class="dropdown-item" onclick="commMailMarkUnread()">Como no leído</button></li>
-                <li><button type="button" class="dropdown-item" onclick="commMailMarkRead()">Como leído</button></li>
-            </ul>
-        </div>
-        <div class="dropdown d-flex align-items-center">
-            <button class="btn btn-toolbar-mail dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
-                <span class="comm-mail-tb-ico"><i class="fas fa-ellipsis-h"></i></span><span>Más</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end comm-mail-toolbar-menu py-1">
-                <li><span class="dropdown-item text-muted small py-2">Acciones adicionales próximamente</span></li>
-            </ul>
-        </div>
-        <form method="get" action="{% url 'communications:dashboard' %}" class="comm-mail-search ms-md-auto mt-1 mt-md-0">
-            <input type="hidden" name="channel" value="email">
-            {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
-            <select class="form-select form-select-sm py-0" name="search_scope" style="width: auto; max-width: 6.5rem; height: 28px;" disabled aria-disabled="true" title="Próximamente">
-                <option>Todos</option>
-            </select>
-            <input type="search" name="q" value="{{ search_q|default:'' }}" class="form-control form-control-sm py-0" placeholder="Buscar…" style="width: 10rem; max-width: 26vw; height: 28px;">
-            <button type="submit" class="btn btn-toolbar-mail" title="Buscar"><span class="comm-mail-tb-ico"><i class="fas fa-search"></i></span></button>
-        </form>
-    </div>
+    {% include "communications/partials/email_toolbar.html" %}
     <script>
     var __commMailUrlChangeStatus = "{% url 'communications:change_conversation_status' 999999 %}";
     var __commMailUrlMarkUnread = "{% url 'communications:mark_conversation_unread' 999999 %}";
@@ -628,7 +510,7 @@
                                     placeholder="Asunto"
                                     value="" required>
                             </div>
-                            <label class="form-label small text-muted mb-0" for="emailBodyDivGlobal">Mensaje</label>
+                            <div class="form-label small text-muted mb-0">Mensaje</div>
                             <div class="d-flex align-items-stretch flex-grow-1">
                                 <div class="form-control flex-grow-1 border shadow-none"
                                      contenteditable="true"
@@ -854,58 +736,8 @@
     })();
     </script>
     {% else %}
-    <style>
-        .filter-btn {
-            width: 45px;
-            height: 45px;
-            border-radius: 12px;
-            background-color: #fff !important;
-            border: 1px solid #dee2e6 !important;
-            position: relative;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 0 !important;
-            transition: all 0.2s ease;
-            text-decoration: none !important;
-            overflow: hidden;
-            line-height: 0 !important;
-        }
-        .filter-btn.active {
-            border-color: #7c79ff !important;
-            border-width: 2px !important;
-            background-color: #f8f9ff !important;
-        }
-        .filter-btn .icon-circle {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            flex-shrink: 0;
-            margin: 0 !important;
-        }
-        .filter-btn .icon-circle i {
-            margin: 0 !important;
-            line-height: 1 !important;
-            display: block !important;
-            font-size: 0.9rem !important;
-        }
-        .filter-btn .filter-count {
-            position: absolute;
-            bottom: 2px;
-            right: 4px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            color: #333;
-            line-height: 1;
-            z-index: 2;
-        }
-    </style>
-
     <!-- Status Filter Buttons (Exact match to image) -->
-    <div class="d-flex align-items-center gap-2 pe-3 border-end">
+    <div class="comm-status-filter-bar d-flex align-items-center gap-2 pe-3 border-end">
         <!-- Todos / Inbox -->
         <a href="?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
            class="filter-btn {% if current_status == 'all' or not current_status %}active{% endif %}" title="Todos">
@@ -966,12 +798,6 @@
 {% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Ocultar barra de desplazamiento principal */
-    body {
-        overflow: hidden !important;
-    }
-</style>
 <link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
 {% block comm_css %}{% endblock %}
 {% endblock %}
@@ -1003,51 +829,13 @@
     </div>
   </div>
 </div>
-<div class="comm-layout bg-light-subtle d-flex py-3 ps-2 pe-3 gap-2" style="height: calc(100vh - 140px); overflow: hidden;">
+<div class="comm-layout comm-app-shell bg-light-subtle d-flex py-3 ps-2 pe-3 gap-2">
+    <button type="button" class="comm-sidebar-toggle" aria-label="Abrir menu lateral de comunicaciones" aria-expanded="false">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="comm-sidebar-backdrop" aria-hidden="true"></div>
     <!-- Compact Vertical Sidebar (Exact match to image) -->
-    <div class="comm-sidebar-nav bg-white border rounded-4 shadow-sm h-100 d-flex flex-column align-items-center py-3 flex-shrink-0" style="width: 80px !important; min-width: 80px !important; overflow-y: auto; scrollbar-width: none;">
-        <style>
-            .comm-sidebar-nav::-webkit-scrollbar { display: none; }
-            .sidebar-icon-btn {
-                width: 60px;
-                height: 60px;
-                border-radius: 12px;
-                border: 1px solid #dee2e6;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                text-decoration: none;
-                color: #6c757d;
-                margin-bottom: 12px;
-                position: relative;
-                transition: all 0.2s ease;
-                background-color: #fff;
-            }
-            .sidebar-icon-btn i { font-size: 1.5rem; margin-bottom: 2px; }
-            .sidebar-icon-btn span { font-size: 0.55rem; font-weight: bold; text-transform: uppercase; }
-            .sidebar-icon-btn.active {
-                border-color: #0d6efd;
-                color: #0d6efd;
-                background-color: #f8fbff;
-                border-width: 2px;
-            }
-            .sidebar-icon-btn .sidebar-badge {
-                position: absolute;
-                top: 5px;
-                right: 8px;
-                font-size: 0.75rem;
-                font-weight: bold;
-                color: #333;
-            }
-            .sidebar-icon-btn:hover { background-color: #f8f9fa; border-color: #adb5bd; }
-            .sidebar-divider {
-                width: 40px;
-                height: 1px;
-                background-color: #eee;
-                margin: 10px 0 20px 0;
-            }
-        </style>
+    <div class="comm-sidebar-nav bg-white border rounded-4 shadow-sm h-100 d-flex flex-column align-items-center py-3 flex-shrink-0">
 
         <!-- WhatsApp -->
         <a href="{% url 'communications:dashboard' %}?channel=whatsapp" 
@@ -1164,11 +952,6 @@
     }
 
     function unlockAudio() {
-        const ctx = getAudioContext();
-        if (!ctx) return;
-        if (ctx.state === 'suspended') {
-            ctx.resume().catch(function () {});
-        }
         state.enabled = true;
         document.removeEventListener('pointerdown', unlockAudio, true);
         document.removeEventListener('keydown', unlockAudio, true);

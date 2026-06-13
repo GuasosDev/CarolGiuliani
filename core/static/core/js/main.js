@@ -67,6 +67,9 @@ document.body.addEventListener('htmx:afterRequest', function (evt) {
 document.addEventListener('DOMContentLoaded', function () {
     const navbarToggler = document.getElementById('navbar-toggler');
     const navLinks = document.getElementById('nav-links');
+    const commSidebarToggle = document.querySelector('.comm-sidebar-toggle');
+    const commSidebarBackdrop = document.querySelector('.comm-sidebar-backdrop');
+    const commSidebar = document.querySelector('.comm-sidebar-nav');
 
     if (navbarToggler && navLinks) {
         navbarToggler.addEventListener('click', function () {
@@ -81,4 +84,34 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    function closeCommSidebar() {
+        document.body.classList.remove('comm-sidebar-open');
+        if (commSidebarToggle) {
+            commSidebarToggle.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    if (commSidebarToggle && commSidebar) {
+        commSidebarToggle.addEventListener('click', function () {
+            const isOpen = document.body.classList.toggle('comm-sidebar-open');
+            commSidebarToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+
+        commSidebar.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                closeCommSidebar();
+            });
+        });
+    }
+
+    if (commSidebarBackdrop) {
+        commSidebarBackdrop.addEventListener('click', closeCommSidebar);
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeCommSidebar();
+        }
+    });
 });
