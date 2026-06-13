@@ -823,13 +823,6 @@
                     onclick="openForwardSelectedMessages({{ conversation.id }})" title="Reenviar a un usuario">
                     <i class="fas fa-share"></i>
                 </button>
-                {% if whatsapp_account and company_settings.whatsapp_templates_enabled %}
-                <button type="button" class="btn btn-sm btn-outline-success me-2"
-                    onclick="openWhatsappQuotaTemplateModal()"
-                    title="Envío de mensaje con plantilla">
-                    <i class="fas fa-file-alt me-1"></i> Envío con plantilla
-                </button>
-                {% endif %}
                 {% endif %}
                  <button 
                     hx-get="{% url 'communications:transfer_conversation_modal' conversation.id %}"
@@ -1484,54 +1477,6 @@
                 </div>
             </div>
 
-            <div class="modal fade" id="waQuotaTemplateModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">
-                                <i class="fas fa-file-alt me-2 text-success"></i>Envío de mensaje con plantilla
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-2">
-                                <label class="form-label fw-bold mb-1">Cliente</label>
-                                <div class="position-relative">
-                                    <input type="text" class="form-control" id="waQuotaCliente" placeholder="Buscar cliente..."
-                                        autocomplete="off" spellcheck="false">
-                                    <div id="waQuotaClienteSuggest" class="comm-email-suggest d-none"></div>
-                                </div>
-                            </div>
-                            <div class="row g-2">
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label fw-bold mb-1">Mes</label>
-                                    <input type="text" class="form-control" id="waQuotaMes" placeholder="Ej: mayo">
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label fw-bold mb-1">Importe</label>
-                                    <input type="text" class="form-control" id="waQuotaImporte" placeholder="Ej: $ 12.000">
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label fw-bold mb-1">Día</label>
-                                    <input type="text" class="form-control" id="waQuotaDia" placeholder="Ej: 10">
-                                </div>
-                            </div>
-                            <div class="mt-3">
-                                <div class="form-text">Vista previa</div>
-                                <div class="border rounded p-2 small bg-light" id="waQuotaPreview"></div>
-                            </div>
-                            <div class="alert alert-warning py-2 small d-none mt-2" id="waQuotaWarn"></div>
-                            <div class="small text-muted mt-2" id="waQuotaTplInfo"></div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-success" id="waQuotaSendBtn" onclick="sendWhatsappQuotaTemplate()">
-                                <i class="fas fa-paper-plane me-1"></i> Enviar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
             {% endif %}
 
             <!-- Email Form -->
@@ -2219,6 +2164,107 @@
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             }
 
+            function updateWaTemplateDynamicPreview() {
+                const preview = document.getElementById('waTemplateDynamicPreview');
+                if (!preview) return;
+                const tpl = document.getElementById('waTemplateSelect')?.value || '';
+                if (tpl === 'recordatorio_cuota') {
+                    const c = (document.querySelector('[name="wa_body_param_0"]')?.value || '').trim();
+                    const m = (document.querySelector('[name="wa_body_param_1"]')?.value || '').trim();
+                    const i = (document.querySelector('[name="wa_body_param_2"]')?.value || '').trim();
+                    const d = (document.querySelector('[name="wa_body_param_3"]')?.value || '').trim();
+                    preview.textContent = `Hola ${c || '{{1}}'}, le recordamos que su cuota del mes de ${m || '{{2}}'} por un importe de ${i || '{{3}}'} vence el día ${d || '{{4}}'}.`;
+                    return;
+                }
+                if (tpl === 'saludo_personalizado') {
+                    const txt = (document.querySelector('[name="wa_body_param_0"]')?.value || '').trim();
+                    preview.textContent = `Hola ${txt || '{{1}}'}\n\nSaludos.\nEstudio Carol G.`;
+                    return;
+                }
+            }
+
+            function initWaClientAutocomplete(input, suggest) {
+                if (!input || !suggest || input.dataset.waClientSuggest) return;
+                input.dataset.waClientSuggest = '1';
+
+                const endpoint = "{% url 'communications:clients_search' %}";
+                let items = [];
+                let activeIndex = -1;
+                let lastQuery = '';
+                let timer = null;
+
+                function show() { suggest.classList.remove('d-none'); }
+                function hide() { suggest.classList.add('d-none'); suggest.innerHTML = ''; activeIndex = -1; }
+
+                function render() {
+                    suggest.innerHTML = '';
+                    if (!items.length) { hide(); return; }
+                    items.forEach((it, idx) => {
+                        const row = document.createElement('div');
+                        row.className = 'comm-email-suggest-item' + (idx === activeIndex ? ' active' : '');
+                        const label = (it && it.name) ? String(it.name) : '';
+                        row.innerHTML = `<div class="comm-email-suggest-name">${label}</div>`;
+                        row.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            input.value = label;
+                            updateWaTemplateDynamicPreview();
+                            hide();
+                            try { input.focus(); } catch (e2) {}
+                        });
+                        suggest.appendChild(row);
+                    });
+                    show();
+                }
+
+                function fetchItems(q) {
+                    const url = endpoint + '?q=' + encodeURIComponent(q || '');
+                    return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(r => r.json())
+                        .then(data => (data && data.results) ? data.results : [])
+                        .catch(() => []);
+                }
+
+                function schedule() {
+                    const q = (input.value || '').trim();
+                    if (!q) { hide(); return; }
+                    if (q === lastQuery && !suggest.classList.contains('d-none')) return;
+                    lastQuery = q;
+                    if (timer) clearTimeout(timer);
+                    timer = setTimeout(async function () {
+                        items = await fetchItems(q);
+                        activeIndex = -1;
+                        render();
+                    }, 220);
+                }
+
+                input.addEventListener('input', schedule);
+                input.addEventListener('focus', schedule);
+                input.addEventListener('keydown', function (e) {
+                    if (suggest.classList.contains('d-none')) return;
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        activeIndex = Math.min(items.length - 1, activeIndex + 1);
+                        render();
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        activeIndex = Math.max(0, activeIndex - 1);
+                        render();
+                    } else if (e.key === 'Enter') {
+                        if (activeIndex >= 0 && items[activeIndex]) {
+                            e.preventDefault();
+                            input.value = String(items[activeIndex].name || '');
+                            updateWaTemplateDynamicPreview();
+                            hide();
+                        }
+                    } else if (e.key === 'Escape') {
+                        hide();
+                    }
+                });
+                input.addEventListener('blur', function () {
+                    setTimeout(hide, 220);
+                });
+            }
+
             (function () {
                 const select = document.getElementById('waTemplateSelect');
                 if (!select) return;
@@ -2233,10 +2279,75 @@
                     const count = parseInt(opt.getAttribute('data-body-params') || '0', 10) || 0;
                     if (count <= 0) return;
 
+                    const templateName = (opt.value || '').trim();
                     const box = document.createElement('div');
                     box.className = 'mb-2';
                     box.innerHTML = '<label class="form-label fw-bold">Variables</label>';
                     paramsWrap.appendChild(box);
+
+                    if (templateName === 'recordatorio_cuota') {
+                        paramsWrap.innerHTML += `
+                            <div class="mb-2">
+                                <label class="form-label fw-bold mb-1">Cliente</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" name="wa_body_param_0" id="waTemplateClientInput" placeholder="Buscar cliente..." autocomplete="off" spellcheck="false">
+                                    <div id="waTemplateClientSuggest" class="comm-email-suggest d-none"></div>
+                                </div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label fw-bold mb-1">Mes</label>
+                                    <input type="text" class="form-control" name="wa_body_param_1" placeholder="Ej: junio">
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label fw-bold mb-1">Importe</label>
+                                    <input type="text" class="form-control" name="wa_body_param_2" placeholder="Ej: $ 12.000">
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label fw-bold mb-1">Día</label>
+                                    <input type="text" class="form-control" name="wa_body_param_3" placeholder="Ej: 10">
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="form-text">Vista previa</div>
+                                <div class="border rounded p-2 small bg-light" id="waTemplateDynamicPreview"></div>
+                            </div>
+                        `;
+                        const clientInput = document.getElementById('waTemplateClientInput');
+                        if (clientInput && !clientInput.value) {
+                            clientInput.value = "{{ conversation.get_display_name|default:''|escapejs }}";
+                        }
+                        const monthInput = document.querySelector('[name="wa_body_param_1"]');
+                        if (monthInput && !monthInput.value) {
+                            try { monthInput.value = new Date().toLocaleString('es-AR', { month: 'long' }); } catch (e) {}
+                        }
+                        paramsWrap.querySelectorAll('input').forEach(function (inp) {
+                            inp.addEventListener('input', updateWaTemplateDynamicPreview);
+                        });
+                        initWaClientAutocomplete(
+                            document.getElementById('waTemplateClientInput'),
+                            document.getElementById('waTemplateClientSuggest')
+                        );
+                        updateWaTemplateDynamicPreview();
+                        return;
+                    }
+
+                    if (templateName === 'saludo_personalizado') {
+                        paramsWrap.innerHTML += `
+                            <div class="mb-2">
+                                <label class="form-label fw-bold mb-1">Texto del usuario</label>
+                                <textarea class="form-control" rows="3" name="wa_body_param_0" placeholder="Ej: Gonzalo, queríamos avisarte que ya está listo tu estudio"></textarea>
+                            </div>
+                            <div class="mt-3">
+                                <div class="form-text">Vista previa</div>
+                                <div class="border rounded p-2 small bg-light" id="waTemplateDynamicPreview" style="white-space: pre-wrap;"></div>
+                            </div>
+                        `;
+                        const txt = document.querySelector('[name="wa_body_param_0"]');
+                        if (txt) txt.addEventListener('input', updateWaTemplateDynamicPreview);
+                        updateWaTemplateDynamicPreview();
+                        return;
+                    }
 
                     for (let i = 0; i < count; i++) {
                         const row = document.createElement('div');
@@ -2286,7 +2397,13 @@
                 const bodyParams = [];
                 for (let i = 0; i < count; i++) {
                     const input = document.querySelector(`#waTemplateParams input[name="wa_body_param_${i}"]`);
-                    bodyParams.push(input ? (input.value || '') : '');
+                    const textarea = document.querySelector(`#waTemplateParams textarea[name="wa_body_param_${i}"]`);
+                    const value = input ? (input.value || '') : (textarea ? (textarea.value || '') : '');
+                    bodyParams.push(value);
+                }
+                if (count > 0 && bodyParams.some(p => !String(p || '').trim())) {
+                    showWarn('Completá todas las variables de la plantilla.');
+                    return;
                 }
 
                 const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
@@ -2297,273 +2414,6 @@
                 formData.append('template_name', templateName);
                 formData.append('language_code', language);
                 bodyParams.forEach(p => formData.append('body_params', p));
-
-                if (btn) {
-                    btn.disabled = true;
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-                }
-
-                fetch("/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_template/", {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': csrf
-                    }
-                })
-                    .then(async (response) => {
-                        const data = await response.json().catch(() => ({}));
-                        if (!response.ok) {
-                            let msg = 'Error al enviar plantilla';
-                            if (data && data.error) {
-                                msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
-                            }
-                            throw new Error(msg);
-                        }
-                        return data;
-                    })
-                    .then(() => {
-                        if (modalEl && typeof bootstrap !== 'undefined') {
-                            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
-                        }
-                        if (typeof refreshMessages === 'function') refreshMessages();
-                    })
-                    .catch((err) => {
-                        showWarn(err.message);
-                    })
-                    .finally(() => {
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Enviar';
-                        }
-                    });
-            }
-
-            function openWhatsappQuotaTemplateModal() {
-                const modalEl = document.getElementById('waQuotaTemplateModal');
-                if (!modalEl || typeof bootstrap === 'undefined') return;
-
-                const warn = document.getElementById('waQuotaWarn');
-                const info = document.getElementById('waQuotaTplInfo');
-                if (warn) {
-                    warn.classList.add('d-none');
-                    warn.textContent = '';
-                }
-                if (info) info.textContent = '';
-
-                const cliente = document.getElementById('waQuotaCliente');
-                const mes = document.getElementById('waQuotaMes');
-                const importe = document.getElementById('waQuotaImporte');
-                const dia = document.getElementById('waQuotaDia');
-
-                if (cliente && !cliente.value) {
-                    cliente.value = "{{ conversation.get_display_name|default:''|escapejs }}";
-                }
-                if (mes && !mes.value) {
-                    try {
-                        mes.value = new Date().toLocaleString('es-AR', { month: 'long' });
-                    } catch (e) {}
-                }
-
-                updateWaQuotaPreview();
-                bootstrap.Modal.getOrCreateInstance(modalEl).show();
-            }
-
-            function getWATemplatesCatalog() {
-                const script = document.getElementById('wa-templates-json');
-                if (!script) return [];
-                try {
-                    const raw = script.textContent || '[]';
-                    const parsed = JSON.parse(raw);
-                    return Array.isArray(parsed) ? parsed : [];
-                } catch (e) {
-                    return [];
-                }
-            }
-
-            function findWaQuotaTemplate() {
-                const templates = getWATemplatesCatalog();
-                if (!templates.length) return null;
-                const desired = 'recordatorio_cuota';
-                const exact = templates.find(t => (t && t.name) && String(t.name).trim() === desired);
-                if (exact) return exact;
-
-                const ranked = templates
-                    .map(t => {
-                        const name = String((t && t.name) || '').toLowerCase();
-                        const label = String((t && (t.label || t.name)) || '').toLowerCase();
-                        const lang = String((t && (t.language || t.language_code)) || '').toLowerCase();
-                        const bp = parseInt((t && t.body_params) || 0, 10) || 0;
-                        let score = 0;
-                        if (bp >= 4) score += 3;
-                        if (lang.startsWith('es')) score += 2;
-                        if (name.includes('cuota') || label.includes('cuota')) score += 3;
-                        if (name.includes('record') || label.includes('record')) score += 1;
-                        if (name.includes('venc') || label.includes('venc')) score += 1;
-                        return { t: t, score: score, bp: bp };
-                    })
-                    .sort((a, b) => b.score - a.score);
-                const best = ranked.length ? ranked[0] : null;
-                if (!best || best.bp < 4) return null;
-                return best.t;
-            }
-
-            function updateWaQuotaPreview() {
-                const el = document.getElementById('waQuotaPreview');
-                if (!el) return;
-                const c = (document.getElementById('waQuotaCliente')?.value || '').trim();
-                const m = (document.getElementById('waQuotaMes')?.value || '').trim();
-                const i = (document.getElementById('waQuotaImporte')?.value || '').trim();
-                const d = (document.getElementById('waQuotaDia')?.value || '').trim();
-                const msg = `Hola ${c || '{{1}}'}, le recordamos que su cuota del mes de ${m || '{{2}}'} por un importe de ${i || '{{3}}'} vence el día ${d || '{{4}}'}.`;
-                el.textContent = msg;
-            }
-
-            (function bindWaQuotaInputs() {
-                const ids = ['waQuotaCliente', 'waQuotaMes', 'waQuotaImporte', 'waQuotaDia'];
-                ids.forEach(id => {
-                    const inp = document.getElementById(id);
-                    if (!inp) return;
-                    inp.addEventListener('input', updateWaQuotaPreview);
-                });
-            })();
-
-            (function initWaQuotaClienteAutocomplete() {
-                const input = document.getElementById('waQuotaCliente');
-                const suggest = document.getElementById('waQuotaClienteSuggest');
-                if (!input || !suggest) return;
-                if (input.dataset.waClientSuggest) return;
-                input.dataset.waClientSuggest = '1';
-
-                const endpoint = "{% url 'communications:clients_search' %}";
-                let items = [];
-                let activeIndex = -1;
-                let lastQuery = '';
-                let timer = null;
-
-                function show() { suggest.classList.remove('d-none'); }
-                function hide() { suggest.classList.add('d-none'); suggest.innerHTML = ''; activeIndex = -1; }
-
-                function render() {
-                    suggest.innerHTML = '';
-                    if (!items.length) { hide(); return; }
-                    items.forEach((it, idx) => {
-                        const row = document.createElement('div');
-                        row.className = 'comm-email-suggest-item' + (idx === activeIndex ? ' active' : '');
-                        const label = (it && it.name) ? String(it.name) : '';
-                        row.innerHTML = `<div class="comm-email-suggest-name">${label}</div>`;
-                        row.addEventListener('mousedown', function (e) {
-                            e.preventDefault();
-                            input.value = label;
-                            updateWaQuotaPreview();
-                            hide();
-                            try { input.focus(); } catch (e2) {}
-                        });
-                        suggest.appendChild(row);
-                    });
-                    show();
-                }
-
-                function fetchItems(q) {
-                    const url = endpoint + '?q=' + encodeURIComponent(q || '');
-                    return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                        .then(r => r.json())
-                        .then(data => (data && data.results) ? data.results : [])
-                        .catch(() => []);
-                }
-
-                function schedule() {
-                    const q = (input.value || '').trim();
-                    if (!q) { hide(); return; }
-                    if (q === lastQuery && !suggest.classList.contains('d-none')) return;
-                    lastQuery = q;
-                    if (timer) clearTimeout(timer);
-                    timer = setTimeout(async function () {
-                        items = await fetchItems(q);
-                        activeIndex = -1;
-                        render();
-                    }, 220);
-                }
-
-                input.addEventListener('input', schedule);
-                input.addEventListener('focus', schedule);
-                input.addEventListener('keydown', function (e) {
-                    if (suggest.classList.contains('d-none')) return;
-                    if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        activeIndex = Math.min(items.length - 1, activeIndex + 1);
-                        render();
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        activeIndex = Math.max(0, activeIndex - 1);
-                        render();
-                    } else if (e.key === 'Enter') {
-                        if (activeIndex >= 0 && items[activeIndex]) {
-                            e.preventDefault();
-                            const it = items[activeIndex];
-                            const label = (it && it.name) ? String(it.name) : '';
-                            input.value = label;
-                            updateWaQuotaPreview();
-                            hide();
-                        }
-                    } else if (e.key === 'Escape') {
-                        hide();
-                    }
-                });
-                input.addEventListener('blur', function () {
-                    setTimeout(hide, 220);
-                });
-            })();
-
-            function sendWhatsappQuotaTemplate() {
-                const btn = document.getElementById('waQuotaSendBtn');
-                const warn = document.getElementById('waQuotaWarn');
-                const info = document.getElementById('waQuotaTplInfo');
-                const modalEl = document.getElementById('waQuotaTemplateModal');
-
-                function showWarn(msg) {
-                    if (!warn) return;
-                    warn.textContent = msg;
-                    warn.classList.remove('d-none');
-                }
-
-                const tpl = findWaQuotaTemplate();
-                if (!tpl) {
-                    showWarn('No hay una plantilla configurada en el sistema para este envío (necesita 4 variables).');
-                    return;
-                }
-
-                const templateName = (tpl.name || '').trim();
-                const language = (tpl.language || tpl.language_code || '').trim();
-                if (info) info.textContent = `Plantilla: ${templateName} (${language || 'sin idioma'})`;
-                if (!templateName || !language) {
-                    showWarn('La plantilla seleccionada no tiene nombre o idioma.');
-                    return;
-                }
-
-                const toNumber = "{{ conversation.contact.get_display_phone|default:'' }}";
-                if (!toNumber || !toNumber.trim()) {
-                    showWarn('El contacto no tiene un número de teléfono válido para WhatsApp.');
-                    return;
-                }
-
-                const p1 = (document.getElementById('waQuotaCliente')?.value || '').trim();
-                const p2 = (document.getElementById('waQuotaMes')?.value || '').trim();
-                const p3 = (document.getElementById('waQuotaImporte')?.value || '').trim();
-                const p4 = (document.getElementById('waQuotaDia')?.value || '').trim();
-
-                if (!p1 || !p2 || !p3 || !p4) {
-                    showWarn('Completá Cliente, Mes, Importe y Día.');
-                    return;
-                }
-
-                const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
-                const formData = new FormData();
-                if (csrf) formData.append('csrfmiddlewaretoken', csrf);
-                formData.append('conversation_id', "{{ conversation.id }}");
-                formData.append('to_number', toNumber);
-                formData.append('template_name', templateName);
-                formData.append('language_code', language);
-                [p1, p2, p3, p4].forEach(p => formData.append('body_params', p));
 
                 if (btn) {
                     btn.disabled = true;
