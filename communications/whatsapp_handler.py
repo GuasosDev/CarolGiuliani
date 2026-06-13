@@ -631,82 +631,88 @@ def process_incoming_message(whatsapp_account, msg_data, value):
 
 def _handle_welcome_menu(handler, contact, conversation, text, force_show=False):
     """
-    Check if the incoming text matches a welcome menu trigger keyword or
-    is a menu selection response. Handles auto-response and conversation routing.
+    Show the welcome menu on the first inbound text of the day, then keep it
+    suppressed until the next day (00:00 local time), unless forced.
     """
     text_stripped = text.strip().lower()
+    if not text_stripped:
+        return
+
+    from django.utils import timezone
+    from datetime import timedelta
+
+    now = timezone.localtime(timezone.now())
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
 
     # 1. Check if contact is waiting to select from a previously sent menu
     try:
         menu_state = ContactMenuState.objects.select_related('menu').get(contact=contact)
+        state_created = timezone.localtime(menu_state.created_at) if menu_state.created_at else None
+        if state_created and state_created < start:
+            menu_state.delete()
+            menu_state = None
+        else:
         # Try to parse as a number
-        try:
-            chosen_number = int(text_stripped)
-            item = menu_state.menu.items.filter(number=chosen_number).first()
-            if item:
-                # Assign to the item's user
-                if item.assigned_user:
-                    from .assignment_system import reassign_conversation
-                    reassign_conversation(conversation, item.assigned_user, item.assigned_user)
-                    confirmation = f"✅ Te hemos conectado con {item.label}. En breve te atenderán."
+            try:
+                chosen_number = int(text_stripped)
+                item = menu_state.menu.items.filter(number=chosen_number).first()
+                if item:
+                    # Assign to the item's user
+                    if item.assigned_user:
+                        from .assignment_system import reassign_conversation
+                        reassign_conversation(conversation, item.assigned_user, item.assigned_user)
+                        confirmation = f"✅ Te hemos conectado con {item.label}. En breve te atenderán."
+                    else:
+                        confirmation = f"✅ Seleccionaste {item.label}. En breve te atenderán."
+                    handler.send_text_message(
+                        contact.whatsapp_number,
+                        confirmation,
+                        conversation=conversation
+                    )
+                    menu_state.delete()
+                    logger.info(f"Menu selection {chosen_number} by contact {contact.pk}: assigned to {item.assigned_user}")
+                    return
                 else:
-                    confirmation = f"✅ Seleccionaste {item.label}. En breve te atenderán."
-                handler.send_text_message(
-                    contact.whatsapp_number,
-                    confirmation,
-                    conversation=conversation
-                )
-                menu_state.delete()
-                logger.info(f"Menu selection {chosen_number} by contact {contact.pk}: assigned to {item.assigned_user}")
+                    invalid_msg = "Opción no válida. Por favor respondé con un número del menú enviado anteriormente."
+                    handler.send_text_message(contact.whatsapp_number, invalid_msg, conversation=conversation)
+                    return
+            except ValueError:
                 return
-            else:
-                invalid_msg = "Opción no válida. Por favor respondé con un número del menú enviado anteriormente."
-                handler.send_text_message(contact.whatsapp_number, invalid_msg, conversation=conversation)
-                return
-        except ValueError:
-            return
     except ContactMenuState.DoesNotExist:
         pass
 
-    # 2. Check if the text is a trigger keyword for any active menu
+    # 2. Show menu for the first inbound text of the day
     active_menu = WelcomeMenu.objects.filter(is_active=True).first()
     if not active_menu:
         return
 
-    keywords = [kw.strip().lower() for kw in active_menu.trigger_keywords if kw.strip()]
-    if text_stripped in keywords:
-        from django.utils import timezone
-        from datetime import timedelta
+    if not force_show:
+        already_shown_today = Message.objects.filter(
+            conversation__contact=contact,
+            message_type='whatsapp',
+            direction='outbound',
+            created_at__gte=start,
+            created_at__lt=end,
+            metadata__welcome_menu=True,
+            metadata__welcome_menu_id=active_menu.id,
+        ).exists()
+        if already_shown_today:
+            return
 
-        now = timezone.localtime(timezone.now())
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = start + timedelta(days=1)
-        if not force_show:
-            already_shown_today = Message.objects.filter(
-                conversation__contact=contact,
-                message_type='whatsapp',
-                direction='outbound',
-                created_at__gte=start,
-                created_at__lt=end,
-                metadata__welcome_menu=True,
-                metadata__welcome_menu_id=active_menu.id,
-            ).exists()
-            if already_shown_today:
-                return
-
-        menu_text = active_menu.build_message_text()
-        handler.send_text_message(
-            contact.whatsapp_number,
-            menu_text,
-            conversation=conversation,
-            metadata={'welcome_menu': True, 'welcome_menu_id': active_menu.id}
-        )
-        # Save state so we know this contact is expecting a selection
-        ContactMenuState.objects.update_or_create(
-            contact=contact,
-            defaults={'menu': active_menu}
-        )
-        logger.info(f"Sent welcome menu '{active_menu.name}' to contact {contact.pk}")
+    menu_text = active_menu.build_message_text()
+    handler.send_text_message(
+        contact.whatsapp_number,
+        menu_text,
+        conversation=conversation,
+        metadata={'welcome_menu': True, 'welcome_menu_id': active_menu.id}
+    )
+    # Save state so we know this contact is expecting a selection
+    ContactMenuState.objects.update_or_create(
+        contact=contact,
+        defaults={'menu': active_menu}
+    )
+    logger.info(f"Sent welcome menu '{active_menu.name}' to contact {contact.pk}")
 
 
 def process_status_update(status_data):
