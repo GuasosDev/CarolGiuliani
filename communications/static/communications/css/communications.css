@@ -373,6 +373,12 @@ body {
     z-index: 2;
 }
 
+.comm-status-filter-bar {
+    flex: 0 0 auto;
+    min-width: max-content;
+    margin-right: auto;
+}
+
 .comm-dashboard-shell {
     min-height: 0;
     gap: 1rem;
@@ -392,6 +398,20 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+.comm-navbar-tools {
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap !important;
+    padding-bottom: 0.15rem;
+}
+
+.comm-navbar-tools > * {
+    flex-shrink: 0;
 }
 
 .comm-dashboard-panel {
@@ -669,6 +689,10 @@ body.dark-mode .comm-mail-dashboard-row #conversation-detail-panel.comm-mail-she
 }
 
 @media (max-width: 1024px) {
+    .comm-navbar-tools {
+        gap: 0.75rem !important;
+    }
+
     .comm-sidebar-nav {
         width: 68px !important;
         min-width: 68px !important;

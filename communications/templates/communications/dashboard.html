@@ -2,12 +2,46 @@
 {% load comm_mail %}
 {% load static %}
 {% block comm_content %}
-{% if current_channel == 'email' %}
 <div class="comm-main-toolbar-wrap">
+{% if current_channel == 'email' %}
     {% include "communications/partials/email_toolbar.html" %}
+{% else %}
+    <div class="comm-status-filter-bar d-flex align-items-center gap-2">
+        <a href="?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+           class="filter-btn {% if current_status == 'all' or not current_status %}active{% endif %}" title="Todos">
+            <div class="icon-circle" style="background-color: #0d2142;">
+                <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="filter-count">{{ current_filter_total }}</span>
+        </a>
+
+        <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+           class="filter-btn {% if current_status == 'normal' %}active{% endif %}" title="Activos">
+            <div class="icon-circle" style="background-color: #198754;">
+                <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="filter-count">{{ normal_count }}</span>
+        </a>
+
+        <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+           class="filter-btn {% if current_status == 'pending' %}active{% endif %}" title="Pendientes">
+            <div class="icon-circle" style="background-color: #ffc107;">
+                <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="filter-count">{{ pending_count }}</span>
+        </a>
+
+        <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+           class="filter-btn {% if current_status == 'closed' %}active{% endif %}" title="Cerrados">
+            <div class="icon-circle" style="background-color: #dc3545;">
+                <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
+            </div>
+            <span class="filter-count">{{ closed_count }}</span>
+        </a>
+    </div>
 </div>
 {% endif %}
-<div class="comm-dashboard-shell d-flex h-100 flex-grow-1 overflow-hidden{% if current_channel == 'email' %} comm-mail-dashboard-row{% endif %}" data-comm-dashboard data-current-channel="{{ current_channel|default:'all' }}">
+    <!-- Main Content Area: 2 Columns (Status column removed) -->
     <!-- Main Content Area: 2 Columns (Status column removed) -->
 
     <!-- Column 1: Conversation List (3 cols) -->
