@@ -4,7 +4,7 @@
 {% block title %}Comunicaciones{% endblock %}
 
 {% block navbar_tools %}
-<div class="comm-navbar-tools d-flex align-items-center gap-3 flex-wrap">
+<div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
     {% if current_channel == 'email' %}
     <style>
         /* Barra estilo webmail clásico (Ferozo-like): gris claro, iconos monocromáticos */
@@ -735,7 +735,7 @@
         }
     })();
     </script>
-    {% elif request.resolver_match.url_name != 'dashboard' %}
+    {% else %}
     <!-- Status Filter Buttons (Exact match to image) -->
     <div class="comm-status-filter-bar d-flex align-items-center gap-2 pe-3 border-end">
         <!-- Todos / Inbox -->
@@ -776,7 +776,7 @@
     </div>
     {% endif %}
 
-    {% if current_channel != 'email' and request.resolver_match.url_name != 'dashboard' %}
+    {% if current_channel != 'email' %}
     <!-- Action Buttons Group (Nuevo / Reporte) — oculto en vista correo -->
     <div class="d-flex align-items-center shadow-sm" style="border-radius: 25px; overflow: hidden; height: 45px; border: 1px solid #dee2e6;">
         <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
