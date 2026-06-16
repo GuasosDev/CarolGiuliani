@@ -17,7 +17,7 @@
                 hx-get="{{ request.get_full_path }}" hx-trigger="every 15s"
                 hx-select="#dashboard-conversations-container" hx-swap="outerHTML">
 
-                <div class="list-group list-group-flush">
+                 <div class="list-group list-group-flush">
 
                     {% if current_channel == 'email' %}
                     {% for em in email_rows %}
@@ -30,6 +30,11 @@
 
                         <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
                             <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted text-truncate">
+                                        De:{{ em.message.sender_name|default:em.from_address|default:"-" }}
+                                    </small>
+                                </div>
                                 <span class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
                                     {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
                                 </span>
@@ -37,9 +42,22 @@
                             <small class="text-muted text-nowrap flex-shrink-0">{{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}</small>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted text-truncate">
-                                Para: {{ em.to_addresses.0|default:em.email_account.email_address|default:"-" }}
-                            </small>
+                            {% with joined=em.recipients_joined recipients=em.recipients %}
+                                {% if recipients|length > 1 %}
+                                    <div class="d-flex align-items-center gap-1 w-100">
+                                        <span class="text-muted text-truncate recipient-summary" title="Para: {{ joined }}">
+                                            Para: {{ recipients.0|default:em.email_account.email_address|default:"-" }}
+                                        </span>
+                                        <span class="recipient-badge text-primary small flex-shrink-0" title="{{ joined }}">
+                                            +{{ recipients|length|add:"-1" }} más <i class="fas fa-chevron-right"></i>
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <small class="text-muted text-truncate" style="min-width:0;" title="{{ joined }}">
+                                        Para: {{ joined|default:em.email_account.email_address|default:"-"|truncatechars:40 }}
+                                    </small>
+                                {% endif %}
+                            {% endwith %}
                             <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
                         </div>
                     </button>
@@ -49,6 +67,7 @@
                         <p>No hay emails en esta vista.</p>
                     </div>
                     {% endfor %}
+
 
                     {% elif current_status == 'inbox' %}
                     {% for group in grouped_conversations %}
