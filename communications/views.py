@@ -30,6 +30,7 @@ from .assignment_system import get_agent_conversations, assign_conversation_to_a
 from clients.models import Client
 from core.views import GenericCreateView
 from django.db.models import Exists, OuterRef, Prefetch, Q
+from django.db.models.functions import Coalesce
 from .utils.html_cleaner import limpiar_email_html, plain_text_to_email_html
 from django.http import JsonResponse
 from django.db.models import Q
@@ -373,7 +374,10 @@ def dashboard(request):
 
                 email_rows_qs = email_rows_qs.filter(
                     message__direction='outbound'
-                ).order_by('-email_date')
+                ).order_by(
+                    Coalesce('email_date', 'message__created_at').desc(),
+                    '-message__created_at'
+                )
 
             elif folder_filter == 'trash':
 
@@ -386,7 +390,7 @@ def dashboard(request):
 
                 email_rows_qs = email_rows_qs.filter(
                     message__direction='inbound'
-                ).order_by('-email_date')
+                )
 
             # ==========================================
             # SEARCH
@@ -403,13 +407,42 @@ def dashboard(request):
             # ORDER
             # ==========================================
 
-            email_rows_qs = email_rows_qs.order_by(
-                '-email_date'
-            )
+            if folder_filter != 'sent':
+                email_rows_qs = email_rows_qs.order_by(
+                    '-email_date'
+                )
 
-            paginator = Paginator(email_rows_qs, 20)
+            paginator = Paginator(email_rows_qs, 15)
 
             email_rows = paginator.get_page(page_number)
+            for em in email_rows:
+                recipients = em.to_addresses or []
+                cc_recipients = em.cc_addresses or []
+
+                if isinstance(recipients, str):
+                    recipients = [r.strip() for r in recipients.split(',') if r.strip()]
+                if isinstance(cc_recipients, str):
+                    cc_recipients = [r.strip() for r in cc_recipients.split(',') if r.strip()]
+
+                combined = list(recipients)
+                for cc in cc_recipients:
+                    if cc not in combined:
+                        combined.append(cc)
+
+                em.recipients = combined
+                em.recipients_joined = ', '.join(combined)
+                em.recipients_count = len(combined)
+
+                my_email = (
+                    em.email_account.email_address.lower()
+                    if em.email_account and em.email_account.email_address
+                    else ''
+                )
+
+                em.is_me_recipient = any(
+                    r.lower() == my_email
+                    for r in recipients
+                )
 
             conversations = conversations.order_by(
                 '-last_message_at',
@@ -422,10 +455,11 @@ def dashboard(request):
         else:
 
             conversations = conversations.order_by(
+                
                 '-updated_at'
             )
 
-            paginator = Paginator(conversations, 20)
+            paginator = Paginator(conversations, 15)
 
             conversations = paginator.get_page(page_number)
 
@@ -920,12 +954,15 @@ def conversation_detail(request, pk):
                 # Mark inbound unread messages as read
         conversation.messages.filter(direction='inbound', is_read=False).update(is_read=True, read_at=timezone.now())
     
-        messages = (
+        messages = list(
             conversation.messages.select_related('sender', 'email_data')
             .prefetch_related('email_data__attachments')
             .all()
             .order_by('created_at')
         )
+
+        latest_message = messages[-1] if messages else None
+        previous_messages = messages[:-1] if len(messages) > 1 else []
 
         sent_by_re = re.compile(
             r'(?:\s*<br\s*/?>\s*)*\s*-{2,}\s*Enviado por:\s*(?P<name>.*?)(?:\s*-{2,}.*)?\s*$',
@@ -1043,6 +1080,8 @@ def conversation_detail(request, pk):
         context = {
             'conversation': conversation,
             'messages': messages,
+            'latest_message': latest_message,
+            'previous_messages': previous_messages,
             'notes': notes,
             'clients': Client.objects.all().order_by('name')[:100],
             'sidebar_conversations': sidebar_conversations,
@@ -1106,17 +1145,32 @@ def email_message_detail(request, pk):
 
     conversation.subject = email_message.subject
 
-    m = email_message.message
-    m.email_data = email_message
-    if email_message.html_body and str(email_message.html_body).strip():
-        raw_src = email_message.html_body
-    elif m.content and '<' in (m.content or '') and '>' in (m.content or ''):
-        raw_src = m.content
-    elif email_message.plain_body and str(email_message.plain_body).strip():
-        raw_src = plain_text_to_email_html(email_message.plain_body)
-    else:
-        raw_src = plain_text_to_email_html(m.content or '')
-    m.render_content = limpiar_email_html(raw_src)
+    # Load all email messages belonging to this conversation so the thread appears in email view
+    messages = list(
+        Message.objects.select_related('email_data', 'sender')
+        .filter(conversation=conversation, message_type='email')
+        .order_by('created_at')
+    )
+
+    for m in messages:
+        ed = getattr(m, 'email_data', None)
+        if ed and ed.html_body and str(ed.html_body).strip():
+            raw_src = ed.html_body
+        elif m.content and '<' in (m.content or '') and '>' in (m.content or ''):
+            raw_src = m.content
+        elif ed and ed.plain_body and str(ed.plain_body).strip():
+            raw_src = plain_text_to_email_html(ed.plain_body)
+        else:
+            raw_src = plain_text_to_email_html(m.content or '')
+        m.render_content = limpiar_email_html(raw_src)
+
+    selected_message = next(
+    (m for m in messages if m.pk == email_message.message.pk),
+    None
+)
+    messages.sort(key=lambda x: x.created_at, reverse=True)
+    latest_message = selected_message
+    previous_messages = [m for m in messages if m.pk != selected_message.pk]
 
     from core.models import CompanySettings
     company_settings = CompanySettings.load()
@@ -1145,7 +1199,10 @@ def email_message_detail(request, pk):
 
     context = {
         'conversation': conversation,
-        'messages': [m],
+        'messages': messages,
+        'selected_message': selected_message,
+        'latest_message': latest_message,
+        'previous_messages': previous_messages,
         'notes': conversation.internal_notes.all(),
         'clients': Client.objects.all().order_by('name')[:100],
         'sidebar_conversations': [],

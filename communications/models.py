@@ -89,7 +89,8 @@ class Conversation(models.Model):
         null=True,
         blank=True
     )
-    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='conversations')
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='conversations',null=True, 
+        blank=True)
     email_account = models.ForeignKey(
         'EmailAccount',
         on_delete=models.CASCADE,
