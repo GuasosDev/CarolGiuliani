@@ -2169,9 +2169,47 @@
                 }
             })();
 
-            function openWhatsappTemplateModal() {
+            window.openWhatsappTemplateModal = function () {
                 const modalEl = document.getElementById('whatsappTemplateModal');
                 if (!modalEl || typeof bootstrap === 'undefined') return;
+
+                (function cleanupOverlays(exceptId) {
+                    exceptId = exceptId || '';
+                    try { if (typeof window.closeModal === 'function') window.closeModal(); } catch (e0) {}
+                    try { if (typeof window.closeModalSecondary === 'function') window.closeModalSecondary(); } catch (e1) {}
+
+                    ['modal', 'modal-secondary'].forEach(function (id) {
+                        const legacy = document.getElementById(id);
+                        if (!legacy) return;
+                        try {
+                            legacy.classList.remove('show');
+                            legacy.style.display = 'none';
+                            legacy.setAttribute('aria-hidden', 'true');
+                        } catch (e2) {}
+                    });
+
+                    document.querySelectorAll('.modal.show').forEach(function (m) {
+                        if (!m || !m.id) return;
+                        if (m.id === exceptId) return;
+                        try {
+                            const inst = bootstrap.Modal.getInstance(m);
+                            if (inst) {
+                                inst.hide();
+                                return;
+                            }
+                        } catch (e3) {}
+                        try {
+                            m.classList.remove('show');
+                            m.style.display = 'none';
+                            m.setAttribute('aria-hidden', 'true');
+                        } catch (e4) {}
+                    });
+                    document.querySelectorAll('.modal-backdrop').forEach(function (b) { try { b.remove(); } catch (e5) {} });
+                    document.body.classList.remove('modal-open');
+                    document.body.style.removeProperty('padding-right');
+                    document.body.style.removeProperty('overflow');
+                })(modalEl.id);
+
                 const select = document.getElementById('waTemplateSelect');
                 const paramsWrap = document.getElementById('waTemplateParams');
                 const warn = document.getElementById('waTemplateWarn');
@@ -2183,9 +2221,24 @@
                 if (select) select.value = '';
 
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
-            }
+            };
 
-            function updateWaTemplateDynamicPreview() {
+            (function bindWhatsappTemplateCleanup() {
+                const modalEl = document.getElementById('whatsappTemplateModal');
+                if (!modalEl || typeof bootstrap === 'undefined') return;
+                if (modalEl.dataset.commCleanupBound) return;
+                modalEl.dataset.commCleanupBound = '1';
+                modalEl.addEventListener('hidden.bs.modal', function () {
+                    setTimeout(function () {
+                        document.querySelectorAll('.modal-backdrop').forEach(function (b) { try { b.remove(); } catch (e) {} });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.removeProperty('padding-right');
+                        document.body.style.removeProperty('overflow');
+                    }, 0);
+                });
+            })();
+
+            window.updateWaTemplateDynamicPreview = function () {
                 const preview = document.getElementById('waTemplateDynamicPreview');
                 if (!preview) return;
                 const tpl = document.getElementById('waTemplateSelect')?.value || '';
@@ -2202,7 +2255,7 @@
                     preview.textContent = `Hola ${txt || '{{1}}'}\n\nSaludos.\nEstudio Carol G.`;
                     return;
                 }
-            }
+            };
 
             function initWaClientAutocomplete(input, suggest) {
                 if (!input || !suggest || input.dataset.waClientSuggest) return;
@@ -2383,7 +2436,7 @@
                 select.addEventListener('change', renderParams);
             })();
 
-            function sendWhatsappTemplate() {
+            window.sendWhatsappTemplate = function () {
                 const btn = document.getElementById('waTemplateSendBtn');
                 const warn = document.getElementById('waTemplateWarn');
                 const select = document.getElementById('waTemplateSelect');
@@ -2474,7 +2527,7 @@
                             btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Enviar';
                         }
                     });
-            }
+            };
 
             function initEmailRecipientAutocomplete() {
                 const input = document.getElementById('emailToInput');
