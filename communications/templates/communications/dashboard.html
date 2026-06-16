@@ -102,6 +102,11 @@
 
                         <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
                             <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted text-truncate">
+                                        De:{{ em.message.sender_name|default:em.from_address|default:"-" }}
+                                    </small>
+                                </div>
                                 <span class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
                                     {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
                                 </span>
@@ -109,9 +114,22 @@
                             <small class="text-muted text-nowrap flex-shrink-0">{{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}</small>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted text-truncate">
-                                Para: {{ em.to_addresses.0|default:em.email_account.email_address|default:"-" }}
-                            </small>
+                            {% with joined=em.recipients_joined recipients=em.recipients %}
+                                {% if recipients|length > 1 %}
+                                    <div class="d-flex align-items-center gap-1 w-100">
+                                        <span class="text-muted text-truncate recipient-summary" title="Para: {{ joined }}">
+                                            Para: {{ recipients.0|default:em.email_account.email_address|default:"-" }}
+                                        </span>
+                                        <span class="recipient-badge text-primary small flex-shrink-0" title="{{ joined }}">
+                                            +{{ recipients|length|add:"-1" }} más <i class="fas fa-chevron-right"></i>
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <small class="text-muted text-truncate" style="min-width:0;" title="{{ joined }}">
+                                        Para: {{ joined|default:em.email_account.email_address|default:"-"|truncatechars:40 }}
+                                    </small>
+                                {% endif %}
+                            {% endwith %}
                             <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
                         </div>
                     </button>
@@ -278,7 +296,7 @@
                 {% if email_rows.has_previous %}
                 <li class="page-item">
                     <a class="page-link"
-                    href="?page={{ email_rows.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                    href="?page={{ email_rows.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
                         Anterior
                     </a>
                 </li>
@@ -294,7 +312,7 @@
                         {% else %}
                         <li class="page-item">
                             <a class="page-link"
-                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
                                 {{ num }}
                             </a>
                         </li>
@@ -306,7 +324,7 @@
                 {% if email_rows.has_next %}
                 <li class="page-item">
                     <a class="page-link"
-                    href="?page={{ email_rows.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                    href="?page={{ email_rows.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
                         Siguiente
                     </a>
                 </li>
@@ -536,6 +554,38 @@
     }
     .comm-email-inbox-item:not(.active):hover {
         background-color: rgba(224, 242, 254, 0.45) !important;
+    }
+    .recipient-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.08rem 0.35rem;
+        border-radius: 0.35rem;
+        background: rgba(56, 103, 214, 0.08);
+        color: #1d4ed8;
+        font-weight: 600;
+    }
+    .recipient-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.08rem 0.35rem;
+        border-radius: 0.35rem;
+        background: rgba(56, 103, 214, 0.08);
+        color: #1d4ed8;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .recipient-badge:hover {
+        text-decoration: none;
+        cursor: default;
+    }
+    .recipient-summary {
+        min-width: 0;
+        max-width: calc(100% - 4.5rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 </style>
 

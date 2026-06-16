@@ -89,9 +89,10 @@ class EmailAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailAccount
         fields = '__all__'
-        extra_kwargs = {
-            'encrypted_password': {'write_only': True}
-        }
+       # comentar esto
+        # extra_kwargs = {
+        #     'encrypted_password': {'write_only': True}
+        # }
 
 
 class EmailTemplateSerializer(serializers.ModelSerializer):

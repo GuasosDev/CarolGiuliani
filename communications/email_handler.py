@@ -316,7 +316,12 @@ class EmailHandler:
 
         try:
             # Extract email headers
-            from_address = parseaddr(email_message.get('From', ''))[1]
+            sender_name, from_address = parseaddr(
+                email_message.get('From', '')
+            )
+            logger.info(
+                f"SENDER_NAME={sender_name}"
+            )
 
             to_addresses = [
                 parseaddr(addr)[1]
@@ -441,7 +446,7 @@ class EmailHandler:
 
                     # Contact
                     contact = self.get_or_create_contact_from_email(
-                        from_address
+                        from_address,sender_name
                     )
 
                     # Conversation
@@ -488,9 +493,7 @@ class EmailHandler:
                         message_type='email',
                         direction='inbound',
                         content=message_content,
-                        sender_name=parseaddr(
-                            email_message.get('From', '')
-                        )[0] or from_address,
+                        sender_name=sender_name or from_address,
                         metadata={'date': date}
                     )
 
@@ -533,7 +536,9 @@ class EmailHandler:
                     if not created:
 
                         logger.warning(
-                            f"Duplicate email skipped: {message_id}"
+                            f"Duplicate email skipped "
+                            f"UID={imap_uid} "
+                            f"MESSAGE_ID={message_id}"
                         )
 
                         return None
@@ -552,15 +557,22 @@ class EmailHandler:
                             filename = part.get_filename()
 
                             if filename:
+                                try:
+                                    file_data = part.get_payload(decode=True)
 
-                                file_data = part.get_payload(decode=True)
+                                    self.save_attachment(
+                                        email_msg,
+                                        filename,
+                                        file_data,
+                                        part.get_content_type()
+                                    )
 
-                                self.save_attachment(
-                                    email_msg,
-                                    filename,
-                                    file_data,
-                                    part.get_content_type()
-                                )
+                                except Exception:
+                                    logger.exception(
+                                        f"Error saving attachment "
+                                        f"{filename} "
+                                        f"for email {message_id}"
+                                    )
 
                 logger.info(f"Processed incoming email: {message_id}")
 
@@ -569,19 +581,25 @@ class EmailHandler:
             except IntegrityError:
 
                 logger.warning(
-                    f"Race condition duplicate skipped: {message_id}"
+                    f"Race condition duplicate skipped "
+                    f"UID={imap_uid} "
+                    f"MESSAGE_ID={message_id}"
                 )
 
                 return None
 
         except Exception as e:
 
-            logger.error(
-                f"Error processing incoming email: {str(e)}"
+            logger.exception(
+                f"Error processing incoming email. "
+                f"UID={imap_uid} "
+                f"SUBJECT={subject} "
+                f"FROM={from_address} "
+                f"MESSAGE_ID={message_id}"
             )
 
             return None
-    def get_or_create_contact_from_email(self, email_address):
+    def get_or_create_contact_from_email(self, email_address, sender_name=None):
 
         from clients.models import Client
 
@@ -597,7 +615,7 @@ class EmailHandler:
         else:
             client = Client.objects.create(
                 email=email_address,
-                name=email_address.split("@")[0]
+                name=sender_name or email_address.split("@")[0]
             )
 
         contact, _ = Contact.objects.get_or_create(
@@ -870,6 +888,17 @@ class EmailHandler:
                     from_address=self.account.email_address,
                     email_date=timezone.now(), 
                 )
+
+                # Update conversation participants to include all recipients
+                try:
+                    parts = set(conversation.participants or [])
+                    parts.update([a for a in (to_addresses or []) if a])
+                    parts.update([a for a in (cc_addresses or []) if a])
+                    parts.update([a for a in (bcc_addresses or []) if a])
+                    conversation.participants = list(parts)
+                    conversation.save(update_fields=['participants'])
+                except Exception:
+                    pass
 
                 if attachments:
                    

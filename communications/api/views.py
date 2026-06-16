@@ -449,7 +449,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
             if not primary_to:
                 return Response({'error': 'Recipient addresses are required'}, status=status.HTTP_400_BAD_REQUEST)
             contact = handler.get_or_create_contact_from_email(primary_to)
-            conversation = handler.get_or_create_conversation(contact, subject, None, None)
+            conversation = handler.get_or_create_conversation(account,contact, subject, None, None)
 
         if body and not html_body and ('<' in body and '>' in body):
             html_body = body
@@ -563,6 +563,17 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     email_message=email_msg,
                     status='pending'
                 )
+
+                # Ensure conversation participants include sent recipients
+                try:
+                    parts = set(conversation.participants or [])
+                    parts.update([a for a in (to_addresses or []) if a])
+                    parts.update([a for a in (cc_addresses or []) if a])
+                    parts.update([a for a in (bcc_addresses or []) if a])
+                    conversation.participants = list(parts)
+                    conversation.save(update_fields=['participants'])
+                except Exception:
+                    pass
 
             send_queued_email.apply_async(args=[queue_entry.id])
 
