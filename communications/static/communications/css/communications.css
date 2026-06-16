@@ -373,6 +373,33 @@ body {
     z-index: 2;
 }
 
+.comm-wa-status-filter-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.comm-wa-status-filter-box .filter-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+}
+
+.comm-wa-status-filter-box .filter-btn .icon-circle {
+    width: 24px;
+    height: 24px;
+}
+
+.comm-wa-status-filter-box .filter-btn .filter-count {
+    font-size: 0.65rem;
+    bottom: 1px;
+    right: 3px;
+}
+
 .comm-dashboard-shell {
     min-height: 0;
     gap: 1rem;
