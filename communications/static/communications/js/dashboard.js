@@ -4,25 +4,10 @@
         return;
     }
 
-    // #region debug-point A:debug-report
     function debugReport(hypothesisId, msg, data) {
-        fetch('http://127.0.0.1:7777/event', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                sessionId: 'console-errors-menu-swap',
-                runId: 'pre-fix',
-                hypothesisId: hypothesisId,
-                location: 'communications/static/communications/js/dashboard.js',
-                msg: '[DEBUG] ' + msg,
-                data: data || {},
-                ts: Date.now()
-            })
-        }).catch(function () {});
+        // Debug remoto desactivado en produccion.
+        return;
     }
-    // #endregion
 
     const listPanel = document.getElementById('conversation-list-panel');
     const detailPanel = document.getElementById('conversation-detail-panel');
