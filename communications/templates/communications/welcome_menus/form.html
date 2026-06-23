@@ -1,40 +1,10 @@
 {% extends "communications/communications_base.html" %}
+{% load static %}
 
 {% block title %}{{ action }} Menú de Bienvenida{% endblock %}
 
 {% block comm_js %}
-<script>
-    let itemCount = {{ items|length|default:1 }};
-
-    function addItem() {
-        itemCount++;
-        const container = document.getElementById('items-container');
-        const row = document.createElement('div');
-        row.className = 'row g-2 mb-2 item-row';
-        row.innerHTML = `
-        <div class="col-2">
-            <input type="number" name="item_number" class="form-control form-control-sm" placeholder="#" value="${itemCount}" min="1" required>
-        </div>
-        <div class="col-5">
-            <input type="text" name="item_label" class="form-control form-control-sm" placeholder="Etiqueta (ej. Administración)" required>
-        </div>
-        <div class="col-4">
-            <select name="item_user" class="form-select form-select-sm">
-                <option value="">-- Sin asignar --</option>
-                {% for u in users %}
-                <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-1 d-flex align-items-center">
-            <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.item-row').remove()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `;
-        container.appendChild(row);
-    }
-</script>
+<script src="{% static 'communications/js/welcome_menu_form.js' %}"></script>
 {% endblock %}
 
 {% block comm_content %}
@@ -99,7 +69,7 @@
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
                 <span class="fw-semibold"><i class="fas fa-th-list me-1 text-secondary"></i> Opciones del Menú</span>
-                <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">
+                <button type="button" class="btn btn-outline-success btn-sm" id="welcome-menu-add-item">
                     <i class="fas fa-plus me-1"></i> Agregar opción
                 </button>
             </div>
@@ -110,7 +80,7 @@
                     <div class="col-4 fw-semibold">Usuario del sistema</div>
                     <div class="col-1"></div>
                 </div>
-                <div id="items-container">
+                <div id="items-container" data-item-count="{{ items|length|default:1 }}">
                     {% if items %}
                         {% for item in items %}
                         <div class="row g-2 mb-2 item-row">
@@ -180,10 +150,27 @@
         </div>
     </form>
 </div>
-
-{% if not users %}
-<script>
-    // If users were not loaded (e.g. GET on create), fetch them via a quick context fix
-</script>
-{% endif %}
+<template id="welcome-menu-item-template">
+    <div class="row g-2 mb-2 item-row">
+        <div class="col-2">
+            <input type="number" name="item_number" class="form-control form-control-sm" placeholder="#" value="__ITEM_NUMBER__" min="1" required>
+        </div>
+        <div class="col-5">
+            <input type="text" name="item_label" class="form-control form-control-sm" placeholder="Etiqueta (ej. Administración)" required>
+        </div>
+        <div class="col-4">
+            <select name="item_user" class="form-select form-select-sm">
+                <option value="">-- Sin asignar --</option>
+                {% for u in users %}
+                <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-1 d-flex align-items-center">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.item-row').remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+</template>
 {% endblock %}

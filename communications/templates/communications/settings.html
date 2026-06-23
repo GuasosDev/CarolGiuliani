@@ -131,54 +131,6 @@
                     </div>
                 </div>
             </div>
-            <script>
-                (function() {
-                    var slider = document.getElementById('settingsFontSizeSlider');
-                    var badge = document.getElementById('settingsFontSizeValue');
-                    var toggle = document.getElementById('settingsDarkModeToggle');
-                    try {
-                        var fs = localStorage.getItem('gd_font_size');
-                        if (fs && slider) {
-                            slider.value = fs;
-                            badge.textContent = fs + 'px';
-                            document.documentElement.style.setProperty('--global-font-size', fs + 'px');
-                            var pv = document.getElementById('fontLivePreviewText');
-                            if (pv) pv.style.fontSize = fs + 'px';
-                        }
-                        var dm = localStorage.getItem('gd_dark_mode');
-                        if (dm !== null && toggle) {
-                            toggle.checked = (dm === 'true');
-                            if (toggle.checked) document.body.classList.add('dark-mode');
-                            else document.body.classList.remove('dark-mode');
-                        }
-                    } catch (e) {}
-                    if (slider) {
-                        function applySize(v) {
-                            badge.textContent = v + 'px';
-                            document.documentElement.style.setProperty('--global-font-size', v + 'px');
-                            var pv = document.getElementById('fontLivePreviewText');
-                            if (pv) pv.style.fontSize = v + 'px';
-                            try { localStorage.setItem('gd_font_size', v); } catch (e) {}
-                        }
-                        slider.addEventListener('input', function() {
-                            applySize(String(this.value));
-                        });
-                        slider.addEventListener('change', function() {
-                            applySize(String(this.value));
-                        });
-                    }
-                    if (toggle) {
-                        toggle.addEventListener('change', function() {
-                            if (this.checked) {
-                                document.body.classList.add('dark-mode');
-                            } else {
-                                document.body.classList.remove('dark-mode');
-                            }
-                            try { localStorage.setItem('gd_dark_mode', this.checked ? 'true' : 'false'); } catch (e) {}
-                        });
-                    }
-                })();
-            </script>
             <!-- Áreas Laborales -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
@@ -253,10 +205,9 @@
                             </div>
                         </div>
 
-                        {{ company_settings.whatsapp_templates|json_script:"wa-templates-config" }}
                         <div class="mb-2">
                             <label class="form-label fw-bold">Listado de plantillas (JSON)</label>
-                            <textarea id="waTemplatesTextarea" name="whatsapp_templates" class="form-control" rows="7" placeholder='[{"name":"mi_template","language":"es_AR","label":"Saludo","body_params":0}]'></textarea>
+                            <textarea id="waTemplatesTextarea" name="whatsapp_templates" class="form-control" rows="7" placeholder='[{"name":"mi_template","language":"es_AR","label":"Saludo","body_params":0}]' data-initial-json="{{ company_settings.whatsapp_templates|default:'[]'|escape }}">{{ company_settings.whatsapp_templates|default:'[]' }}</textarea>
                             <div class="form-text">Formato: name, language, label (opcional), body_params (cantidad de variables en body).</div>
                         </div>
 
@@ -266,20 +217,6 @@
                     </form>
                 </div>
             </div>
-
-            <script>
-                (function () {
-                    const el = document.getElementById('wa-templates-config');
-                    const ta = document.getElementById('waTemplatesTextarea');
-                    if (!el || !ta) return;
-                    try {
-                        const data = JSON.parse(el.textContent || '[]');
-                        ta.value = JSON.stringify(data, null, 2);
-                    } catch (e) {
-                        ta.value = '[]';
-                    }
-                })();
-            </script>
 
             <!-- Cuentas Email -->
             <div class="card shadow-sm mb-4">
@@ -325,8 +262,5 @@
         </div>
     </div>
 </div>
-<style>
-    .border-dashed { border-style: dashed !important; border-width: 2px !important; }
-    .btn-outline-primary:hover .bg-primary { background-color: white !important; }
-</style>
+<script src="{% static 'communications/js/settings.js' %}"></script>
 {% endblock %}

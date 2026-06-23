@@ -4,6 +4,7 @@
     </h5>
     <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
 </div>
+<div class="comm-report-modal">
 <form method="post" action="{% url 'communications:conversation_report' %}" target="_blank">
     <div class="modal-body py-4">
         {% csrf_token %}
@@ -30,7 +31,7 @@
             </div>
         </div>
 
-        <div class="alert alert-info border-0 shadow-none mb-0 d-flex align-items-center" style="background-color: rgba(79, 198, 225, 0.1);">
+        <div class="alert alert-info border-0 shadow-none mb-0 d-flex align-items-center comm-report-info-alert">
             <i class="fas fa-info-circle text-info fs-4 me-3"></i>
             <div class="small text-info">
                 Se incluirán todos los mensajes de WhatsApp y Email enviados y recibidos en el periodo seleccionado.
@@ -44,20 +45,5 @@
         </button>
     </div>
 </form>
+</div>
 
-<style>
-    .modal-content {
-        border-radius: 15px;
-        border: none;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    }
-    .form-select, .form-control {
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
-        border: 1px solid #e2e8f0;
-    }
-    .form-select:focus, .form-control:focus {
-        border-color: #6658dd;
-        box-shadow: 0 0 0 3px rgba(102, 88, 221, 0.1);
-    }
-</style>

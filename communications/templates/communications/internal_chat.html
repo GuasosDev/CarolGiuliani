@@ -21,7 +21,7 @@
         <div class="omni-messages-area" id="internalChatMessagesArea"></div>
 
         <div class="omni-chat-input-area">
-            <form id="internalChatForm" method="post" action="{% url 'communications:internal_chat_send' %}">
+            <form id="internalChatForm" method="post" action="{% url 'communications:internal_chat_send' %}" data-messages-url="{% url 'communications:internal_chat_messages' %}" data-current-user-id="{{ request.user.id }}">
                 {% csrf_token %}
                 <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary" style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
                     <textarea class="form-control border-0 shadow-none" name="content" rows="1" placeholder="Escribe un mensaje interno..."></textarea>
@@ -37,105 +37,6 @@
     </div>
 </div>
 
-<script>
-    (function () {
-        const form = document.getElementById('internalChatForm');
-        const area = document.getElementById('internalChatMessagesArea');
-        const url = "{% url 'communications:internal_chat_messages' %}";
-        const currentUserId = parseInt("{{ request.user.id }}", 10);
-        let lastInboundId = 0;
-        let initialized = false;
-
-        function getLastMetaFromRoot(rootEl) {
-            if (!rootEl) return { id: 0, authorId: 0 };
-            const rows = rootEl.querySelectorAll('.omni-msg-row[data-message-id]');
-            const last = rows.length ? rows[rows.length - 1] : null;
-            const id = last ? parseInt(last.getAttribute('data-message-id') || '0', 10) : 0;
-            const authorId = last ? parseInt(last.getAttribute('data-author-id') || '0', 10) : 0;
-            return {
-                id: Number.isFinite(id) ? id : 0,
-                authorId: Number.isFinite(authorId) ? authorId : 0
-            };
-        }
-
-        function scrollToBottom() {
-            if (area) area.scrollTop = area.scrollHeight;
-        }
-
-        function refresh() {
-            const prevId = lastInboundId;
-            fetch(url, { headers: { 'HX-Request': 'true' } })
-                .then(r => r.text())
-                .then(html => {
-                    if (!area) return;
-                    const wrapper = document.createElement('div');
-                    wrapper.innerHTML = html;
-                    const meta = getLastMetaFromRoot(wrapper);
-                    area.innerHTML = html;
-                    scrollToBottom();
-
-                    if (!initialized) {
-                        lastInboundId = meta.id;
-                        initialized = true;
-                        return;
-                    }
-
-                    if (meta.id && meta.id > prevId && meta.authorId && meta.authorId !== currentUserId) {
-                        lastInboundId = meta.id;
-                        if (window.commNotify && typeof window.commNotify.playDing === 'function') {
-                            window.commNotify.playDing('internal');
-                        }
-                        return;
-                    }
-                    lastInboundId = meta.id;
-                })
-                .catch(() => {});
-        }
-
-        if (form) {
-            const textarea = form.querySelector('textarea[name="content"]');
-            if (textarea) {
-                textarea.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        form.dispatchEvent(new Event('submit'));
-                    }
-                });
-            }
-
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-                const formData = new FormData(form);
-                const btn = form.querySelector('button[type="submit"]');
-                const original = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-                fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
-                }).then(async (r) => {
-                    if (!r.ok) {
-                        const data = await r.json().catch(() => ({}));
-                        throw new Error(data.error || 'Error al enviar');
-                    }
-                    if (textarea) textarea.value = '';
-                    refresh();
-                }).catch((err) => {
-                    alert(err.message);
-                }).finally(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = original;
-                });
-            });
-        }
-
-        refresh();
-        setTimeout(scrollToBottom, 200);
-        if (window.internalChatPollInterval) clearInterval(window.internalChatPollInterval);
-        window.internalChatPollInterval = setInterval(refresh, 5000);
-    })();
-</script>
+<script src="{% static 'communications/js/internal_chat.js' %}"></script>
 {% endblock %}
 

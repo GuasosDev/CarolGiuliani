@@ -1,16 +1,18 @@
-<script>
 (function () {
     function parseCatalog() {
         try {
             var el = document.getElementById('email-compose-recipient-catalog');
             if (!el || !el.textContent) return [];
             return JSON.parse(el.textContent);
-        } catch (e) { return []; }
+        } catch (e) {
+            return [];
+        }
     }
-    var catalog = parseCatalog();
+
     var panel = null;
     var activeInput = null;
     var debTimer = null;
+    var catalog = parseCatalog();
 
     function ensurePanel() {
         if (panel) return panel;
@@ -22,12 +24,13 @@
         document.body.appendChild(panel);
         return panel;
     }
+
     function hidePanel() {
-        if (panel) {
-            panel.style.display = 'none';
-            panel.innerHTML = '';
-        }
+        if (!panel) return;
+        panel.style.display = 'none';
+        panel.innerHTML = '';
     }
+
     function tokenAtCursor(input) {
         var v = input.value || '';
         var pos = typeof input.selectionStart === 'number' ? input.selectionStart : v.length;
@@ -35,6 +38,7 @@
         var i = before.lastIndexOf(',');
         return ((i === -1 ? before : before.slice(i + 1)).trim().toLowerCase());
     }
+
     function replaceActiveToken(input, insertText) {
         insertText = (insertText || '').trim();
         if (!insertText) return;
@@ -49,6 +53,7 @@
         var np = newBefore.length;
         try { input.setSelectionRange(np, np); } catch (e) {}
     }
+
     function filterMatches(q) {
         if (!q || q.length < 1) return [];
         var out = [];
@@ -63,13 +68,17 @@
                 if (lg.indexOf(q) !== -1) out.push(it);
                 else if (it.emails) {
                     for (var j = 0; j < it.emails.length; j++) {
-                        if ((it.emails[j] || '').toLowerCase().indexOf(q) !== -1) { out.push(it); break; }
+                        if ((it.emails[j] || '').toLowerCase().indexOf(q) !== -1) {
+                            out.push(it);
+                            break;
+                        }
                     }
                 }
             }
         }
         return out;
     }
+
     function positionPanel(input) {
         var el = ensurePanel();
         var r = input.getBoundingClientRect();
@@ -79,6 +88,7 @@
         el.style.left = r.left + 'px';
         el.style.width = Math.max(r.width, 300) + 'px';
     }
+
     function applyPick(it) {
         if (!activeInput) return;
         if (it.t === 'c') {
@@ -89,6 +99,7 @@
         hidePanel();
         activeInput.focus();
     }
+
     function renderSuggest(matches) {
         var el = ensurePanel();
         el.innerHTML = '';
@@ -110,21 +121,29 @@
             meta.className = 'sug-meta';
             meta.textContent = it.t === 'g' ? ((it.emails || []).length + ' direcciones') : (it.e || '');
             btn.appendChild(meta);
-            btn.addEventListener('mousedown', function (ev) { ev.preventDefault(); applyPick(it); });
+            btn.addEventListener('mousedown', function (ev) {
+                ev.preventDefault();
+                applyPick(it);
+            });
             li.appendChild(btn);
             el.appendChild(li);
         });
     }
+
     function onInput(ev) {
         activeInput = ev.target;
         clearTimeout(debTimer);
         debTimer = setTimeout(function () {
             catalog = parseCatalog();
             var t = tokenAtCursor(activeInput);
-            if (t.length < 1) { hidePanel(); return; }
+            if (t.length < 1) {
+                hidePanel();
+                return;
+            }
             renderSuggest(filterMatches(t));
         }, 180);
     }
+
     function bindField(inp) {
         if (!inp || inp.dataset.commRecipientSuggest) return;
         inp.dataset.commRecipientSuggest = '1';
@@ -137,6 +156,7 @@
             setTimeout(function () { hidePanel(); }, 320);
         });
     }
+
     function initRecipientSuggest() {
         catalog = parseCatalog();
         if (!catalog.length) return;
@@ -144,13 +164,15 @@
         bindField(document.getElementById('emailCcInput'));
         bindField(document.getElementById('emailBccInput'));
     }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initRecipientSuggest);
     } else {
         initRecipientSuggest();
     }
+
     document.body.addEventListener('htmx:afterSwap', initRecipientSuggest);
-    var composeModal = document.getElementById('emailComposeModal');
-    if (composeModal) composeModal.addEventListener('hidden.bs.modal', hidePanel);
+    document.addEventListener('hidden.bs.modal', function (event) {
+        if (event.target && event.target.id === 'emailComposeModal') hidePanel();
+    });
 })();
-</script>
