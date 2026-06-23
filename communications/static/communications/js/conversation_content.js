@@ -99,6 +99,8 @@
     window.commMailOpenCompose = function (mode, options) {
         var modalEl = document.getElementById('emailComposeModal');
         if (!modalEl || typeof bootstrap === 'undefined') return;
+        ensureBootstrapModalRoot(modalEl);
+        cleanupOverlays(modalEl.id);
         options = options || {};
         mode = mode || 'reply';
         var form = document.getElementById('emailForm');
@@ -201,6 +203,7 @@
     function bindEmailComposeModal() {
         var modalEl = document.getElementById('emailComposeModal');
         if (!modalEl || modalEl.dataset.commBound) return;
+        ensureBootstrapModalRoot(modalEl);
         modalEl.dataset.commBound = '1';
         modalEl.addEventListener('hidden.bs.modal', function () {
             var convIn = document.getElementById('emailConversationIdInput');
@@ -210,6 +213,12 @@
                 var defId = frm.getAttribute('data-conversation-id');
                 convIn.value = defId != null ? String(defId) : '';
             }
+            setTimeout(function () {
+                document.querySelectorAll('.modal-backdrop').forEach(function (b) { try { b.remove(); } catch (e) {} });
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                document.body.style.removeProperty('overflow');
+            }, 0);
         });
         tryOpenComposeFromQuery();
     }

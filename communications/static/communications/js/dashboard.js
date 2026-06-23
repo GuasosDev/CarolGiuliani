@@ -4,11 +4,6 @@
         return;
     }
 
-    function debugReport(hypothesisId, msg, data) {
-        // Debug remoto desactivado en produccion.
-        return;
-    }
-
     const listPanel = document.getElementById('conversation-list-panel');
     const detailPanel = document.getElementById('conversation-detail-panel');
     const splitter = document.getElementById('conversation-splitter');
@@ -19,38 +14,6 @@
     const maxWidth = 520;
     const storageKey = 'communications.conversationListWidth';
     const mobileMedia = window.matchMedia('(max-width: 767.98px)');
-
-    // #region debug-point B:init-state
-    debugReport('B', 'dashboard-init', {
-        hasDashboard: Boolean(dashboard),
-        hasListPanel: Boolean(listPanel),
-        hasDetailPanel: Boolean(detailPanel),
-        hasSplitter: Boolean(splitter),
-        hasBackButton: Boolean(backButton),
-        width: window.innerWidth,
-        height: window.innerHeight,
-        isMobile: mobileMedia.matches
-    });
-    // #endregion
-
-    // #region debug-point C:window-error
-    window.addEventListener('error', function (event) {
-        debugReport('C', 'window-error', {
-            message: event.message,
-            filename: event.filename,
-            lineno: event.lineno,
-            colno: event.colno
-        });
-    });
-    // #endregion
-
-    // #region debug-point D:unhandled-rejection
-    window.addEventListener('unhandledrejection', function (event) {
-        debugReport('D', 'unhandled-rejection', {
-            reason: String(event.reason)
-        });
-    });
-    // #endregion
 
     function isMobile() {
         return mobileMedia.matches;
@@ -77,13 +40,6 @@
             });
         }
 
-        // #region debug-point F:detail-open-state
-        debugReport('F', 'detail-open-state', {
-            isOpen: Boolean(isOpen),
-            shellClasses: dashboard.className,
-            isMobile: mobileMedia.matches
-        });
-        // #endregion
     }
 
     function resetDetailPanel() {
@@ -193,14 +149,6 @@
         renderLoadingState(loadingMessage);
         setDetailOpen(true);
 
-        // #region debug-point G:request-detail
-        debugReport('G', 'request-detail', {
-            url: url,
-            loadingMessage: loadingMessage,
-            isMobile: mobileMedia.matches
-        });
-        // #endregion
-
         if (typeof htmx !== 'undefined') {
             htmx.ajax('GET', url, {
                 target: '#conversation-detail-panel',
@@ -240,13 +188,6 @@
             window.conversationPollInterval = null;
         }
 
-        // #region debug-point H:load-conversation
-        debugReport('H', 'load-conversation', {
-            id: id,
-            isMobile: mobileMedia.matches
-        });
-        // #endregion
-
         selectConversation(element, id);
         requestDetail(
             '/communications/conversation/' + id + '/?partial=true',
@@ -262,13 +203,6 @@
             clearInterval(window.conversationPollInterval);
             window.conversationPollInterval = null;
         }
-
-        // #region debug-point I:load-email-message
-        debugReport('I', 'load-email-message', {
-            id: id,
-            isMobile: mobileMedia.matches
-        });
-        // #endregion
 
         selectEmailMessage(element, id);
         requestDetail(
@@ -416,55 +350,12 @@
 
         if (event.detail.target.id === 'conversation-detail-panel') {
             setDetailOpen(true);
-
-            // #region debug-point J:detail-after-swap
-            window.setTimeout(function () {
-                const panel = document.getElementById('conversation-detail-panel');
-                const wrap = document.querySelector('.comm-detail-panel-wrap');
-                const panelStyle = panel ? window.getComputedStyle(panel) : null;
-                const wrapStyle = wrap ? window.getComputedStyle(wrap) : null;
-                debugReport('J', 'detail-after-swap', {
-                    childCount: panel ? panel.children.length : 0,
-                    panelDisplay: panelStyle ? panelStyle.display : null,
-                    panelOverflowX: panelStyle ? panelStyle.overflowX : null,
-                    panelOverflowY: panelStyle ? panelStyle.overflowY : null,
-                    panelWidth: panel ? panel.getBoundingClientRect().width : null,
-                    panelHeight: panel ? panel.getBoundingClientRect().height : null,
-                    wrapDisplay: wrapStyle ? wrapStyle.display : null,
-                    wrapWidth: wrap ? wrap.getBoundingClientRect().width : null,
-                    wrapHeight: wrap ? wrap.getBoundingClientRect().height : null,
-                    isMobile: mobileMedia.matches
-                });
-            }, 120);
-            // #endregion
         }
     });
 
     document.addEventListener('DOMContentLoaded', function () {
         restoreSelectionFromUrl(true);
         handleViewportChange();
-
-        // #region debug-point E:sidebar-layout
-        window.setTimeout(function () {
-            const sidebar = document.querySelector('.comm-sidebar-nav');
-            const labels = Array.prototype.map.call(document.querySelectorAll('.comm-sidebar-nav .sidebar-icon-btn span:not(.sidebar-badge)'), function (node) {
-                return (node.textContent || '').trim();
-            });
-            const sidebarStyle = sidebar ? window.getComputedStyle(sidebar) : null;
-            debugReport('E', 'sidebar-layout', {
-                labels: labels,
-                childCount: sidebar ? sidebar.children.length : 0,
-                position: sidebarStyle ? sidebarStyle.position : null,
-                flexDirection: sidebarStyle ? sidebarStyle.flexDirection : null,
-                overflowX: sidebarStyle ? sidebarStyle.overflowX : null,
-                overflowY: sidebarStyle ? sidebarStyle.overflowY : null,
-                bottom: sidebarStyle ? sidebarStyle.bottom : null,
-                left: sidebarStyle ? sidebarStyle.left : null,
-                right: sidebarStyle ? sidebarStyle.right : null,
-                isMobile: mobileMedia.matches
-            });
-        }, 150);
-        // #endregion
     });
 
     if (backButton) {
