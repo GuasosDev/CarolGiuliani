@@ -20,6 +20,50 @@
         return modalEl;
     }
 
+    function getEmailComposeModal() {
+        var panel = document.getElementById('conversation-detail-panel');
+        if (panel) {
+            var inPanel = panel.querySelector('#emailComposeModal');
+            if (inPanel) return inPanel;
+        }
+        var onBody = document.querySelector('body > #emailComposeModal');
+        if (onBody) return onBody;
+        return document.getElementById('emailComposeModal');
+    }
+
+    function cleanupOrphanedEmailComposeModals() {
+        var panel = document.getElementById('conversation-detail-panel');
+        var freshInPanel = panel && panel.querySelector('#emailComposeModal');
+        if (!freshInPanel) return;
+        document.querySelectorAll('body > #emailComposeModal').forEach(function (el) {
+            try {
+                if (typeof bootstrap !== 'undefined') {
+                    var inst = bootstrap.Modal.getInstance(el);
+                    if (inst) inst.dispose();
+                }
+            } catch (e) {}
+            el.remove();
+        });
+    }
+
+    function clearEmailComposeFields(modalEl) {
+        if (!modalEl) return;
+        ['[name="to_addresses"]', '[name="cc_addresses"]', '[name="bcc_addresses"]', '[name="subject"]'].forEach(function (sel) {
+            var el = modalEl.querySelector(sel);
+            if (el) el.value = '';
+        });
+        var body = modalEl.querySelector('#emailBodyDiv');
+        if (body) body.innerHTML = '';
+        var bodyIn = modalEl.querySelector('#emailBodyInput');
+        if (bodyIn) bodyIn.value = '';
+        var preview = modalEl.querySelector('#emailFilePreview');
+        if (preview) preview.innerHTML = '';
+        var fileIn = modalEl.querySelector('#imageInputEmail');
+        if (fileIn) fileIn.value = '';
+        var srcIn = modalEl.querySelector('#emailSourceEmailMessageIdInput');
+        if (srcIn) srcIn.value = '';
+    }
+
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
         if (!bytes) return '';
@@ -97,20 +141,20 @@
     window.refreshMessages = refreshMessages;
 
     window.commMailOpenCompose = function (mode, options) {
-        var modalEl = document.getElementById('emailComposeModal');
+        var modalEl = getEmailComposeModal();
         if (!modalEl || typeof bootstrap === 'undefined') return;
         ensureBootstrapModalRoot(modalEl);
         cleanupOverlays(modalEl.id);
         options = options || {};
         mode = mode || 'reply';
-        var form = document.getElementById('emailForm');
-        var to = document.getElementById('emailToInput');
-        var subj = document.getElementById('emailSubjectInput');
-        var body = document.getElementById('emailBodyDiv');
-        var convInput = document.getElementById('emailConversationIdInput');
-        var title = document.getElementById('emailComposeModalLabel');
-        var ccIn = document.getElementById('emailCcInput');
-        var bccIn = document.getElementById('emailBccInput');
+        var form = modalEl.querySelector('#emailForm');
+        var to = modalEl.querySelector('#emailToInput');
+        var subj = modalEl.querySelector('#emailSubjectInput');
+        var body = modalEl.querySelector('#emailBodyDiv');
+        var convInput = modalEl.querySelector('#emailConversationIdInput');
+        var title = modalEl.querySelector('#emailComposeModalLabel');
+        var ccIn = modalEl.querySelector('#emailCcInput');
+        var bccIn = modalEl.querySelector('#emailBccInput');
         var replyTo = form && form.getAttribute('data-reply-to') ? form.getAttribute('data-reply-to').trim() : '';
         var replySubject = form && form.getAttribute('data-reply-subject') ? form.getAttribute('data-reply-subject').trim() : '';
         var replyCc = form && form.getAttribute('data-reply-cc') ? form.getAttribute('data-reply-cc').trim() : '';
@@ -129,7 +173,7 @@
                 convInput.value = '';
                 convInput.removeAttribute('name');
             }
-            var srcInNew = document.getElementById('emailSourceEmailMessageIdInput');
+            var srcInNew = modalEl.querySelector('#emailSourceEmailMessageIdInput');
             if (srcInNew) srcInNew.value = '';
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
@@ -143,7 +187,7 @@
                 convInput.removeAttribute('name');
             }
             var srcId = form && form.getAttribute('data-forward-email-message-id') ? String(form.getAttribute('data-forward-email-message-id')).trim() : '';
-            var srcIn = document.getElementById('emailSourceEmailMessageIdInput');
+            var srcIn = modalEl.querySelector('#emailSourceEmailMessageIdInput');
             if (srcIn) srcIn.value = srcId;
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
@@ -156,7 +200,7 @@
                 convInput.setAttribute('name', 'conversation_id');
                 convInput.value = convIdDefault;
             }
-            var srcInAll = document.getElementById('emailSourceEmailMessageIdInput');
+            var srcInAll = modalEl.querySelector('#emailSourceEmailMessageIdInput');
             if (srcInAll) srcInAll.value = '';
             if (ccIn) ccIn.value = replyCc;
             if (bccIn) bccIn.value = '';
@@ -169,7 +213,7 @@
                 convInput.setAttribute('name', 'conversation_id');
                 convInput.value = convIdDefault;
             }
-            var srcInReply = document.getElementById('emailSourceEmailMessageIdInput');
+            var srcInReply = modalEl.querySelector('#emailSourceEmailMessageIdInput');
             if (srcInReply) srcInReply.value = '';
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
@@ -183,7 +227,7 @@
             var u = new URL(window.location.href);
             var c = u.searchParams.get('compose');
             if (c !== '1' && c !== 'new') return;
-            if (!document.getElementById('emailForm')) return;
+            if (!getEmailComposeModal()) return;
             var rawTo = u.searchParams.get('to');
             var initialTo = '';
             if (rawTo != null && String(rawTo).length) {
@@ -201,18 +245,19 @@
     }
 
     function bindEmailComposeModal() {
-        var modalEl = document.getElementById('emailComposeModal');
+        cleanupOrphanedEmailComposeModals();
+        var modalEl = getEmailComposeModal();
         if (!modalEl || modalEl.dataset.commBound) return;
-        ensureBootstrapModalRoot(modalEl);
         modalEl.dataset.commBound = '1';
         modalEl.addEventListener('hidden.bs.modal', function () {
-            var convIn = document.getElementById('emailConversationIdInput');
-            var frm = document.getElementById('emailForm');
+            var frm = modalEl.querySelector('#emailForm');
+            var convIn = modalEl.querySelector('#emailConversationIdInput');
             if (convIn && frm) {
                 convIn.setAttribute('name', 'conversation_id');
                 var defId = frm.getAttribute('data-conversation-id');
                 convIn.value = defId != null ? String(defId) : '';
             }
+            clearEmailComposeFields(modalEl);
             setTimeout(function () {
                 document.querySelectorAll('.modal-backdrop').forEach(function (b) { try { b.remove(); } catch (e) {} });
                 document.body.classList.remove('modal-open');
@@ -360,7 +405,9 @@
                 activeTextarea.focus();
             }
         } else if (emailContainer && !emailContainer.classList.contains('d-none')) {
-            var emailBodyDiv = document.getElementById('emailBodyDiv');
+            var composeModal = getEmailComposeModal();
+            var emailBodyDiv = (composeModal && composeModal.classList.contains('show') && composeModal.querySelector('#emailBodyDiv'))
+                || emailContainer.querySelector('#emailBodyDivInline');
             if (emailBodyDiv) {
                 emailBodyDiv.innerHTML += content;
                 emailBodyDiv.focus();
@@ -384,7 +431,10 @@
 
     window.openFileSelector = function () {
         var whatsappContainer = document.getElementById('channel-whatsapp');
-        var emailInput = document.getElementById('imageInputEmail');
+        var composeModal = getEmailComposeModal();
+        var emailInput = (composeModal && composeModal.classList.contains('show') && composeModal.querySelector('#imageInputEmail'))
+            || document.getElementById('imageInputEmail')
+            || document.getElementById('imageInputEmailInline');
         var whatsappInput = document.getElementById('imageInputWhatsapp');
         if (whatsappContainer && !whatsappContainer.classList.contains('d-none') && whatsappInput) {
             whatsappInput.click();
@@ -393,8 +443,16 @@
         }
     };
 
-    function displayEmailFilePreview(files) {
-        var preview = document.getElementById('emailFilePreview');
+    function displayEmailFilePreview(files, formContext) {
+        var preview = null;
+        if (formContext) {
+            preview = formContext.querySelector('#emailFilePreview, #emailFilePreviewInline');
+        }
+        if (!preview) {
+            var modal = getEmailComposeModal();
+            preview = (modal && modal.querySelector('#emailFilePreview'))
+                || document.getElementById('emailFilePreviewInline');
+        }
         if (!preview) return;
         preview.innerHTML = '';
         Array.from(files).forEach(function (file, index) {
@@ -498,8 +556,9 @@
 
     function sendMessage(form, channel) {
         if (channel === 'email') {
-            var emailBodyDiv = document.getElementById('emailBodyDiv');
-            var emailBodyInput = document.getElementById('emailBodyInput');
+            var emailBodyDiv = form.querySelector('#emailBodyDiv, #emailBodyDivInline');
+            var emailBodyInput = form.querySelector('#emailBodyInput, #emailBodyInputInline');
+            var fileInputEmail = form.querySelector('#imageInputEmail, #imageInputEmailInline');
             if (emailBodyDiv && emailBodyInput) {
                 var tempDiv = document.createElement('div');
                 tempDiv.innerHTML = emailBodyDiv.innerHTML;
@@ -511,7 +570,7 @@
                     }
                 });
                 var textContent = tempDiv.textContent || tempDiv.innerText || '';
-                if (textContent.trim() === '' && document.getElementById('imageInputEmail').files.length === 0) {
+                if (textContent.trim() === '' && (!fileInputEmail || fileInputEmail.files.length === 0)) {
                     alert('Por favor escribe un mensaje o adjunta archivos antes de enviar.');
                     return;
                 }
@@ -524,10 +583,10 @@
         var originalText = btn.innerHTML;
 
         if (channel === 'email') {
-            var fileInputEmail = document.getElementById('imageInputEmail');
-            if (fileInputEmail && fileInputEmail.files.length > 0) {
+            var fileInputEmailSend = form.querySelector('#imageInputEmail, #imageInputEmailInline');
+            if (fileInputEmailSend && fileInputEmailSend.files.length > 0) {
                 formData.delete('attachments');
-                Array.from(fileInputEmail.files).forEach(function (file) { formData.append('attachments', file); });
+                Array.from(fileInputEmailSend.files).forEach(function (file) { formData.append('attachments', file); });
             }
         }
 
@@ -617,15 +676,15 @@
                 if (waPreview) waPreview.innerHTML = '';
                 clearWhatsappVoiceNote();
             } else {
-                var bodyDiv = document.getElementById('emailBodyDiv');
-                var bodyInput = document.getElementById('emailBodyInput');
+                var bodyDiv = form.querySelector('#emailBodyDiv, #emailBodyDivInline');
+                var bodyInput = form.querySelector('#emailBodyInput, #emailBodyInputInline');
                 if (bodyDiv) bodyDiv.innerHTML = '';
                 if (bodyInput) bodyInput.value = '';
                 var subjectInput = form.querySelector('input[name="subject"]');
                 if (subjectInput) subjectInput.value = '';
-                var emInput = document.getElementById('imageInputEmail');
+                var emInput = form.querySelector('#imageInputEmail, #imageInputEmailInline');
                 if (emInput) emInput.value = '';
-                var emPreview = document.getElementById('emailFilePreview');
+                var emPreview = form.querySelector('#emailFilePreview, #emailFilePreviewInline');
                 if (emPreview) emPreview.innerHTML = '';
             }
 
@@ -633,7 +692,7 @@
 
             if (channel === 'email') {
                 try {
-                    var modalEl = document.getElementById('emailComposeModal');
+                    var modalEl = getEmailComposeModal();
                     if (modalEl && typeof bootstrap !== 'undefined') {
                         var inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
                         inst.hide();
@@ -1254,18 +1313,57 @@
                 if (this.files.length > 0) displayWhatsappFilePreview(this.files);
             });
         }
-        var emailInput = document.getElementById('imageInputEmail');
-        if (emailInput && !emailInput.dataset.bound) {
-            emailInput.dataset.bound = '1';
-            emailInput.addEventListener('change', function () {
-                if (this.files.length > 0) displayEmailFilePreview(this.files);
+        function bindEmailFileInput(input, formContext) {
+            if (!input || input.dataset.bound) return;
+            input.dataset.bound = '1';
+            input.addEventListener('change', function () {
+                if (this.files.length > 0) displayEmailFilePreview(this.files, formContext);
             });
         }
+        var composeModal = getEmailComposeModal();
+        if (composeModal) {
+            bindEmailFileInput(composeModal.querySelector('#imageInputEmail'), composeModal);
+        }
+        var inlineForm = document.getElementById('emailFormInline');
+        if (inlineForm) {
+            bindEmailFileInput(inlineForm.querySelector('#imageInputEmailInline'), inlineForm);
+        }
+    }
+
+    function bindEmailForm(emailForm) {
+        if (!emailForm || emailForm.dataset.bound) return;
+        emailForm.dataset.bound = '1';
+        var emailBodyDiv = emailForm.querySelector('#emailBodyDiv, #emailBodyDivInline');
+        if (emailBodyDiv) {
+            emailBodyDiv.addEventListener('paste', function (e) {
+                var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (var index in items) {
+                    var item = items[index];
+                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        var blob = item.getAsFile();
+                        var file = new File([blob], 'screenshot_' + new Date().getTime() + '.png', { type: blob.type });
+                        var input = emailForm.querySelector('#imageInputEmail, #imageInputEmailInline');
+                        if (!input) return;
+                        var dt = new DataTransfer();
+                        Array.from(input.files).forEach(function (f) { dt.items.add(f); });
+                        dt.items.add(file);
+                        input.files = dt.files;
+                        displayEmailFilePreview(input.files, emailForm);
+                    }
+                }
+            });
+        }
+        emailForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            sendMessage(this, 'email');
+        });
     }
 
     function bindForms() {
         var whatsappForm = document.getElementById('whatsappForm');
-        var emailForm = document.getElementById('emailForm');
+        var composeModal = getEmailComposeModal();
+        var emailForm = composeModal ? composeModal.querySelector('#emailForm') : null;
+        var emailFormInline = document.getElementById('emailFormInline');
         if (whatsappForm && !whatsappForm.dataset.bound) {
             whatsappForm.dataset.bound = '1';
             var waTextarea = whatsappForm.querySelector('textarea[name="message"]');
@@ -1298,36 +1396,13 @@
                 sendMessage(this, 'whatsapp');
             });
         }
-        if (emailForm && !emailForm.dataset.bound) {
-            emailForm.dataset.bound = '1';
-            var emailBodyDiv = document.getElementById('emailBodyDiv');
-            if (emailBodyDiv) {
-                emailBodyDiv.addEventListener('paste', function (e) {
-                    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                    for (var index in items) {
-                        var item = items[index];
-                        if (item.kind === 'file' && item.type.startsWith('image/')) {
-                            var blob = item.getAsFile();
-                            var file = new File([blob], 'screenshot_' + new Date().getTime() + '.png', { type: blob.type });
-                            var input = document.getElementById('imageInputEmail');
-                            var dt = new DataTransfer();
-                            Array.from(input.files).forEach(function (f) { dt.items.add(f); });
-                            dt.items.add(file);
-                            input.files = dt.files;
-                            displayEmailFilePreview(input.files);
-                        }
-                    }
-                });
-            }
-            emailForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-                sendMessage(this, 'email');
-            });
-        }
+        if (emailForm) bindEmailForm(emailForm);
+        if (emailFormInline) bindEmailForm(emailFormInline);
     }
 
     function initConversationContent() {
         if (!isReady()) return;
+        cleanupOrphanedEmailComposeModals();
         ensureWhatsappVoiceState();
         bindEmailComposeModal();
         bindFileInputs();

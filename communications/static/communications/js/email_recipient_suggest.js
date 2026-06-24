@@ -160,9 +160,20 @@
     function initRecipientSuggest() {
         catalog = parseCatalog();
         if (!catalog.length) return;
-        bindField(document.getElementById('emailToInput'));
-        bindField(document.getElementById('emailCcInput'));
-        bindField(document.getElementById('emailBccInput'));
+        var modal = document.querySelector('#conversation-detail-panel #emailComposeModal')
+            || document.querySelector('body > #emailComposeModal')
+            || document.getElementById('emailComposeModal');
+        if (modal) {
+            bindField(modal.querySelector('#emailToInput'));
+            bindField(modal.querySelector('#emailCcInput'));
+            bindField(modal.querySelector('#emailBccInput'));
+        }
+        var inlineForm = document.getElementById('emailFormInline');
+        if (inlineForm) {
+            bindField(inlineForm.querySelector('#emailToInputInline'));
+            bindField(inlineForm.querySelector('#emailCcInputInline'));
+            bindField(inlineForm.querySelector('#emailBccInputInline'));
+        }
     }
 
     if (document.readyState === 'loading') {
@@ -176,3 +187,5 @@
         if (event.target && event.target.id === 'emailComposeModal') hidePanel();
     });
 })();
+
+
