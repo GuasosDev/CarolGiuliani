@@ -31,8 +31,10 @@ from .utils.email_threading import (
     subjects_match,
     _OPEN_CONVERSATION_STATUSES,
 )
-from django.utils import timezone
-from datetime import timedelta
+from django.db import transaction, IntegrityError
+from email.utils import parsedate_to_datetime
+from django.utils.timezone import make_aware, is_naive
+
 logger = logging.getLogger(__name__)
 
 
@@ -147,115 +149,134 @@ class EmailHandler:
             except:
                 pass
     
-import email
-from email.utils import parsedate_to_datetime
-import re
-from django.utils import timezone
-from django.utils.timezone import is_naive, make_aware
+    def fetch_new_emails(self, folder='INBOX'):
+        """Fetch emails from IMAP server using UID tracking"""
 
-def fetch_new_emails(self, folder='INBOX'):
-    """Fetch emails from IMAP server using UID tracking compatible with Gmail and Ferozo"""
-    if not self.connect_imap():
-        return []
-
-    try:
-        status, _ = self.imap_connection.select(folder)
-        if status != "OK":
-            logger.error(f"Could not select folder {folder} for {self.account.email_address}")
+        if not self.connect_imap():
             return []
 
-        # Buscar todos los UIDs
-        status, messages = self.imap_connection.uid('search', None, 'ALL')
-        if status != 'OK' or not messages:
-            logger.error(f"IMAP search failed for {self.account.email_address} status={status}")
-            return []
+        try:
+            status, _ = self.imap_connection.select(folder)
 
-        # SOLUCIÓN FEROZO 1: Unir todos los fragmentos devueltos por el servidor
-        email_uids = []
-        for msg_part in messages:
-            if msg_part:
-                email_uids.extend(msg_part.split())
-
-        if not email_uids:
-            logger.info(f"No emails found for {self.account.email_address}")
-            return []
-
-        logger.info(f"Found {len(email_uids)} total UIDs for {self.account.email_address}")
-        fetched_emails = []
-
-        # Optimizamos convirtiendo a string para procesar
-        uid_strs = [uid.decode() for uid in email_uids]
-
-        # SOLUCIÓN RENDIMIENTO: Evita miles de consultas a la BD buscando en lote
-        existing_uids = set(
-            EmailMessage.objects.filter(
-                email_account=self.account,
-                imap_uid__in=uid_strs
-            ).values_list('imap_uid', flat=True)
-        )
-
-        # Procesar del más nuevo al más viejo
-        for uid, uid_str in zip(reversed(email_uids), reversed(uid_strs)):
-            if uid_str in existing_uids:
-                continue
-
-            try:
-                # SOLUCIÓN FEROZO 2: Usar PEEK para no alterar el estado 'Visto' en Ferozo accidentalmente
-                status, msg_data = self.imap_connection.uid('fetch', uid, '(RFC822.PEEK)')
-                if status != 'OK' or not msg_data:
-                    logger.warning(f"Could not fetch UID {uid_str} for {self.account.email_address}")
-                    continue
-
-                # SOLUCIÓN FEROZO 3: Buscar la tupla correcta que contiene los bytes del correo
-                raw_email = None
-                for part in msg_data:
-                    if isinstance(part, tuple) and len(part) > 1:
-                        raw_email = part[1]
-                        break
-
-                if not raw_email:
-                    continue
-
-                email_message = email.message_from_bytes(raw_email)
-                email_date = None
-
-                # SOLUCIÓN FEROZO 4: Sanitizar y parsear fechas no estándar
-                raw_date_str = email_message.get("Date")
-                if raw_date_str:
-                    try:
-                        # Limpia comentarios de zona horaria comunes en cPanel como " (ARG)" o " (EST)"
-                        clean_date_str = re.sub(r'\s*\([^)]+\)', '', raw_date_str).strip()
-                        email_date = parsedate_to_datetime(clean_date_str)
-                        
-                        if email_date and is_naive(email_date):
-                            email_date = make_aware(email_date)
-                    except Exception as date_err:
-                        logger.warning(f"Non-standard date formats on UID {uid_str}: {raw_date_str}. Error: {date_err}")
-                        # Fallback: Usar la fecha actual del servidor si viene corrupta para no perder el correo
-                        email_date = timezone.now() if 'timezone' in globals() else None
-
-                processed = self.process_incoming_email(
-                    email_message,
-                    imap_uid=uid_str,
-                    email_date=email_date
+            if status != "OK":
+                logger.error(
+                    f"Could not select folder {folder} "
+                    f"for {self.account.email_address}"
                 )
+                return []
 
-                if processed:
-                    fetched_emails.append(processed)
+            # Buscar SIEMPRE todos los UIDs
+            # y filtrar duplicados desde la DB
+            status, messages = self.imap_connection.uid(
+                'search',
+                None,
+                'ALL'
+            )
 
-            except Exception as e:
-                logger.exception(f"Error processing UID {uid_str}: {str(e)}")
-                continue
+            if status != 'OK':
+                logger.error(
+                    f"IMAP search failed "
+                    f"for {self.account.email_address} "
+                    f"status={status} messages={messages}"
+                )
+                return []
 
-        logger.info(f"Fetched {len(fetched_emails)} new emails for {self.account.email_address}")
-        return fetched_emails
+            if not messages or not messages[0]:
+                logger.info(
+                    f"No emails found for {self.account.email_address}"
+                )
+                return []
 
-    except Exception as e:
-        logger.exception(f"Error fetching emails for {self.account.email_address}: {str(e)}")
-        return []
-    finally:
-        self.disconnect()
+            email_uids = messages[0].split()
 
+            logger.info(
+                f"Found {len(email_uids)} emails "
+                f"for {self.account.email_address}"
+            )
+
+            fetched_emails = []
+
+            # opcional:
+            # procesar del más nuevo al más viejo
+            for uid in reversed(email_uids):
+
+                uid_str = uid.decode()
+
+                # evitar duplicados
+                if EmailMessage.objects.filter(
+                    email_account=self.account,
+                    imap_uid=uid_str
+                ).exists():
+                    continue
+
+                try:
+                    status, msg_data = self.imap_connection.uid(
+                        'fetch',
+                        uid,
+                        '(RFC822)'
+                    )
+
+                    if status != 'OK':
+                        logger.warning(
+                            f"Could not fetch UID {uid_str} "
+                            f"for {self.account.email_address}"
+                        )
+                        continue
+
+                    if not msg_data or not msg_data[0]:
+                        continue
+
+                    raw_email = msg_data[0][1]
+
+                    if not raw_email:
+                        continue
+
+                    email_message = email.message_from_bytes(raw_email)
+
+                    email_date = None
+
+                    if email_message.get("Date"):
+                        try:
+                            email_date = parsedate_to_datetime(email_message.get("Date"))
+                            if email_date and is_naive(email_date):
+                                email_date = make_aware(email_date)
+
+                        except Exception as e:
+                            logger.exception(e)
+
+                            logger.warning(f"EMAIL DATE: {email_date}")
+
+                    processed = self.process_incoming_email(
+                        email_message,
+                        imap_uid=uid_str,
+                        email_date=email_date
+                    )
+
+                    if processed:
+                        fetched_emails.append(processed)
+
+                except Exception as e:
+                    logger.exception(
+                        f"Error processing UID {uid_str}: {str(e)}"
+                    )
+                    continue
+
+            logger.info(
+                f"Fetched {len(fetched_emails)} new emails "
+                f"for {self.account.email_address}"
+            )
+
+            return fetched_emails
+
+        except Exception as e:
+            logger.exception(
+                f"Error fetching emails "
+                f"for {self.account.email_address}: {str(e)}"
+            )
+            return []
+
+        finally:
+            self.disconnect()
 
     def clean_email_body(self, body):
         if not body:
@@ -288,539 +309,435 @@ def fetch_new_emails(self, folder='INBOX'):
         )
 
         return subject.strip()
-    def process_incoming_email(self, email_message, imap_uid=None):
+
+
+    def process_incoming_email(self, email_message, imap_uid=None,email_date=None):
         """Process an incoming email and create database records"""
+
         try:
             # Extract email headers
-            from_address = parseaddr(email_message.get('From', ''))[1]
-            to_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('To', []) if parseaddr(addr)[1]]
-            cc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Cc', []) if parseaddr(addr)[1]]
-            bcc_addresses = [parseaddr(addr)[1] for addr in email_message.get_all('Bcc', []) if parseaddr(addr)[1]]
+            sender_name, from_address = parseaddr(
+                email_message.get('From', '')
+            )
+            logger.info(
+                f"SENDER_NAME={sender_name}"
+            )
+
+            to_addresses = [
+                parseaddr(addr)[1]
+                for addr in email_message.get_all('To', [])
+                if parseaddr(addr)[1]
+            ]
+
+            cc_addresses = [
+                parseaddr(addr)[1]
+                for addr in email_message.get_all('Cc', [])
+                if parseaddr(addr)[1]
+            ]
+
+            bcc_addresses = [
+                parseaddr(addr)[1]
+                for addr in email_message.get_all('Bcc', [])
+                if parseaddr(addr)[1]
+            ]
+
             subject_header = email_message.get('Subject', '') or '(No Subject)'
             raw_subject = decode_mime_header(subject_header) or '(No Subject)'
             subject = self.normalize_subject(raw_subject)
+
             message_id = email_message.get('Message-ID', '')
+
             if not message_id:
-               message_id = f"<no-id-{uuid.uuid4()}@local>"
-            if EmailMessage.objects.filter(email_message_id=message_id).exists():
-                logger.warning(f"Duplicate email skipped: {message_id}")
-                return None
+                message_id = f"<no-id-{uuid.uuid4()}@local>"
+
             in_reply_to = email_message.get('In-Reply-To', '')
             references = email_message.get('References', '')
             date = email_message.get('Date', '')
-            if message_id:
-                exists = EmailMessage.objects.filter(email_message_id=message_id).exists()
-                if exists:
-                    logger.warning(f"Duplicate email skipped: {message_id}")
-                    return None
-            # Extract body (preferir HTML para mostrar en el visor)
+
+            # =========================
+            # Extract body
+            # =========================
+
             html_body = None
             plain_body = None
+
             if hasattr(email_message, 'get_body'):
                 try:
                     bp = email_message.get_body(preferencelist=('html', 'plain'))
                 except Exception:
                     bp = None
+
                 if bp is not None:
                     try:
                         raw = bp.get_payload(decode=True)
+
                         if raw:
                             charset = bp.get_content_charset() or 'utf-8'
                             txt = raw.decode(charset, errors='ignore')
+
                             if bp.get_content_type() == 'text/html':
                                 html_body = txt
                             else:
                                 plain_body = txt
+
                     except Exception:
                         pass
+
             if html_body is None and plain_body is None:
                 for part in email_message.walk():
+
                     if part.get_content_maintype() == 'multipart':
                         continue
+
                     ctype = part.get_content_type()
+
                     if ctype not in ('text/plain', 'text/html'):
                         continue
+
                     try:
                         payload = part.get_payload(decode=True)
+
                         if not payload:
                             continue
+
                         charset = part.get_content_charset() or 'utf-8'
                         txt = payload.decode(charset, errors='ignore')
+
                         if ctype == 'text/html':
                             html_body = txt
+
                         elif plain_body is None:
                             plain_body = txt
+
                     except Exception:
                         continue
 
-            # Get or create contact based on email address
-            contact = self.get_or_create_contact_from_email(from_address)
-            
-            # Get or create conversation
-            conversation = self.get_or_create_conversation(contact, subject, in_reply_to, references)
-            if conversation.user is None and self.account.user:
-                conversation.user = self.account.user
-                conversation.save()
-            
+            # =========================
+            # Prepare content
+            # =========================
+
             if html_body and html_body.strip():
                 message_content = html_body.strip()
             else:
                 plain_clean = self.clean_email_body(plain_body or '') if plain_body else ''
-                message_content = plain_text_to_email_html(plain_clean or '(Sin contenido)')
+                message_content = plain_text_to_email_html(
+                    plain_clean or '(Sin contenido)'
+                )
 
-            # Create message
-            message = Message.objects.create(
-                conversation=conversation,
-                message_type='email',
-                direction='inbound',
-                content=message_content,
-                sender_name=parseaddr(email_message.get('From', ''))[0] or from_address,
-                metadata={'date': date}
-            )
-            
-            # Get or create email thread
-            email_thread = self.get_or_create_thread(conversation, subject, in_reply_to, references)
-            
-            # Create email message
-            email_msg = EmailMessage.objects.create(
-                message=message,
-                email_account=self.account,
-                imap_uid=imap_uid,
-                subject=subject,
-                html_body=html_body,
-                plain_body=plain_body,
-                email_message_id=message_id,
-                in_reply_to=in_reply_to,
-                references=references,
-                thread=email_thread,
-                to_addresses=to_addresses,
-                cc_addresses=cc_addresses,
-                bcc_addresses=bcc_addresses,
-                from_address=from_address
-            )
-            
-            # Process attachments
-            if email_message.is_multipart():
-                for part in email_message.walk():
-                    if part.get_content_maintype() == 'multipart':
-                        continue
-                    if part.get('Content-Disposition') is None:
-                        continue
-                    
-                    filename = part.get_filename()
-                    if filename:
-                        file_data = part.get_payload(decode=True)
-                        self.save_attachment(email_msg, filename, file_data, part.get_content_type())
-            
-            logger.info(f"Processed incoming email: {message_id}")
-            return email_msg
-            
+            # =========================
+            # DB transaction
+            # =========================
+
+            try:
+
+                with transaction.atomic():
+
+                    # Doble protección contra duplicados
+                    if EmailMessage.objects.filter(
+                        email_account=self.account,
+                        imap_uid=imap_uid
+                    ).exists():
+
+                        logger.warning(
+                            f"Duplicate email skipped: {message_id}"
+                        )
+
+                        return None
+
+                    # Contact
+                    contact = self.get_or_create_contact_from_email(
+                        from_address,sender_name
+                    )
+
+                    # Conversation
+                    conversation = self.get_or_create_conversation(
+                        self.account,
+                        contact,
+                        subject,
+                        in_reply_to,
+                        references
+                    )
+                    # Participants
+                    participants = set()
+
+                    if from_address:
+                        participants.add(from_address)
+
+                    participants.update(to_addresses or [])
+                    participants.update(cc_addresses or [])
+                    participants.update(bcc_addresses or [])
+
+                    conversation.participants = list(participants)
+
+                    update_fields = ['participants']
+
+                    if conversation.user is None and self.account.user:
+                        conversation.user = self.account.user
+                        update_fields.append('user')
+
+                    conversation.save(update_fields=update_fields)
+
+                    # Thread
+                    email_thread = self.get_or_create_thread(
+                        self.account,
+                        conversation,
+                        subject,
+                        in_reply_to,
+                        references,
+                        email_date
+                    )
+
+                    # Message
+                    message = Message.objects.create(
+                        conversation=conversation,
+                        message_type='email',
+                        direction='inbound',
+                        content=message_content,
+                        sender_name=sender_name or from_address,
+                        metadata={'date': date}
+                    )
+
+                    # EmailMessage
+                    email_msg, created = EmailMessage.objects.get_or_create(
+                        email_account=self.account,
+                        imap_uid=imap_uid,
+
+                        defaults={
+                            'message': message,
+                            'subject': subject,
+                            'html_body': html_body,
+                            'plain_body': plain_body,
+                            'email_message_id': message_id,
+                            'in_reply_to': in_reply_to,
+                            'references': references,
+                            'thread': email_thread,
+                            'to_addresses': to_addresses,
+                            'cc_addresses': cc_addresses,
+                            'bcc_addresses': bcc_addresses,
+                            'from_address': from_address,
+                            'email_date': email_date,
+                        }
+                    )
+                    if email_date:
+                        if (
+                            not conversation.last_message_at
+                            or email_date > conversation.last_message_at
+                        ):
+                            conversation.last_message_at = email_date
+                            conversation.last_message_preview = (
+                                plain_body[:200]
+                                if plain_body else message_content[:200]
+                            )
+
+                            conversation.save(update_fields=[
+                                'last_message_at',
+                                'last_message_preview'
+                            ])
+                    if not created:
+
+                        logger.warning(
+                            f"Duplicate email skipped "
+                            f"UID={imap_uid} "
+                            f"MESSAGE_ID={message_id}"
+                        )
+
+                        return None
+
+                    # Attachments
+                    if email_message.is_multipart():
+
+                        for part in email_message.walk():
+
+                            if part.get_content_maintype() == 'multipart':
+                                continue
+
+                            if part.get('Content-Disposition') is None:
+                                continue
+
+                            filename = part.get_filename()
+
+                            if filename:
+                                try:
+                                    file_data = part.get_payload(decode=True)
+
+                                    self.save_attachment(
+                                        email_msg,
+                                        filename,
+                                        file_data,
+                                        part.get_content_type()
+                                    )
+
+                                except Exception:
+                                    logger.exception(
+                                        f"Error saving attachment "
+                                        f"{filename} "
+                                        f"for email {message_id}"
+                                    )
+
+                logger.info(f"Processed incoming email: {message_id}")
+
+                return email_msg
+
+            except IntegrityError:
+
+                logger.warning(
+                    f"Race condition duplicate skipped "
+                    f"UID={imap_uid} "
+                    f"MESSAGE_ID={message_id}"
+                )
+
+                return None
+
         except Exception as e:
-            logger.error(f"Error processing incoming email: {str(e)}")
+
+            logger.exception(
+                f"Error processing incoming email. "
+                f"UID={imap_uid} "
+                f"SUBJECT={subject} "
+                f"FROM={from_address} "
+                f"MESSAGE_ID={message_id}"
+            )
+
             return None
-    
     def get_or_create_contact_from_email(self, email_address, sender_name=None):
 
         from clients.models import Client
 
-        email_address = (email_address or '').strip().lower()
-
-        if not email_address:
-            raise ValueError("Email address vacío")
-
         clients = Client.objects.filter(email__iexact=email_address)
 
         if clients.exists():
-
             client = clients.first()
 
             if clients.count() > 1:
                 logger.warning(
                     f"Multiple clients found for {email_address}"
                 )
-
         else:
+            client = Client.objects.create(
+                email=email_address,
+                name=sender_name or email_address.split("@")[0]
+            )
 
-            try:
-                client = Client.objects.create(
-                    email=email_address,
-                    name=(sender_name or email_address.split("@")[0])[:255]
-                )
-
-                logger.info(
-                    f"Created client for {email_address}"
-                )
-
-            except Exception:
-                logger.exception(
-                    f"Error creating client for {email_address}"
-                )
-                raise
-
-        contact, created = Contact.objects.get_or_create(
+        contact, _ = Contact.objects.get_or_create(
             client=client,
             defaults={
                 "preferred_channel": "email"
             }
         )
 
-        if created:
-            logger.info(
-                f"Created contact for {email_address}"
-            )
-
         return contact
-    
-    def _conversation_from_message_id(self, message_id):
+    def _conversation_from_message_id(self,account, message_id):
         """Busca conversación por Message-ID (In-Reply-To / References)."""
         mid = clean_message_id(message_id)
         if not mid:
             return None
         for lookup in (mid, f'<{mid}>'):
-            email_msg = EmailMessage.objects.filter(
+            email_msg = EmailMessage.objects.filter(email_account=account,
                 email_message_id=lookup
             ).select_related('message__conversation').first()
             if email_msg:
                 return email_msg.message.conversation
         return None
 
-    def _find_open_conversation_by_contact_and_subject(
-            self,
-            contact,
-            subject
-        ):
-            """
-            Mismo contacto + mismo asunto normalizado
-            pero sólo en conversaciones recientes.
-            """
-
-            norm = normalize_email_subject(subject)
-
-            if not norm:
-                return None
-
-            cutoff = timezone.now() - timedelta(days=30)
-
-            open_convos = (
-                Conversation.objects.filter(
-                    contact=contact,
-                    channel='email',
-                    status__in=_OPEN_CONVERSATION_STATUSES,
-                    updated_at__gte=cutoff,
-                )
-                .order_by('-updated_at')
-            )
-
-            for conv in open_convos:
-
-                try:
-
-                    if subjects_match(
-                        conv.subject,
-                        subject
-                    ):
-
-                        logger.info(
-                            f"Conversation matched by subject "
-                            f"conversation_id={conv.id}"
-                        )
-
-                        return conv
-
-                except Exception:
-
-                    logger.exception(
-                        f"Error matching conversation "
-                        f"{conv.id}"
-                    )
-
+    def _find_open_conversation_by_contact_and_subject(self,account, contact, subject):
+        """Mismo contacto + mismo asunto normalizado en conversación abierta."""
+        norm = normalize_email_subject(subject)
+        if not norm:
             return None
 
-    def get_or_create_conversation(
-        self,
-        account,
-        contact,
-        subject,
-        in_reply_to,
-        references=None
-    ):
+        open_convos = Conversation.objects.filter( email_account=account,
+            contact=contact,
+            channel='email',
+            status__in=_OPEN_CONVERSATION_STATUSES,
+        ).order_by('-last_message_at')
 
-        try:
+        for conv in open_convos:
+            if subjects_match(conv.subject, subject):
+                return conv
 
-            # RFC 5322
-            if in_reply_to:
+        email_msgs = EmailMessage.objects.filter(
+            email_account=account,
+            message__conversation__contact=contact,
+            message__conversation__channel='email',
+            message__conversation__status__in=_OPEN_CONVERSATION_STATUSES,
+        ).select_related('message__conversation').order_by('-email_date')
 
-                conv = self._conversation_from_message_id(
-                    account,
-                    in_reply_to
-                )
+        seen = set()
+        for em in email_msgs:
+            conv = em.message.conversation
+            if conv.id in seen:
+                continue
+            if subjects_match(em.subject, subject):
+                seen.add(conv.id)
+                return conv
+        return None
 
+    def get_or_create_conversation(self, account, contact, subject, in_reply_to, references=None):
+        # 1) Hilo RFC: In-Reply-To
+        if in_reply_to:
+            conv = self._conversation_from_message_id(account,in_reply_to)
+            if conv:
+                return conv
+
+        # 2) Hilo RFC: References (cualquier id de la cadena)
+        if references:
+            for ref in references.split():
+                conv = self._conversation_from_message_id(account, ref)
                 if conv:
-                    logger.info(
-                        f"Conversation found via In-Reply-To"
-                    )
                     return conv
 
-            # RFC References
-            if references:
+        # 3) Mismo contacto + mismo asunto (normalizado), conversación abierta
+        conv = self._find_open_conversation_by_contact_and_subject( account,contact, subject)
+        if conv:
+            return conv
 
-                for ref in references.split():
-
-                    conv = self._conversation_from_message_id(
-                        account,
-                        ref
-                    )
-
-                    if conv:
-                        logger.info(
-                            f"Conversation found via References"
-                        )
-                        return conv
-
-            # Fallback por asunto + contacto
-            try:
-
-                conv = self._find_open_conversation_by_contact_and_subject(
-                    account,
-                    contact,
-                    subject
-                )
-
-                if conv:
-
-                    logger.info(
-                        f"Conversation found via subject match "
-                        f"conversation_id={conv.id}"
-                    )
-
-                    return conv
-
-            except Exception:
-                logger.exception(
-                    "Error searching conversation by subject"
-                )
-
-            display_subject = (
-                decode_mime_header(subject or '')
-                or '(Sin asunto)'
-            )
-
-            conversation = Conversation.objects.create(
-                email_account=account,
-                contact=contact,
-                channel='email',
-                status='normal',
-                priority='normal',
-                subject=display_subject[:255],
-            )
-
-            logger.info(
-                f"Created conversation {conversation.id}"
-            )
-
-            try:
-
-                from .assignment_system import (
-                    assign_conversation_to_agent
-                )
-
-                assign_conversation_to_agent(
-                    conversation
-                )
-
-            except Exception:
-
-                logger.exception(
-                    f"Assignment failed "
-                    f"conversation_id={conversation.id}"
-                )
-
-            return conversation
-
-        except Exception:
-
-            logger.exception(
-                "Error creating conversation"
-            )
-
-            raise
-
-    def get_or_create_thread(
-        self,
-        conversation,
-        subject,
-        in_reply_to,
-        references,
-        email_date=None
-    ):
-
-        reply_mid = clean_message_id(
-            in_reply_to
+        # 4) Nuevo hilo / conversación
+        display_subject = decode_mime_header(subject or '') or '(Sin asunto)'
+        conversation = Conversation.objects.create(
+            email_account=account,
+            contact=contact,
+            channel='email',
+            status='normal',
+            priority='normal',
+            subject=display_subject[:255],
         )
 
+        from .assignment_system import assign_conversation_to_agent
+        assign_conversation_to_agent(conversation)
+
+        return conversation
+
+    def get_or_create_thread(self,account, conversation, subject, in_reply_to, references, email_date=None):
+        """Hilo dentro de la conversación (EmailThread)."""
+        reply_mid = clean_message_id(in_reply_to)
         if reply_mid:
-
-            for lookup in (
-                reply_mid,
-                f'<{reply_mid}>'
-            ):
-
-                existing_thread = (
-                    EmailThread.objects
-                    .filter(
-                        conversation=conversation,
-                        messages__email_message_id=lookup,
-                    )
-                    .first()
-                )
-
+            for lookup in (reply_mid, f'<{reply_mid}>'):
+                existing_thread = EmailThread.objects.filter(
+                    conversation=conversation,
+                    messages__email_message_id=lookup,
+                ).first()
                 if existing_thread:
-
-                    if email_date:
-
-                        existing_thread.last_message_at = email_date
-
-                    else:
-
-                        existing_thread.last_message_at = (
-                            timezone.now()
-                        )
-
-                    existing_thread.save(
-                        update_fields=['last_message_at']
-                    )
-
-                    logger.info(
-                        f"Thread found by In-Reply-To "
-                        f"thread_id={existing_thread.id}"
-                    )
-
+                    existing_thread.last_message_at = email_date or timezone.now()
+                    existing_thread.save(update_fields=['last_message_at'])
                     return existing_thread
 
-        # References
-        if references:
-
-            for ref in references.split():
-
-                ref = clean_message_id(ref)
-
-                if not ref:
-                    continue
-
-                for lookup in (
-                    ref,
-                    f'<{ref}>'
-                ):
-
-                    existing_thread = (
-                        EmailThread.objects
-                        .filter(
-                            conversation=conversation,
-                            messages__email_message_id=lookup,
-                        )
-                        .first()
-                    )
-
-                    if existing_thread:
-
-                        if email_date:
-
-                            existing_thread.last_message_at = (
-                                email_date
-                            )
-
-                        else:
-
-                            existing_thread.last_message_at = (
-                                timezone.now()
-                            )
-
-                        existing_thread.save(
-                            update_fields=['last_message_at']
-                        )
-
-                        logger.info(
-                            f"Thread found by References "
-                            f"thread_id={existing_thread.id}"
-                        )
-
-                        return existing_thread
-
-        # SOLO usar asunto como fallback
-        # si existe un único thread reciente
-
-        norm = normalize_email_subject(
-            subject
-        )
-
+        norm = normalize_email_subject(subject)
         if norm:
+            for thread in EmailThread.objects.filter(conversation=conversation):
+                if subjects_match(thread.subject, subject):
+                    thread.last_message_at = email_date or timezone.now()
+                    thread.save(update_fields=['last_message_at'])
+                    return thread
 
-            recent_threads = (
-                EmailThread.objects
-                .filter(
-                    conversation=conversation
-                )
-                .order_by('-last_message_at')[:5]
-            )
-
-            matches = []
-
-            for thread in recent_threads:
-
-                if subjects_match(
-                    thread.subject,
-                    subject
-                ):
-                    matches.append(thread)
-
-            if len(matches) == 1:
-
-                thread = matches[0]
-
-                if email_date:
-
-                    thread.last_message_at = (
-                        email_date
-                    )
-
-                else:
-
-                    thread.last_message_at = (
-                        timezone.now()
-                    )
-
-                thread.save(
-                    update_fields=['last_message_at']
-                )
-
-                logger.info(
-                    f"Thread found by subject "
-                    f"thread_id={thread.id}"
-                )
-
-                return thread
-
-        display_subject = (
-            decode_mime_header(
-                subject or ''
-            )
-            or '(Sin asunto)'
-        )
-
-        thread = EmailThread.objects.create(
+        display_subject = decode_mime_header(subject or '') or '(Sin asunto)'
+        return EmailThread.objects.create(
+            email_account=account,
             subject=display_subject[:500],
             conversation=conversation,
             first_message_at=email_date or timezone.now(),
             last_message_at=email_date or timezone.now(),
             participants=[],
         )
-
-        logger.info(
-            f"Created thread "
-            f"thread_id={thread.id}"
-        )
-
-        return thread
     
     def save_attachment(self, email_message, filename, file_data, mime_type):
         """Save email attachment"""
@@ -968,8 +885,20 @@ def fetch_new_emails(self, folder='INBOX'):
                     to_addresses=to_addresses,
                     cc_addresses=cc_addresses or [],
                     bcc_addresses=bcc_addresses or [],
-                    from_address=self.account.email_address
+                    from_address=self.account.email_address,
+                    email_date=timezone.now(), 
                 )
+
+                # Update conversation participants to include all recipients
+                try:
+                    parts = set(conversation.participants or [])
+                    parts.update([a for a in (to_addresses or []) if a])
+                    parts.update([a for a in (cc_addresses or []) if a])
+                    parts.update([a for a in (bcc_addresses or []) if a])
+                    conversation.participants = list(parts)
+                    conversation.save(update_fields=['participants'])
+                except Exception:
+                    pass
 
                 if attachments:
                    

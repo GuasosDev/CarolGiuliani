@@ -46,7 +46,7 @@
                             hx-post="{% url 'communications:mark_conversation_unread' conversation.id %}"
                             hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                             hx-swap="none"><i class="far fa-envelope" aria-hidden="true"></i></button>
-                    <button type="button" class="btn btn-sm btn-light border email-read-toolbar-btn" title="Imprimir" onclick="printMessage('{{ lm.id }}')"><i class="fas fa-print" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-sm btn-light border email-read-toolbar-btn" title="Imprimir" onclick="('{{ lm.id }}')"><i class="fas fa-print" aria-hidden="true"></i></button>
                     <button type="button" class="btn btn-sm btn-light border email-read-toolbar-btn" title="Descargar" onclick="downloadMessage('{{ lm.id }}', '{{ lm.message_type }}')"><i class="fas fa-download" aria-hidden="true"></i></button>
                 </div>
                 {% endif %}
@@ -339,7 +339,7 @@
                         {% endif %}
 
                         <div class="msg-action-buttons">
-                            <button onclick="printMessage('{{ m.id }}')" class="msg-action-btn" title="Imprimir">
+                            <button onclick="printMessage(this)">
                                 <i class="fas fa-print"></i>
                             </button>
                             <button onclick="downloadMessage('{{ m.id }}', '{{ m.message_type }}')" class="msg-action-btn" title="Descargar">
@@ -362,7 +362,7 @@
             </div>
             {% endif %}
             {% endif %}
-
+          <script src="{% static 'communications/js/conversation_content.js' %}" defer></script>
         </div>
 
         {% if conversation.channel == 'email' %}

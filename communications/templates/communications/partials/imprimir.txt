@@ -1,0 +1,63 @@
+<button onclick="printMessage('{{ m.id }}')" 
+                                        class="btn btn-sm btn-outline-secondary" 
+                                        style="padding: 2px 6px; font-size: 11px; border-radius: 4px;"
+                                        title="Imprimir mensaje">
+                                    <i class="fas fa-print"></i>
+                                </button>function printMessage(messageId) {
+            console.log('Intentando imprimir mensaje:', messageId);
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageElement) {
+                console.error('Mensaje no encontrado:', messageId);
+                alert('No se pudo encontrar el mensaje para imprimir');
+                return;
+            }
+
+            // Extraer información del mensaje
+            const headerElement = messageElement.querySelector('.msg-header');
+            const contentElement = messageElement.querySelector('.msg-bubble');
+            
+            let headerText = '';
+            let contentText = '';
+            
+            if (headerElement) {
+                headerText = headerElement.textContent.trim();
+            }
+            
+            if (contentElement) {
+                // Limpiar el contenido, eliminando HTML pero preservando texto
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = contentElement.innerHTML;
+                contentText = tempDiv.textContent || tempDiv.innerText || '';
+                contentText = contentText.trim();
+            }
+            
+            // Crear una ventana de impresión
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            
+            // Crear HTML para imprimir
+            const printHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Mensaje #${messageId}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.5; }
+                        .header { font-weight: bold; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+                        .content { margin-bottom: 20px; white-space: pre-wrap; }
+                        .footer { font-size: 12px; color: #666; margin-top: 20px; }
+                        @media print { body { margin: 15px; } }
+                    </style>
+                </head>
+                <body>
+                    <h2>Mensaje #${messageId}</h2>
+                    <div class="header">${headerText}</div>
+                    <div class="content">${contentText}</div>
+                    <div class="footer">Impreso el ${new Date().toLocaleString()}</div>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+            printWindow.print();
+        }
