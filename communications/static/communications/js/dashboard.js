@@ -199,12 +199,21 @@
     }
 
     function loadEmailMessage(element, id) {
+        // Marcar la conversación seleccionada
+        if (element) {
+            document.querySelectorAll('.conversation-item.active')
+                .forEach(el => el.classList.remove('active'));
+
+            element.classList.add('active');
+        }
+
         if (window.conversationPollInterval) {
             clearInterval(window.conversationPollInterval);
             window.conversationPollInterval = null;
         }
 
         selectEmailMessage(element, id);
+
         requestDetail(
             '/communications/email-message/' + id + '/?partial=true',
             'Cargando email...',

@@ -121,7 +121,11 @@ body.dark-mode .border, body.dark-mode .border-end, body.dark-mode .border-start
 body.dark-mode #conversation-list-panel { background-color: #14181d !important; border-color: var(--omni-border) !important; }
 body.dark-mode #conversation-list-panel .list-group-item { background: #2b3035 !important; color: var(--omni-text) !important; border-color: var(--omni-border) !important; }
 body.dark-mode #conversation-list-panel .list-group-item.bg-light { background: #2a2f34 !important; color: var(--omni-text) !important; }
-body.dark-mode .conversation-item.active { background-color: #2f3640 !important; border-left-color: var(--omni-primary) !important; }
+body.dark-mode .conversation-item.active {
+    background-color: #2f3640 !important;
+    border-left: 4px solid var(--omni-primary);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+}
 body.dark-mode #conversation-detail-panel {
     background-color: #1f2327 !important;
 }

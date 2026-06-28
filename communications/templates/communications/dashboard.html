@@ -50,7 +50,7 @@
     <div class="comm-dashboard-panel comm-list-panel bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0{% if current_channel == 'email' %} comm-mail-shell{% endif %}" id="conversation-list-panel">
             <!-- Scrollable List -->
             <div class="comm-dashboard-conversations flex-grow-1 overflow-auto" id="dashboard-conversations-container"
-                hx-get="{{ request.get_full_path }}" hx-trigger="every 15s"
+                hx-get="{{ request.get_full_path }}" hx-trigger="every 120s"
                 hx-select="#dashboard-conversations-container" hx-swap="outerHTML">
 
                 <div class="list-group list-group-flush">
