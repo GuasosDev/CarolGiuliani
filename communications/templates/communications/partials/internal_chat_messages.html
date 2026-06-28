@@ -19,9 +19,9 @@
 
         <div class="msg-bubble text-break pt-1 d-inline-block text-start
             {% if m.author_id == request.user.id %}
-                bg-primary text-white
+                bg-primary text-dark
             {% else %}
-                bg-white
+                bg-dark
             {% endif %}
         ">
             {{ m.content|linebreaksbr }}

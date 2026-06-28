@@ -72,9 +72,14 @@ href="{% url 'communications:dashboard' %}?channel=email&folder=sent">
         </ul>
     </div>
     <span class="comm-mail-toolbar-sep" aria-hidden="true"></span>
-    <button type="button" class="btn btn-toolbar-mail" title="Actualizar lista" onclick="commMailRefreshList()">
-        <span class="comm-mail-tb-ico"><i class="fas fa-sync-alt"></i></span><span>Actualizar</span>
-    </button>
+    <button type="button" 
+        class="btn btn-toolbar-mail" 
+        title="Actualizar lista" 
+        onclick="if(typeof window.commMailRefreshList === 'function') { window.commMailRefreshList(); } else { window.location.reload(); }"> 
+    <span class="comm-mail-tb-ico"><i class="fas fa-sync-alt"></i></span>
+    <span>Actualizar</span> 
+</button>
+
     <button type="button" class="btn btn-toolbar-mail" title="Redactar" onclick="commMailCompose('new')">
         <span class="comm-mail-tb-ico"><i class="fas fa-pen"></i></span><span>Redactar</span>
     </button>

@@ -11,7 +11,14 @@
     </header>
 
     {% if latest_message %}
-        <article class="email-thread-message">
+        <!-- CORREGIDO: Añadido data-message-id para mapear el último mensaje con la barra superior -->
+        <article class="email-thread-message" data-message-id="{{ latest_message.id }}">
+            
+            <!-- CABECERA INVISIBLE PARA EL CONTENIDO DEL SCRIPT -->
+            <div class="msg-header d-none">
+                Asunto: {{ conversation.subject|default:"(Sin asunto)"|decode_email_subject }} | Fecha: {{ latest_message.created_at|date:"d/m/Y H:i" }}
+            </div>
+
             <div class="d-flex align-items-start gap-3 mb-3">
                 <div class="email-thread-avatar">
                     {% if latest_message.direction == 'outbound' %}
@@ -38,7 +45,9 @@
                         </div>
                         <span class="badge bg-light text-muted small">{{ latest_message.direction|capfirst }}</span>
                     </div>
-                    <div class="email-read-body text-break">
+                    
+                    <!-- CORREGIDO: Añadida la clase email-body para la compatibilidad del JS extractor -->
+                    <div class="email-read-body email-body text-break">
                         {{ latest_message.render_content|safe }}
                     </div>
                 </div>
@@ -95,7 +104,13 @@
             </summary>
             <div class="mt-3">
                 {% for m in previous_messages %}
-                <article class="email-read-archive-item py-3 border-bottom">
+                <!-- CORREGIDO: Mapeamos también cada correo antiguo individualmente por si quieres agregarles botones de descarga propios a futuro -->
+                <article class="email-read-archive-item py-3 border-bottom" data-message-id="{{ m.id }}">
+                    
+                    <div class="msg-header d-none">
+                        Historial - Fecha: {{ m.created_at|date:"d/m/Y H:i" }}
+                    </div>
+
                     <div class="d-flex align-items-start gap-3 mb-2">
                         <div class="email-thread-avatar" style="width:36px; height:36px; font-size:0.9rem;">
                             {% if m.direction == 'outbound' %}
@@ -112,7 +127,42 @@
                             <div class="small text-muted mb-2">
                                 {{ m.created_at|date:"d/m/Y H:i" }} · {% if m.direction == 'inbound' %}{% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}{{ m.sender_name|default:"—" }}{% endif %}{% else %}Tú{% endif %}
                             </div>
-                            <div class="text-break small">{{ m.render_content|safe }}</div>
+                            
+                            <!-- CORREGIDO: Agregada la clase email-body para mantener simetría con el JS extractor -->
+                            <div class="text-break small email-body">{{ m.render_content|safe }}</div>
+                            {% if m.email_data %}
+                            {% for att in m.email_data.attachments.all %}
+                                <div class="attachment-preview mt-2">
+                                    <div class="attachment-card"
+                                        style="width:200px;height:120px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.1);overflow:hidden;">
+
+                                        <div onclick="openAttachmentPreview('{{ att.file.url }}', '{{ att.filename }}')"
+                                            style="cursor:pointer">
+
+                                            {% if ".jpg" in att.file.url or ".jpeg" in att.file.url or ".png" in att.file.url or ".gif" in att.file.url %}
+                                                <img src="{{ att.file.url }}"
+                                                    style="width:100%;height:80px;object-fit:cover;">
+                                            {% elif ".pdf" in att.file.url %}
+                                                <div style="height:80px;display:flex;align-items:center;justify-content:center;background:#f8f9fa">
+                                                    <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                                                </div>
+                                            {% else %}
+                                                <div style="height:80px;display:flex;align-items:center;justify-content:center;background:#f8f9fa">
+                                                    <i class="fas fa-file fa-2x text-secondary"></i>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+
+                                        <div style="padding:8px">
+                                            <a href="{{ att.file.url }}" download="{{ att.filename }}">
+                                                {{ att.filename }}
+                                            </a>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
                         </div>
                     </div>
                 </article>

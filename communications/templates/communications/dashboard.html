@@ -64,39 +64,48 @@
                         data-contact-name="{% if em.message.conversation %}{{ em.message.conversation.get_display_name }}{% else %}Email{% endif %}"
                         onclick="loadEmailMessage(this, '{{ em.id }}')">
 
-                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted text-truncate">
-                                        De:{{ em.message.sender_name|default:em.from_address|default:"-" }}
-                                    </small>
-                                </div>
-                            <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
-                                <span class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
-                                    {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
-                                </span>
-                            </div>
-                            <small class="text-muted text-nowrap flex-shrink-0">{{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}</small>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
                         <div class="d-flex justify-content-between align-items-center">
-                            {% with joined=em.recipients_joined recipients=em.recipients %}
-                                {% if recipients|length > 1 %}
-                                    <div class="d-flex align-items-center gap-1 w-100">
-                                        <span class="text-muted text-truncate recipient-summary" title="Para: {{ joined }}">
-                                            Para: {{ recipients.0|default:em.email_account.email_address|default:"-" }}
-                                        </span>
-                                        <span class="recipient-badge text-primary small flex-shrink-0" title="{{ joined }}">
-                                            +{{ recipients|length|add:"-1" }} más <i class="fas fa-chevron-right"></i>
-                                        </span>
-                                    </div>
-                                {% else %}
-                                    <small class="text-muted text-truncate" style="min-width:0;" title="{{ joined }}">
-                                        Para: {{ joined|default:em.email_account.email_address|default:"-"|truncatechars:40 }}
-                                    </small>
-                                {% endif %}
-                            {% endwith %}
-                            <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                            <!-- "De:" oscuro si no está leído, gris secundario si ya se leyó -->
+                            <small class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}">
+                                De: {{ em.message.sender_name|default:em.from_address|default:"-" }}
+                            </small>
                         </div>
+                        <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
+                            <span class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
+                                {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
+                            </span>
+                        </div>
+                        <!-- MODIFICADO: La fecha ahora también usa text-secondary para evitar el gris claro/blanco -->
+                        <small class="text-nowrap flex-shrink-0 {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}">
+                            {{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}
+                        </small>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        {% with joined=em.recipients_joined recipients=em.recipients %}
+                            {% if recipients|length > 1 %}
+                                <div class="d-flex align-items-center gap-1 w-100">
+                                    <!-- "Para:" (Múltiples) oscuro si no está leído, gris secundario si ya se leyó -->
+                                    <span class="text-truncate recipient-summary {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}" title="Para: {{ joined }}">
+                                        Para: {{ recipients.0|default:em.email_account.email_address|default:"-" }}
+                                    </span>
+                                    <span class="recipient-badge text-primary small flex-shrink-0" title="{{ joined }}">
+                                        +{{ recipients|length|add:"-1" }} más <i class="fas fa-chevron-right"></i>
+                                    </span>
+                                </div>
+                            {% else %}
+                                <!-- "Para:" (Individual) oscuro si no está leído, gris secundario si ya se leyó -->
+                                <small class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}" style="min-width:0;" title="{{ joined }}">
+                                    Para: {{ joined|default:em.email_account.email_address|default:"-"|truncatechars:40 }}
+                                </small>
+                            {% endif %}
+                        {% endwith %}
+                        <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                    </div>
                     </button>
+
+
+
                     {% empty %}
                     <div class="text-center p-5 text-muted">
                         <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>

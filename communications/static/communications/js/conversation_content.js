@@ -1005,58 +1005,132 @@
     };
 
     window.printMessage = function (messageId) {
-        var messageElement = document.querySelector('[data-message-id="' + messageId + '"]');
-        if (!messageElement) {
-            alert('No se pudo encontrar el mensaje para imprimir');
-            return;
-        }
-        var headerElement = messageElement.querySelector('.msg-header');
-        var contentElement = messageElement.querySelector('.msg-bubble');
-        var headerText = headerElement ? headerElement.textContent.trim() : '';
-        var contentText = '';
-        if (contentElement) {
-            var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = contentElement.innerHTML;
-            contentText = (tempDiv.textContent || tempDiv.innerText || '').trim();
-        }
-        var printWindow = window.open('', '_blank', 'width=800,height=600');
-        var printHTML = '<!DOCTYPE html><html><head><title>Mensaje #' + messageId + '</title>' +
-            '<style>body{font-family:Arial,sans-serif;margin:20px;line-height:1.5}.header{font-weight:bold;margin-bottom:15px;padding:10px;background:#f5f5f5;border-radius:5px}.content{margin-bottom:20px;white-space:pre-wrap}.footer{font-size:12px;color:#666;margin-top:20px}@media print{body{margin:15px}}</style>' +
-            '</head><body><h2>Mensaje #' + messageId + '</h2><div class="header">' + headerText + '</div><div class="content">' + contentText + '</div><div class="footer">Impreso el ' + new Date().toLocaleString() + '</div></body></html>';
-        printWindow.document.write(printHTML);
-        printWindow.document.close();
-        printWindow.print();
-    };
+            var messageElement = document.querySelector('[data-message-id="' + messageId + '"]');
+            if (!messageElement) {
+                alert('No se pudo encontrar el mensaje #' + messageId + ' para imprimir.');
+                return;
+            }
+            
+            var headerElement = messageElement.querySelector('.msg-header');
+            var headerText = headerElement ? headerElement.textContent.trim() : 'Mensaje de Correo';
+            
+            // CORRECCIÓN: Clonamos todo el contenedor del mensaje para capturar texto + adjuntos
+            var clone = messageElement.cloneNode(true);
+            
+            // Removemos los botones de acción del clon para que no se impriman a sí mismos
+            var actionButtons = clone.querySelector('.msg-action-buttons') || clone.querySelector('.email-read-toolbar-actions');
+            if (actionButtons) actionButtons.remove();
+            
+            // Ocultamos la cabecera invisible dentro del clon para manejarla nosotros
+            var innerHeader = clone.querySelector('.msg-header');
+            if (innerHeader) innerHeader.remove();
 
-    window.downloadMessage = function (messageId, messageType) {
-        var messageElement = document.querySelector('[data-message-id="' + messageId + '"]');
-        if (!messageElement) {
-            alert('No se pudo encontrar el mensaje para descargar');
-            return;
-        }
-        var headerElement = messageElement.querySelector('.msg-header');
-        var contentElement = messageElement.querySelector('.msg-bubble');
-        var messageText = 'Mensaje #' + messageId + '\nTipo: ' + messageType + '\nFecha: ' + new Date().toLocaleString() + '\n' + '='.repeat(50) + '\n\n';
-        if (headerElement) messageText += headerElement.textContent.trim() + '\n\n';
-        if (contentElement) {
-            var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = contentElement.innerHTML;
-            messageText += (tempDiv.textContent || tempDiv.innerText || '').trim();
-        }
-        try {
-            var blob = new Blob([messageText], { type: 'text/plain;charset=utf-8' });
-            var url = window.URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = 'mensaje_' + messageId + '_' + messageType + '_' + new Date().getTime() + '.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            alert('Error al descargar el mensaje');
-        }
-    };
+            var contentHTML = clone.innerHTML;
+            
+            var printWindow = window.open('', '_blank', 'width=800,height=600');
+            if (!printWindow) {
+                alert('Por favor, permite las ventanas emergentes.');
+                return;
+            }
+
+            var printHTML = '<!DOCTYPE html><html><head><title>Mensaje #' + messageId + '</title>' +
+                '<style>' +
+                'body{font-family:Arial,sans-serif;margin:30px;line-height:1.5;color:#333;}' +
+                '.header{font-weight:bold;margin-bottom:20px;padding:12px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;}' +
+                '.content{margin-bottom:25px;font-size:15px;}' +
+                'img{max-width:200px; height:auto; display:block; margin-top:10px; border-radius:4px; border:1px solid #ddd;}' +
+                '.attachment-footer, .email-thread-attachment{margin-top:10px; padding:10px; background:#f9f9f9; border-radius:4px; display:inline-block; border:1px solid #eee;}' +
+                '.footer{font-size:11px;color:#777;margin-top:30px;border-top:1px solid #eee;padding-top:10px;}' +
+                '@media print{body{margin:15px;}}' +
+                '</style>' +
+                '</head><body>' +
+                '<h2>Mensaje #' + messageId + '</h2>' +
+                '<div class="header">' + headerText + '</div>' +
+                '<div class="content">' + contentHTML + '</div>' + 
+                '<div class="footer">Impreso el ' + new Date().toLocaleString() + '</div>' +
+                '</body></html>';
+            
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+            
+            printWindow.onload = function() {
+                printWindow.print();
+                printWindow.close();
+            };
+        };
+
+      window.downloadMessage = function (messageId, messageType) {
+            var messageElement = document.querySelector('[data-message-id="' + messageId + '"]');
+            if (!messageElement) {
+                alert('No se pudo encontrar el mensaje para descargar.');
+                return;
+            }
+            
+            var headerElement = messageElement.querySelector('.msg-header');
+            var headerText = headerElement ? headerElement.textContent.trim() : 'Mensaje';
+            
+            // Clonamos exactamente igual para limpiar elementos basura
+            var clone = messageElement.cloneNode(true);
+            var actionButtons = clone.querySelector('.msg-action-buttons') || clone.querySelector('.email-read-toolbar-actions');
+            if (actionButtons) actionButtons.remove();
+            var innerHeader = clone.querySelector('.msg-header');
+            if (innerHeader) innerHeader.remove();
+
+            var fileContent = '';
+            var fileExtension = 'html'; // Forzamos por defecto extensión web para asegurar diseño
+            var mimeType = 'text/html;charset=utf-8';
+
+            // DETERMINACIÓN ABSOLUTA: Si contiene clases de email en el documento, se procesa como HTML estructurado
+            var hasEmailClasses = messageElement.querySelector('.email-body') || 
+                                messageElement.querySelector('.email-read-body') || 
+                                messageElement.querySelector('.email-thread-message') ||
+                                messageElement.classList.contains('is-email');
+
+            if (hasEmailClasses) {
+                fileContent = '<!DOCTYPE html><html><head><title>Mensaje #' + messageId + '</title>' +
+                    '<style>' +
+                    'body{font-family:Arial,sans-serif;margin:30px;line-height:1.5;color:#333;}' +
+                    '.header{font-weight:bold;margin-bottom:20px;padding:12px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;}' +
+                    '.content{margin-bottom:25px;} ' +
+                    'img{max-width:200px;height:auto;display:block;margin-top:10px;border-radius:4px;border:1px solid #ddd;}' +
+                    '.attachment-footer, .email-thread-attachment{margin-top:10px; padding:10px; background:#f9f9f9; border-radius:4px; display:inline-block; border:1px solid #eee;}' +
+                    '</style>' +
+                    '</head><body>' +
+                    '<h2>Mensaje #' + messageId + ' (EMAIL)</h2>' +
+                    '<div class="header">' + headerText + ' <br><small>Descargado el: ' + new Date().toLocaleString() + '</small></div>' +
+                    '<div class="content">' + clone.innerHTML + '</div>' + 
+                    '</body></html>';
+            } else {
+                // Solo si es un chat plano estricto de WhatsApp sin estructuras complejas
+                fileExtension = 'txt';
+                mimeType = 'text/plain;charset=utf-8';
+                var contentElement = messageElement.querySelector('.msg-bubble');
+                fileContent = 'Mensaje #' + messageId + '\n' +
+                            'Tipo: ' + (messageType || 'chat') + '\n' +
+                            'Fecha de Descarga: ' + new Date().toLocaleString() + '\n' + 
+                            '='.repeat(50) + '\n\n' +
+                            headerText + '\n\n' +
+                            'Contenido:\n' + (contentElement ? contentElement.innerText.trim() : '(Sin contenido)');
+            }
+            
+            // Procesa y gatilla la descarga forzando los tipos correctos detectados
+            try {
+                var blob = new Blob([fileContent], { type: mimeType });
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'mensaje_' + messageId + '_' + (messageType || 'archivo') + '_' + new Date().getTime() + '.' + fileExtension;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('Error al descargar el mensaje');
+            }
+        };
+
+
+
 
     window.openAttachmentPreview = function (fileUrl, fileName) {
         var modal = document.getElementById('attachmentPreviewModal');
