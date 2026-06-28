@@ -165,8 +165,6 @@ class EmailHandler:
                 )
                 return []
 
-            # Buscar SIEMPRE todos los UIDs
-            # y filtrar duplicados desde la DB
             status, messages = self.imap_connection.uid(
                 'search',
                 None,
@@ -196,17 +194,24 @@ class EmailHandler:
 
             fetched_emails = []
 
-            # opcional:
-            # procesar del más nuevo al más viejo
             for uid in reversed(email_uids):
 
                 uid_str = uid.decode()
 
-                # evitar duplicados
+                logger.info(
+                    f"[{self.account.email_address}] UID={uid_str} START"
+                )
+
+                # Ya existe en BD
                 if EmailMessage.objects.filter(
                     email_account=self.account,
                     imap_uid=uid_str
                 ).exists():
+
+                    logger.debug(
+                        f"[{self.account.email_address}] "
+                        f"UID={uid_str} SKIPPED (already exists)"
+                    )
                     continue
 
                 try:
@@ -218,33 +223,63 @@ class EmailHandler:
 
                     if status != 'OK':
                         logger.warning(
-                            f"Could not fetch UID {uid_str} "
-                            f"for {self.account.email_address}"
+                            f"[{self.account.email_address}] "
+                            f"UID={uid_str} FETCH FAILED "
+                            f"status={status}"
                         )
                         continue
 
+                    logger.info(
+                        f"[{self.account.email_address}] "
+                        f"UID={uid_str} FETCH OK"
+                    )
+
                     if not msg_data or not msg_data[0]:
+                        logger.warning(
+                            f"[{self.account.email_address}] "
+                            f"UID={uid_str} EMPTY FETCH"
+                        )
                         continue
 
                     raw_email = msg_data[0][1]
 
                     if not raw_email:
+                        logger.warning(
+                            f"[{self.account.email_address}] "
+                            f"UID={uid_str} EMPTY RFC822"
+                        )
                         continue
 
                     email_message = email.message_from_bytes(raw_email)
+
+                    message_id = email_message.get("Message-ID", "")
+                    subject = decode_mime_header(
+                        email_message.get("Subject", "")
+                    )
+
+                    logger.info(
+                        f"[{self.account.email_address}] "
+                        f"UID={uid_str} "
+                        f"MESSAGE_ID={message_id} "
+                        f"SUBJECT={subject}"
+                    )
 
                     email_date = None
 
                     if email_message.get("Date"):
                         try:
-                            email_date = parsedate_to_datetime(email_message.get("Date"))
+                            email_date = parsedate_to_datetime(
+                                email_message.get("Date")
+                            )
+
                             if email_date and is_naive(email_date):
                                 email_date = make_aware(email_date)
 
-                        except Exception as e:
-                            logger.exception(e)
-
-                            logger.warning(f"EMAIL DATE: {email_date}")
+                        except Exception:
+                            logger.exception(
+                                f"[{self.account.email_address}] "
+                                f"UID={uid_str} Error parsing date"
+                            )
 
                     processed = self.process_incoming_email(
                         email_message,
@@ -253,11 +288,21 @@ class EmailHandler:
                     )
 
                     if processed:
+                        logger.info(
+                            f"[{self.account.email_address}] "
+                            f"UID={uid_str} PROCESSED"
+                        )
                         fetched_emails.append(processed)
+                    else:
+                        logger.warning(
+                            f"[{self.account.email_address}] "
+                            f"UID={uid_str} NOT PROCESSED"
+                        )
 
-                except Exception as e:
+                except Exception:
                     logger.exception(
-                        f"Error processing UID {uid_str}: {str(e)}"
+                        f"[{self.account.email_address}] "
+                        f"UID={uid_str} FAILED"
                     )
                     continue
 
@@ -268,58 +313,33 @@ class EmailHandler:
 
             return fetched_emails
 
-        except Exception as e:
+        except Exception:
             logger.exception(
                 f"Error fetching emails "
-                f"for {self.account.email_address}: {str(e)}"
+                f"for {self.account.email_address}"
             )
             return []
 
         finally:
             self.disconnect()
 
-    def clean_email_body(self, body):
-        if not body:
-            return body
-
-        separators = [
-            "On ",
-            "El ",
-            "From:",
-            "De:",
-            "-----Original Message-----"
-        ]
-
-        for sep in separators:
-            if sep in body:
-                return body.split(sep)[0].strip()
-
-        return body.strip()
-    def normalize_subject(self, subject):
-        import re
-
-        if not subject:
-            return "(No Subject)"
-
-        subject = re.sub(
-            r'^(re|rv|fw|fwd):\s*',
-            '',
-            subject,
-            flags=re.IGNORECASE
-        )
-
-        return subject.strip()
-
 
     def process_incoming_email(self, email_message, imap_uid=None,email_date=None):
         """Process an incoming email and create database records"""
 
         try:
+            logger.info(
+                f"UID={imap_uid} PROCESS_INCOMING_EMAIL START"
+            )
+
             # Extract email headers
             sender_name, from_address = parseaddr(
                 email_message.get('From', '')
             )
+
             logger.info(
+                f"UID={imap_uid} "
+                f"FROM={from_address} "
                 f"SENDER_NAME={sender_name}"
             )
 
@@ -344,7 +364,11 @@ class EmailHandler:
             subject_header = email_message.get('Subject', '') or '(No Subject)'
             raw_subject = decode_mime_header(subject_header) or '(No Subject)'
             subject = self.normalize_subject(raw_subject)
-
+            logger.info(
+                f"UID={imap_uid} "
+                f"MESSAGE_ID={message_id} "
+                f"SUBJECT={subject}"
+            )
             message_id = email_message.get('Message-ID', '')
 
             if not message_id:
@@ -448,6 +472,11 @@ class EmailHandler:
                     contact = self.get_or_create_contact_from_email(
                         from_address,sender_name
                     )
+                    logger.info(
+                        f"UID={imap_uid} Creating contact "
+                        f"CONTACT_ID={contact.id} "
+                        f"EMAIL={from_address}"
+                    )
 
                     # Conversation
                     conversation = self.get_or_create_conversation(
@@ -456,6 +485,9 @@ class EmailHandler:
                         subject,
                         in_reply_to,
                         references
+                    )
+                    logger.info(
+                        f"UID={imap_uid} Conversation={conversation.id}"
                     )
                     # Participants
                     participants = set()
@@ -496,7 +528,9 @@ class EmailHandler:
                         sender_name=sender_name or from_address,
                         metadata={'date': date}
                     )
-
+                    logger.info(
+                        f"UID={imap_uid} Message={message.id}"
+                    )
                     # EmailMessage
                     email_msg, created = EmailMessage.objects.get_or_create(
                         email_account=self.account,
@@ -517,6 +551,11 @@ class EmailHandler:
                             'from_address': from_address,
                             'email_date': email_date,
                         }
+                    )
+                    logger.info(
+                        f"UID={imap_uid} "
+                        f"EmailMessage={email_msg.id} "
+                        f"CREATED={created}"
                     )
                     if email_date:
                         if (
@@ -546,6 +585,10 @@ class EmailHandler:
                     # Attachments
                     if email_message.is_multipart():
 
+                        logger.info(
+                            f"UID={imap_uid} Processing attachments"
+                        )
+
                         for part in email_message.walk():
 
                             if part.get_content_maintype() == 'multipart':
@@ -566,6 +609,9 @@ class EmailHandler:
                                         file_data,
                                         part.get_content_type()
                                     )
+                                    logger.info(
+                                        f"UID={imap_uid} Attachment saved: {filename}"
+                                    )
 
                                 except Exception:
                                     logger.exception(
@@ -574,7 +620,14 @@ class EmailHandler:
                                         f"for email {message_id}"
                                     )
 
-                logger.info(f"Processed incoming email: {message_id}")
+                logger.info(
+                    f"UID={imap_uid} "
+                    f"PROCESSED "
+                    f"MESSAGE_ID={message_id} "
+                    f"CONVERSATION={conversation.id} "
+                    f"MESSAGE={message.id} "
+                    f"EMAIL_MESSAGE={email_msg.id}"
+                )
 
                 return email_msg
 
@@ -591,13 +644,15 @@ class EmailHandler:
         except Exception as e:
 
             logger.exception(
-                f"Error processing incoming email. "
-                f"UID={imap_uid} "
-                f"SUBJECT={subject} "
-                f"FROM={from_address} "
-                f"MESSAGE_ID={message_id}"
+                f"""
+                EMAIL PROCESS FAILED
+                ACCOUNT={self.account.email_address}
+                UID={imap_uid}
+                FROM={from_address}
+                SUBJECT={subject}
+                MESSAGE_ID={message_id}
+                """
             )
-
             return None
     def get_or_create_contact_from_email(self, email_address, sender_name=None):
 
