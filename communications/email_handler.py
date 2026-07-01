@@ -40,16 +40,7 @@ logger = logging.getLogger(__name__)
 
 class EmailHandler:
     """Handler for email operations"""
-    COMMON_FOLDERS = [
-        "INBOX",
-        "Sent",
-        "Sent Items",
-        "Sent Messages",
-        "INBOX.Sent",
-        "INBOX.Enviados",
-        "Enviados",
-        "INBOX.Sent Items",
-    ]
+    
     
     def __init__(self, email_account):
         self.account = email_account
@@ -162,28 +153,30 @@ class EmailHandler:
     
     
 
-    def fetch_new_emails(self, folder=None):
+    def fetch_new_emails(self, folder='INBOX'):
+        """Fetch emails from IMAP server using UID tracking"""
+
         if not self.connect_imap():
             return []
 
-        if folder is None:
-            folders = self.COMMON_FOLDERS
-        else:
-            folders = [folder]
-
-        all_emails = []
-
         try:
-            for folder in folders:
-                status, _ = self.imap_connection.select(folder)
+            status, folders = self.imap_connection.list()
+            logger.info(f"IMAP LIST STATUS: {status}")
+            if status == "OK":
+                for f in folders:
+                    try:
+                        logger.info(f"IMAP FOLDER: {f.decode('utf-8', errors='ignore')}")
+                    except Exception:
+                        logger.info(f"IMAP FOLDER RAW: {f}")
 
-                if status != "OK":
-                    logger.info(
-                        f"Could not select folder {folder} "
-                        f"for {self.account.email_address}"
-                    )
-                    continue
+            status, _ = self.imap_connection.select(folder)
 
+            if status != "OK":
+                logger.error(
+                    f"Could not select folder {folder} "
+                    f"for {self.account.email_address}"
+                )
+                return []
 
             status, messages = self.imap_connection.uid(
                 'search',
@@ -262,7 +255,6 @@ class EmailHandler:
                         continue
 
                     raw_email = msg_data[0][1]
-                    
 
                     if not raw_email:
                         logger.warning(
@@ -278,7 +270,7 @@ class EmailHandler:
                         email_message.get("Subject", "")
                     )
 
-                    logger.info(
+                    logger.debug(
                         f"[{self.account.email_address}] "
                         f"UID={uid_str} "
                         f"MESSAGE_ID={message_id} "
@@ -309,7 +301,7 @@ class EmailHandler:
                     )
 
                     if processed:
-                        logger.info(
+                        logger.debug(
                             f"[{self.account.email_address}] "
                             f"UID={uid_str} PROCESSED"
                         )
@@ -343,7 +335,6 @@ class EmailHandler:
 
         finally:
             self.disconnect()
-
 
     def process_incoming_email(self, email_message, imap_uid=None, email_date=None):
         """Process an incoming email and create database records"""
