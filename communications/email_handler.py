@@ -40,6 +40,16 @@ logger = logging.getLogger(__name__)
 
 class EmailHandler:
     """Handler for email operations"""
+    COMMON_FOLDERS = [
+        "INBOX",
+        "Sent",
+        "Sent Items",
+        "Sent Messages",
+        "INBOX.Sent",
+        "INBOX.Enviados",
+        "Enviados",
+        "INBOX.Sent Items",
+    ]
     
     def __init__(self, email_account):
         self.account = email_account
@@ -148,22 +158,32 @@ class EmailHandler:
                 self.smtp_connection.quit()
             except:
                 pass
-    
-    def fetch_new_emails(self, folder='INBOX'):
-        """Fetch emails from IMAP server using UID tracking"""
 
+    
+    
+
+    def fetch_new_emails(self, folder=None):
         if not self.connect_imap():
             return []
 
-        try:
-            status, _ = self.imap_connection.select(folder)
+        if folder is None:
+            folders = self.COMMON_FOLDERS
+        else:
+            folders = [folder]
 
-            if status != "OK":
-                logger.error(
-                    f"Could not select folder {folder} "
-                    f"for {self.account.email_address}"
-                )
-                return []
+        all_emails = []
+
+        try:
+            for folder in folders:
+                status, _ = self.imap_connection.select(folder)
+
+                if status != "OK":
+                    logger.info(
+                        f"Could not select folder {folder} "
+                        f"for {self.account.email_address}"
+                    )
+                    continue
+
 
             status, messages = self.imap_connection.uid(
                 'search',
@@ -198,7 +218,7 @@ class EmailHandler:
 
                 uid_str = uid.decode()
 
-                logger.info(
+                logger.debug(
                     f"[{self.account.email_address}] UID={uid_str} START"
                 )
 
@@ -229,7 +249,7 @@ class EmailHandler:
                         )
                         continue
 
-                    logger.info(
+                    logger.debug(
                         f"[{self.account.email_address}] "
                         f"UID={uid_str} FETCH OK"
                     )
@@ -242,6 +262,7 @@ class EmailHandler:
                         continue
 
                     raw_email = msg_data[0][1]
+                    
 
                     if not raw_email:
                         logger.warning(
@@ -324,8 +345,13 @@ class EmailHandler:
             self.disconnect()
 
 
-    def process_incoming_email(self, email_message, imap_uid=None,email_date=None):
+    def process_incoming_email(self, email_message, imap_uid=None, email_date=None):
         """Process an incoming email and create database records"""
+
+        # Inicializar variables para que existan incluso si ocurre una excepción
+        from_address = ""
+        message_id = ""
+        subject = "(No Subject)"
 
         try:
             logger.info(
@@ -362,14 +388,15 @@ class EmailHandler:
             ]
 
             subject_header = email_message.get('Subject', '') or '(No Subject)'
-            raw_subject = decode_mime_header(subject_header) or '(No Subject)'
-            subject = self.normalize_subject(raw_subject)
+            subject = decode_mime_header(subject_header) or '(No Subject)'
+
+            message_id = email_message.get('Message-ID', '')
+
             logger.info(
                 f"UID={imap_uid} "
                 f"MESSAGE_ID={message_id} "
                 f"SUBJECT={subject}"
             )
-            message_id = email_message.get('Message-ID', '')
 
             if not message_id:
                 message_id = f"<no-id-{uuid.uuid4()}@local>"
@@ -378,7 +405,7 @@ class EmailHandler:
             references = email_message.get('References', '')
             date = email_message.get('Date', '')
 
-            # =========================
+        # ... el resto de la función queda igual ... # =========================
             # Extract body
             # =========================
 
@@ -443,7 +470,7 @@ class EmailHandler:
             if html_body and html_body.strip():
                 message_content = html_body.strip()
             else:
-                plain_clean = self.clean_email_body(plain_body or '') if plain_body else ''
+                plain_clean = plain_body or ''
                 message_content = plain_text_to_email_html(
                     plain_clean or '(Sin contenido)'
                 )

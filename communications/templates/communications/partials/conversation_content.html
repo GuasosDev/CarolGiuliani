@@ -32,7 +32,7 @@
                 </div>
                 {% if messages %}
                 {% for lm in messages %}
-                {% if forloop.last %}
+                {% if forloop.first %}
                 <div class="email-read-toolbar-actions d-flex align-items-center flex-shrink-0 gap-1">
                     <a href="#"
                        class="btn btn-sm btn-light border email-read-toolbar-btn"
@@ -339,7 +339,7 @@
                         {% endif %}
 
                         <div class="msg-action-buttons">
-                            <button onclick="printMessage(this)">
+                            <button onclick="printMessage('{{ m.id }}')">
                                 <i class="fas fa-print"></i>
                             </button>
                             <button onclick="downloadMessage('{{ m.id }}', '{{ m.message_type }}')" class="msg-action-btn" title="Descargar">
