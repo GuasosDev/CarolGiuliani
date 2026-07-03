@@ -11,16 +11,11 @@ from .models import Conversation, ConversationAssignment
 logger = logging.getLogger(__name__)
 
 
-def get_available_agents():
-    """Get list of users who can be assigned conversations"""
-    # Filter users who are staff (agents) and active
-    # You can customize this based on your permission system
-    return User.objects.filter(
-        is_active=True,
-        is_staff=True
-    ).exclude(
-        is_superuser=True  # Optionally exclude superusers from auto-assignment
-    )
+def get_available_agents(email_account):
+    if email_account and email_account.user:
+        return User.objects.filter(id=email_account.user_id)
+
+    return User.objects.none()
 
 
 def get_agent_workload(agent):
@@ -34,38 +29,36 @@ def get_agent_workload(agent):
     return active_conversations
 
 
-def assign_conversation_to_agent(conversation, agent=None, assigned_by=None):
-    """
-    Assign a conversation to an agent
-    If agent is None, automatically select the agent with lowest workload
-    """
+def assign_conversation_to_agent(conversation, email_account=None, agent=None, assigned_by=None):
+
+    if email_account is None:
+        email_account = conversation.email_account
+
     if agent is None:
-        # Auto-assign based on workload
-        available_agents = get_available_agents()
-        
+        available_agents = get_available_agents(email_account)
+
         if not available_agents.exists():
             logger.warning("No available agents for assignment")
             conversation.status = 'pending'
             conversation.save()
             return None
-        
-        # Find agent with lowest workload
+
         agent_workloads = []
         for a in available_agents:
             workload = get_agent_workload(a)
             agent_workloads.append((a, workload))
-        
-        # Sort by workload and get agent with minimum
+
         agent_workloads.sort(key=lambda x: x[1])
         agent = agent_workloads[0][0]
-        
-        logger.info(f"Auto-assigning conversation {conversation.id} to {agent.username} (workload: {agent_workloads[0][1]})")
-    
-    # Assign the conversation
+
+        logger.info(
+            f"Auto-assigning conversation {conversation.id} "
+            f"to {agent.username} (workload: {agent_workloads[0][1]})"
+        )
+
     conversation.assign_to(agent)
-    
+
     if assigned_by:
-        # Update the assignment record with who assigned it
         assignment = ConversationAssignment.objects.filter(
             conversation=conversation,
             is_active=True
@@ -73,7 +66,7 @@ def assign_conversation_to_agent(conversation, agent=None, assigned_by=None):
         if assignment:
             assignment.assigned_by = assigned_by
             assignment.save()
-    
+
     return agent
 
 
