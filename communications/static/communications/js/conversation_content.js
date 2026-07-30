@@ -62,6 +62,14 @@
         if (fileIn) fileIn.value = '';
         var srcIn = modalEl.querySelector('#emailSourceEmailMessageIdInput');
         if (srcIn) srcIn.value = '';
+        setForwardPreviewVisible(modalEl, false);
+    }
+
+    function setForwardPreviewVisible(modalEl, visible) {
+        if (!modalEl) return;
+        var preview = modalEl.querySelector('#emailForwardPreview');
+        if (!preview) return;
+        preview.classList.toggle('d-none', !visible);
     }
 
     function formatFileSize(bytes) {
@@ -177,11 +185,12 @@
             if (srcInNew) srcInNew.value = '';
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-pen', 'Redactar correo');
         } else if (mode === 'forward') {
             if (to) to.value = '';
             if (subj) subj.value = replySubject ? ('Fwd: ' + replySubject) : 'Fwd: ';
-            if (body) body.innerHTML = '<p></p><p>---------- Mensaje reenviado ----------</p>';
+            if (body) body.innerHTML = '';
             if (convInput) {
                 convInput.value = '';
                 convInput.removeAttribute('name');
@@ -191,6 +200,7 @@
             if (srcIn) srcIn.value = srcId;
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, true);
             setTitle('fas fa-share', 'Reenviar correo');
         } else if (mode === 'reply-all') {
             if (to) to.value = replyTo;
@@ -204,6 +214,7 @@
             if (srcInAll) srcInAll.value = '';
             if (ccIn) ccIn.value = replyCc;
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-reply-all', 'Responder a todos');
         } else {
             if (to) to.value = replyTo;
@@ -217,6 +228,7 @@
             if (srcInReply) srcInReply.value = '';
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-reply', 'Responder');
         }
         bootstrap.Modal.getOrCreateInstance(modalEl).show();

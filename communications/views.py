@@ -1023,6 +1023,7 @@ def conversation_detail(request, pk):
 
         reply_cc_joined = ''
         forward_email_message_id = None
+        forward_preview_html = ''
         if conversation.channel == 'email':
             last_inbound = (
                 EmailMessage.objects.filter(
@@ -1043,6 +1044,7 @@ def conversation_detail(request, pk):
             )
             if last_any:
                 forward_email_message_id = last_any.id
+                forward_preview_html = _email_forward_preview_html(last_any)
 
         wa_freeform_blocked = False
         wa_freeform_block_reason = ''
@@ -1094,6 +1096,7 @@ def conversation_detail(request, pk):
             'company_settings': company_settings,
             'reply_cc_joined': reply_cc_joined,
             'forward_email_message_id': forward_email_message_id,
+            'forward_preview_html': forward_preview_html,
             'email_compose_recipients_catalog': email_compose_recipients_catalog,
             'wa_freeform_blocked': wa_freeform_blocked,
             'wa_freeform_block_reason': wa_freeform_block_reason,
@@ -1215,6 +1218,7 @@ def email_message_detail(request, pk):
         'company_settings': company_settings,
         'reply_cc_joined': reply_cc_joined,
         'forward_email_message_id': email_message.id,
+        'forward_preview_html': _email_forward_preview_html(email_message),
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
         **counts,
     }
@@ -1888,6 +1892,24 @@ def transfer_conversation(request, pk):
     return render(request, "communications/partials/transfer_success.html", {
         "message": f"Conversación derivada a {new_user.get_full_name() or new_user.username}"
     })
+
+def _email_forward_preview_html(email_msg):
+    """HTML limpio para previsualizar el mensaje a reenviar en el modal (solo lectura)."""
+    if not email_msg:
+        return ''
+    if email_msg.html_body and str(email_msg.html_body).strip():
+        raw_src = email_msg.html_body
+    elif email_msg.plain_body and str(email_msg.plain_body).strip():
+        raw_src = plain_text_to_email_html(email_msg.plain_body)
+    else:
+        msg = getattr(email_msg, 'message', None)
+        content = (msg.content if msg else '') or ''
+        if content and '<' in content and '>' in content:
+            raw_src = content
+        else:
+            raw_src = plain_text_to_email_html(content)
+    return limpiar_email_html(raw_src) or ''
+
 
 def _ensure_client_email_conversation(request, client, subject=''):
     """
