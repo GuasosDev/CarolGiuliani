@@ -191,6 +191,12 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# En local (DEBUG): ejecutar tareas en el mismo proceso, sin Redis/Celery worker.
+# Así "Enviar" manda el mail al toque y podés probar Responder sin levantar Celery.
+if DEBUG:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
 # ============================================================================
 # COMMUNICATIONS APP CONFIGURATION
 #En producción / rama nueva donde no hay clave todavía

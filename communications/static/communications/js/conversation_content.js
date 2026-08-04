@@ -29,13 +29,16 @@
     }
 
     function getEmailComposeModal() {
+        // Preferir el modal visible (puede estar en body); evita adjuntar en un modal fantasma del panel
+        var shown = document.querySelector('#emailComposeModal.show');
+        if (shown) return shown;
+        var onBody = document.querySelector('body > #emailComposeModal');
+        if (onBody) return onBody;
         var panel = document.getElementById('conversation-detail-panel');
         if (panel) {
             var inPanel = panel.querySelector('#emailComposeModal');
             if (inPanel) return inPanel;
         }
-        var onBody = document.querySelector('body > #emailComposeModal');
-        if (onBody) return onBody;
         return document.getElementById('emailComposeModal');
     }
 
@@ -72,25 +75,31 @@
         if (srcIn) srcIn.value = '';
     }
 
-    /** Acumula adjuntos: el <input type=file> reemplaza al elegir de nuevo; mantenemos un store. */
+    /** Acumula adjuntos en input._commFiles (no se pierde al vaciar el input nativo). */
     var emailAttachStores = new WeakMap();
 
-    function getEmailAttachStore(input) {
-        var dt = emailAttachStores.get(input);
-        if (!dt) {
-            dt = new DataTransfer();
-            emailAttachStores.set(input, dt);
-        }
-        return dt;
+    function getReplyAttachFiles(input) {
+        if (!input) return [];
+        if (!Array.isArray(input._commFiles)) input._commFiles = [];
+        return input._commFiles;
+    }
+
+    function setReplyAttachFiles(input, files, formContext) {
+        if (!input) return;
+        input._commFiles = dedupeFiles(files || []);
+        var next = new DataTransfer();
+        input._commFiles.forEach(function (f) {
+            try { next.items.add(f); } catch (e) {}
+        });
+        emailAttachStores.set(input, next);
+        displayEmailFilePreview(input._commFiles, formContext || input.closest('form') || getEmailComposeModal());
     }
 
     function clearEmailAttachInput(input) {
         if (!input) return;
         input._commFiles = [];
         emailAttachStores.set(input, new DataTransfer());
-        input._commSkipChange = true;
         try { input.value = ''; } catch (e) {}
-        input._commSkipChange = false;
     }
 
     function fileKey(f) {
@@ -101,7 +110,7 @@
         var out = [];
         var seen = {};
         Array.from(files || []).forEach(function (f) {
-            if (!f || f.size == null) return;
+            if (!f) return;
             var k = fileKey(f);
             if (seen[k]) return;
             seen[k] = true;
@@ -110,49 +119,31 @@
         return out;
     }
 
-    /** Actualiza store + preview. No deja archivos en el input nativo (así el clips puede sumar de a uno). */
-    function commitEmailAttachFiles(input, formContext) {
-        if (!input) return;
-        var files = dedupeFiles(input._commFiles || []);
-        input._commFiles = files;
-        var next = new DataTransfer();
-        files.forEach(function (f) { next.items.add(f); });
-        emailAttachStores.set(input, next);
-        // Dejar el input vacío para que el próximo "Adjuntar" dispare change siempre
-        input._commSkipChange = true;
-        try { input.value = ''; } catch (e) {}
-        input._commSkipChange = false;
-        displayEmailFilePreview(files, formContext || input.closest('form') || getEmailComposeModal());
-    }
-
     function appendEmailFiles(input, fileList, formContext) {
         if (!input || !fileList || !fileList.length) return;
-        if (!Array.isArray(input._commFiles)) {
-            input._commFiles = Array.from(getEmailAttachStore(input).files || []);
-        }
-        input._commFiles = dedupeFiles(input._commFiles.concat(Array.from(fileList)));
-        commitEmailAttachFiles(input, formContext);
+        var prev = getReplyAttachFiles(input);
+        setReplyAttachFiles(input, prev.concat(Array.from(fileList)), formContext);
     }
 
-    function setEmailAttachFiles(input, files, formContext) {
+    function commitEmailAttachFiles(input, formContext) {
         if (!input) return;
-        input._commFiles = dedupeFiles(files);
-        commitEmailAttachFiles(input, formContext);
+        setReplyAttachFiles(input, getReplyAttachFiles(input), formContext);
+        try { input.value = ''; } catch (e) {}
     }
 
     /** Justo antes de enviar: volcar _commFiles al input para FormData. */
     function flushEmailAttachToInput(input) {
         if (!input) return;
-        var files = dedupeFiles(input._commFiles || Array.from(getEmailAttachStore(input).files || []));
+        var files = dedupeFiles(getReplyAttachFiles(input));
         input._commFiles = files;
         var next = new DataTransfer();
-        files.forEach(function (f) { next.items.add(f); });
+        files.forEach(function (f) {
+            try { next.items.add(f); } catch (e) {}
+        });
         emailAttachStores.set(input, next);
-        input._commSkipChange = true;
         try {
             input.files = next.files;
         } catch (e) {}
-        input._commSkipChange = false;
     }
 
     function filesFromClipboardData(clipboardData) {
@@ -680,9 +671,6 @@
         if (whatsappContainer && !whatsappContainer.classList.contains('d-none') && whatsappInput) {
             whatsappInput.click();
         } else if (emailInput) {
-            emailInput._commSkipChange = true;
-            try { emailInput.value = ''; } catch (e) {}
-            emailInput._commSkipChange = false;
             emailInput.click();
         }
     };
@@ -772,17 +760,10 @@
             || document.getElementById('imageInputEmail')
             || document.getElementById('imageInputEmailInline');
         if (!input) return;
-        if (!input._commFiles) {
-            input._commFiles = Array.from(getEmailAttachStore(input).files || []);
-        }
+        if (!Array.isArray(input._commFiles)) input._commFiles = [];
         input._commFiles = input._commFiles.filter(function (_f, i) { return i !== index; });
         var ctx = (modal && modal.contains(input)) ? modal : (input.closest('form') || modal);
-        commitEmailAttachFiles(input, ctx);
-        if (!input._commFiles.length) {
-            var preview = (ctx && ctx.querySelector('#emailFilePreview, #emailFilePreviewInline'))
-                || document.getElementById('emailFilePreview');
-            if (preview) preview.innerHTML = '';
-        }
+        setReplyAttachFiles(input, input._commFiles, ctx);
     };
 
     function displayWhatsappFilePreview(files) {
@@ -1689,24 +1670,12 @@
             input.dataset.bound = '1';
             if (!Array.isArray(input._commFiles)) input._commFiles = [];
             input.addEventListener('change', function () {
-                if (input._commSkipChange) return;
                 var selected = Array.from(input.files || []);
                 if (!selected.length) return;
-                var sig = selected.map(function (f) { return fileKey(f); }).join(';');
-                var now = Date.now();
-                if (input._commLastClipSig === sig && (now - (input._commLastClipTs || 0)) < 600) {
-                    input._commSkipChange = true;
-                    try { input.value = ''; } catch (e0) {}
-                    input._commSkipChange = false;
-                    return;
-                }
-                input._commLastClipSig = sig;
-                input._commLastClipTs = now;
-                // Vaciar YA el input nativo para que un 2º change no vuelva a sumar el mismo archivo
-                input._commSkipChange = true;
+                // Snapshot YA, después se vacía el input
+                var copies = selected.slice();
                 try { input.value = ''; } catch (e1) {}
-                input._commSkipChange = false;
-                appendEmailFiles(input, selected, formContext);
+                appendEmailFiles(input, copies, formContext);
             });
         }
         var composeModal = getEmailComposeModal();

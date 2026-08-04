@@ -59,11 +59,17 @@
     window.commMailCompose = function (mode) {
         mode = mode || 'new';
         if (mode === 'new') {
-            if (typeof window.commMailOpenComposeGlobal === 'function' && document.getElementById('emailComposeModalGlobal')) {
+            var globalModal = document.getElementById('emailComposeModalGlobal');
+            if (globalModal && typeof window.commMailOpenComposeGlobal === 'function') {
                 window.commMailOpenComposeGlobal();
                 return;
             }
+            // Fallback HTMX solo si no existe el modal Bootstrap de Redactar
             var composeUrl = configValue('composeUrl');
+            if (!composeUrl) {
+                alert('No se pudo abrir Redactar.');
+                return;
+            }
             if (typeof htmx === 'undefined') {
                 window.location.href = composeUrl;
                 return;
@@ -143,9 +149,6 @@
 })();
 
 (function () {
-    if (window.__commGlobalComposeInit) return;
-    window.__commGlobalComposeInit = true;
-
     function getComposeModalEl() {
         return document.getElementById('emailComposeModalGlobal');
     }
@@ -190,238 +193,16 @@
         document.body.style.removeProperty('overflow');
     }
 
-    function formatFileSize(bytes) {
-        if (!bytes && bytes !== 0) return '';
-        var k = 1024;
-        var sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        var i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    var globalAttachStore = new DataTransfer();
-    // Estado en window: sobrevive y es el mismo que usa el onchange del HTML
-    if (!Array.isArray(window.__commGlobalAttachFiles)) {
-        window.__commGlobalAttachFiles = [];
-    }
-    var globalAttachFiles = window.__commGlobalAttachFiles;
-
-    function getGlobalAttachInput() {
-        return document.getElementById('emailAttachGlobal');
-    }
-
-    function fileKey(f) {
-        return [f.name || '', f.size || 0].join('|');
-    }
-
-    function dedupeGlobalFiles(files) {
-        var out = [];
-        var seen = {};
-        Array.from(files || []).forEach(function (f) {
-            if (!f) return;
-            var k = fileKey(f);
-            if (seen[k]) return;
-            seen[k] = true;
-            out.push(f);
-        });
-        return out;
-    }
-
-    function syncGlobalAttachToInput() {
-        window.__commGlobalAttachFiles = dedupeGlobalFiles(window.__commGlobalAttachFiles);
-        globalAttachFiles = window.__commGlobalAttachFiles;
-        var next = new DataTransfer();
-        globalAttachFiles.forEach(function (f) {
-            try { next.items.add(f); } catch (eAdd) {}
-        });
-        globalAttachStore = next;
-        renderGlobalAttachPreview();
-    }
-
-    function clearGlobalAttach() {
-        window.__commGlobalAttachFiles = [];
-        globalAttachFiles = window.__commGlobalAttachFiles;
-        globalAttachStore = new DataTransfer();
-        var input = getGlobalAttachInput();
-        if (input) {
-            input._commSkipChange = true;
-            try { input.value = ''; } catch (e) {}
-            setTimeout(function () { input._commSkipChange = false; }, 0);
-        }
-        var preview = document.getElementById('emailFilePreviewGlobal');
-        if (preview) preview.innerHTML = '';
-    }
-
-    function appendGlobalFiles(fileList) {
+    function appendDroppedFiles(fileList) {
         if (!fileList || !fileList.length) return;
-        window.__commGlobalAttachFiles = dedupeGlobalFiles(
-            (window.__commGlobalAttachFiles || []).concat(Array.from(fileList))
-        );
-        globalAttachFiles = window.__commGlobalAttachFiles;
-        syncGlobalAttachToInput();
-    }
-
-    function handleGlobalAttachChange(input) {
-        if (!input || input._commSkipChange) return;
-        var selected = Array.from(input.files || []);
-        if (!selected.length) return;
-        appendGlobalFiles(selected.slice());
-        input._commSkipChange = true;
-        try { input.value = ''; } catch (e1) {}
-        setTimeout(function () { input._commSkipChange = false; }, 50);
-    }
-
-    // Expuesto para el onchange inline del template (no depende de bind)
-    window.commGlobalOnAttachChange = handleGlobalAttachChange;
-
-    function removeGlobalAttach(index) {
-        window.__commGlobalAttachFiles = (window.__commGlobalAttachFiles || []).filter(function (_f, i) {
-            return i !== index;
-        });
-        globalAttachFiles = window.__commGlobalAttachFiles;
-        syncGlobalAttachToInput();
-        if (!globalAttachFiles.length) {
-            var preview = document.getElementById('emailFilePreviewGlobal');
-            if (preview) preview.innerHTML = '';
+        if (typeof window.commAppendGlobalAttachFiles === 'function') {
+            window.commAppendGlobalAttachFiles(fileList);
+            return;
+        }
+        if (typeof window.commGlobalOnAttachChange === 'function') {
+            window.commGlobalOnAttachChange({ files: fileList });
         }
     }
-    window.commRemoveGlobalAttach = removeGlobalAttach;
-
-    if (!window.__commGlobalAttachChangeBound) {
-        window.__commGlobalAttachChangeBound = true;
-        document.addEventListener('change', function (e) {
-            var t = e.target;
-            if (!t || t.id !== 'emailAttachGlobal') return;
-            // Evitar doble proceso si también disparó el onchange inline
-            if (t._commHandledChange) return;
-            t._commHandledChange = true;
-            setTimeout(function () { t._commHandledChange = false; }, 0);
-            handleGlobalAttachChange(t);
-        }, true);
-    }
-
-    function bindGlobalAttachControls() {
-        // noop: onchange inline + listener document
-    }
-
-    function renderGlobalAttachPreview() {
-        var preview = document.getElementById('emailFilePreviewGlobal');
-        if (!preview) return;
-        preview.innerHTML = '';
-        var files = globalAttachFiles.length ? globalAttachFiles : Array.from(globalAttachStore.files || []);
-        if (!files.length) return;
-        files.forEach(function (file, index) {
-            var fileItem = document.createElement('div');
-            fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
-            var size = formatFileSize(file.size);
-
-            var info = document.createElement('div');
-            info.className = 'd-flex align-items-center flex-grow-1';
-
-            if (file.type && file.type.indexOf('image/') === 0) {
-                var img = document.createElement('img');
-                img.className = 'me-2';
-                img.style.cssText = 'width:40px;height:40px;object-fit:cover;border-radius:4px;';
-                info.appendChild(img);
-                var reader = new FileReader();
-                reader.onload = function (e) { img.src = e.target.result; };
-                try { reader.readAsDataURL(file); } catch (err) {}
-            } else {
-                var icon = document.createElement('i');
-                icon.className = 'fas fa-file text-secondary me-2';
-                if (file.type && file.type.indexOf('pdf') !== -1) icon.className = 'fas fa-file-pdf text-danger me-2';
-                else if (file.type && (file.type.indexOf('word') !== -1 || file.type.indexOf('document') !== -1)) icon.className = 'fas fa-file-word text-primary me-2';
-                else if (file.type && (file.type.indexOf('excel') !== -1 || file.type.indexOf('spreadsheet') !== -1)) icon.className = 'fas fa-file-excel text-success me-2';
-                info.appendChild(icon);
-            }
-
-            var textWrap = document.createElement('div');
-            var nameEl = document.createElement('div');
-            nameEl.className = 'small fw-bold';
-            nameEl.textContent = file.name || 'archivo';
-            var sizeEl = document.createElement('div');
-            sizeEl.className = 'text-muted';
-            sizeEl.style.fontSize = '0.7rem';
-            sizeEl.textContent = size;
-            textWrap.appendChild(nameEl);
-            textWrap.appendChild(sizeEl);
-            info.appendChild(textWrap);
-
-            var actions = document.createElement('div');
-            actions.className = 'd-flex gap-1 flex-shrink-0 align-items-center';
-
-            var eyeBtn = document.createElement('button');
-            eyeBtn.type = 'button';
-            eyeBtn.className = 'btn btn-sm btn-outline-primary';
-            eyeBtn.title = 'Vista previa';
-            eyeBtn.setAttribute('aria-label', 'Vista previa del adjunto');
-            eyeBtn.innerHTML = '<i class="fas fa-eye" aria-hidden="true"></i>';
-            eyeBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                openGlobalAttachPreview(file, index);
-            });
-
-            var delBtn = document.createElement('button');
-            delBtn.type = 'button';
-            delBtn.className = 'btn btn-sm btn-outline-danger';
-            delBtn.title = 'Quitar';
-            delBtn.setAttribute('aria-label', 'Quitar adjunto');
-            delBtn.innerHTML = '<i class="fas fa-times" aria-hidden="true"></i>';
-            delBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                removeGlobalAttach(index);
-            });
-
-            actions.appendChild(eyeBtn);
-            actions.appendChild(delBtn);
-            fileItem.appendChild(info);
-            fileItem.appendChild(actions);
-            preview.appendChild(fileItem);
-        });
-    }
-
-    function openGlobalAttachPreview(file, index) {
-        if (!file || typeof bootstrap === 'undefined') return;
-        var modal = document.getElementById('uploadPreviewModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'uploadPreviewModal';
-            modal.className = 'modal fade';
-            modal.tabIndex = -1;
-            modal.innerHTML = '<div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">' +
-                '<div class="modal-header"><h5 class="modal-title"><i class="fas fa-eye me-2"></i><span id="uploadPreviewFileName">Vista previa</span></h5>' +
-                '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
-                '<div class="modal-body text-center" id="uploadPreviewContent"></div>' +
-                '<div class="modal-footer">' +
-                '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>' +
-                '<button type="button" class="btn btn-danger" onclick="if(window.commRemoveGlobalAttach&&window.currentUploadFileIndex!=null){window.commRemoveGlobalAttach(window.currentUploadFileIndex);}var m=document.getElementById(\'uploadPreviewModal\');if(m&&bootstrap.Modal.getInstance(m))bootstrap.Modal.getInstance(m).hide();"><i class="fas fa-trash me-2"></i>Eliminar</button>' +
-                '</div></div></div>';
-            document.body.appendChild(modal);
-        }
-        if (modal.parentElement !== document.body) document.body.appendChild(modal);
-        var fileNameElement = document.getElementById('uploadPreviewFileName');
-        var previewContent = document.getElementById('uploadPreviewContent');
-        if (!fileNameElement || !previewContent) return;
-        window.currentUploadFileIndex = index;
-        window.currentUploadFileSource = 'global';
-        fileNameElement.textContent = file.name;
-        var ext = (file.name.split('.').pop() || '').toLowerCase();
-        var url = URL.createObjectURL(file);
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) !== -1) {
-            previewContent.innerHTML = '<img src="' + url + '" alt="" style="max-width:100%;max-height:500px;border-radius:8px;">';
-        } else if (ext === 'pdf') {
-            previewContent.innerHTML = '<div class="p-4"><i class="fas fa-file-pdf fa-4x text-danger mb-3"></i><h5></h5><p class="text-muted">Vista previa de PDF no disponible.</p></div>';
-            var h5p = previewContent.querySelector('h5');
-            if (h5p) h5p.textContent = file.name;
-        } else {
-            previewContent.innerHTML = '<div class="p-4"><i class="fas fa-file fa-4x text-secondary mb-3"></i><h5></h5><p class="text-muted">Vista previa no disponible.</p></div>';
-            var h5o = previewContent.querySelector('h5');
-            if (h5o) h5o.textContent = file.name;
-        }
-        bootstrap.Modal.getOrCreateInstance(modal).show();
-    }
-    window.openGlobalAttachPreview = openGlobalAttachPreview;
 
     function isGlobalFileDrag(e) {
         var dt = e && e.dataTransfer;
@@ -448,7 +229,7 @@
         if (!el || !el.classList.contains('show')) return;
         if (!consumeGlobalDropOnce()) return;
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-            appendGlobalFiles(e.dataTransfer.files);
+            appendDroppedFiles(e.dataTransfer.files);
         }
         var content = el.querySelector('.modal-content');
         if (content) content.classList.remove('comm-compose-drop-active');
@@ -471,7 +252,6 @@
         el.dataset.commComposeBound = '1';
         el.setAttribute('data-bs-backdrop', 'static');
         el.setAttribute('data-bs-keyboard', 'false');
-        // Capture: corta el dismiss de Bootstrap antes de que cierre por click en el fondo
         function blockBackdropDismiss(e) {
             if (e.target === el) {
                 e.preventDefault();
@@ -483,7 +263,7 @@
         el.addEventListener('shown.bs.modal', enableGlobalComposeDropGuard);
         el.addEventListener('hidden.bs.modal', function () {
             disableGlobalComposeDropGuard();
-            clearGlobalAttach();
+            if (typeof window.commClearGlobalAttach === 'function') window.commClearGlobalAttach();
             setTimeout(function () { cleanupOverlays(el.id); }, 0);
         });
     }
@@ -494,7 +274,6 @@
         modalEl = el;
         var dropTarget = el.querySelector('.modal-content') || el;
         var bodyDiv = document.getElementById('emailBodyDivGlobal');
-        // El change del clips se maneja con listener global en document (ver arriba)
         if (dropTarget && !dropTarget.dataset.commDropBound) {
             dropTarget.dataset.commDropBound = '1';
             var dragDepth = 0;
@@ -525,7 +304,7 @@
                 dropTarget.classList.remove('comm-compose-drop-active');
                 if (!consumeGlobalDropOnce()) return;
                 if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-                    appendGlobalFiles(e.dataTransfer.files);
+                    appendDroppedFiles(e.dataTransfer.files);
                 }
             });
         }
@@ -547,7 +326,7 @@
                 }
                 if (!files.length) return;
                 e.preventDefault();
-                appendGlobalFiles(files);
+                appendDroppedFiles(files);
             });
         }
     }
@@ -561,7 +340,6 @@
         }
         ensureComposeModalBound(modalEl);
         bindGlobalAttachDnD(modalEl);
-        bindGlobalAttachControls();
         if (modalEl.parentElement !== document.body) {
             document.body.appendChild(modalEl);
         }
@@ -572,7 +350,7 @@
         });
         var body = document.getElementById('emailBodyDivGlobal');
         if (body) body.innerHTML = '';
-        clearGlobalAttach();
+        if (typeof window.commClearGlobalAttach === 'function') window.commClearGlobalAttach();
 
         var existing = bootstrap.Modal.getInstance(modalEl);
         if (existing) {
@@ -588,24 +366,22 @@
             }
         } catch (eCfg) {}
         inst.show();
-        // Re-bind after show por si el DOM del modal se movió
-        bindGlobalAttachControls();
         try {
             var to = document.getElementById('emailToInputGlobal');
             if (to) to.focus();
         } catch (e) {}
     };
 
-    if (modalEl) {
+    if (modalEl && !modalEl.dataset.commComposeBound) {
         ensureComposeModalBound(modalEl);
         bindGlobalAttachDnD(modalEl);
-        bindGlobalAttachControls();
     }
 
     function initAutocomplete() {
         var input = document.getElementById('emailToInputGlobal');
         var suggest = document.getElementById('emailToSuggestGlobal');
-        if (!input || !suggest) return;
+        if (!input || !suggest || input.dataset.commAutoBound) return;
+        input.dataset.commAutoBound = '1';
         var composeEl = getComposeModalEl() || modalEl;
         var endpoint = (composeEl && composeEl.dataset.contactsEndpoint) || '';
         if (!endpoint) return;
@@ -705,21 +481,13 @@
             var btn = document.getElementById('emailSendBtnGlobal');
             if (btn) btn.disabled = true;
             var fd = new FormData(form);
-            var filesToSend = window.__commGlobalAttachFiles || globalAttachFiles || [];
-            if (filesToSend.length) {
-                fd.delete('attachments');
-                filesToSend.forEach(function (file) {
-                    fd.append('attachments', file);
-                });
-            } else {
-                var attachInput = getGlobalAttachInput();
-                if (attachInput && attachInput.files && attachInput.files.length) {
-                    fd.delete('attachments');
-                    Array.from(attachInput.files).forEach(function (file) {
-                        fd.append('attachments', file);
-                    });
-                }
-            }
+            var filesToSend = (typeof window.commGetGlobalAttachFiles === 'function')
+                ? window.commGetGlobalAttachFiles()
+                : (window.__commGlobalAttachFiles || []);
+            fd.delete('attachments');
+            filesToSend.forEach(function (file) {
+                fd.append('attachments', file);
+            });
             var activeModal = getComposeModalEl() || modalEl;
             fetch(form.action, {
                 method: 'POST',
@@ -744,135 +512,6 @@
                 if (btn) btn.disabled = false;
             });
         });
-    }
-})();
-
-/* Adjuntos de Redactar: IIFE propio para que el preview SIEMPRE se registre,
-   aunque el bloque del modal haya salido antes por un flag de init. */
-(function () {
-    function fileKey(f) {
-        return [(f && f.name) || '', (f && f.size) || 0].join('|');
-    }
-
-    function dedupe(files) {
-        var out = [];
-        var seen = {};
-        Array.from(files || []).forEach(function (f) {
-            if (!f) return;
-            var k = fileKey(f);
-            if (seen[k]) return;
-            seen[k] = true;
-            out.push(f);
-        });
-        return out;
-    }
-
-    function formatSize(bytes) {
-        if (!bytes && bytes !== 0) return '';
-        var k = 1024;
-        var sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        var i = Math.floor(Math.log(bytes) / Math.log(k)) || 0;
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    function getFiles() {
-        if (!Array.isArray(window.__commGlobalAttachFiles)) {
-            window.__commGlobalAttachFiles = [];
-        }
-        return window.__commGlobalAttachFiles;
-    }
-
-    function setFiles(files) {
-        window.__commGlobalAttachFiles = dedupe(files);
-        renderPreview();
-    }
-
-    function renderPreview() {
-        var preview = document.getElementById('emailFilePreviewGlobal');
-        if (!preview) return;
-        preview.innerHTML = '';
-        var files = getFiles();
-        files.forEach(function (file, index) {
-            var row = document.createElement('div');
-            row.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
-
-            var info = document.createElement('div');
-            info.className = 'd-flex align-items-center flex-grow-1';
-            var icon = document.createElement('i');
-            icon.className = 'fas fa-file text-secondary me-2';
-            if (file.type && file.type.indexOf('image/') === 0) icon.className = 'fas fa-file-image text-primary me-2';
-            else if (file.type && file.type.indexOf('pdf') !== -1) icon.className = 'fas fa-file-pdf text-danger me-2';
-            info.appendChild(icon);
-
-            var text = document.createElement('div');
-            var nameEl = document.createElement('div');
-            nameEl.className = 'small fw-bold';
-            nameEl.textContent = file.name || 'archivo';
-            var sizeEl = document.createElement('div');
-            sizeEl.className = 'text-muted';
-            sizeEl.style.fontSize = '0.7rem';
-            sizeEl.textContent = formatSize(file.size);
-            text.appendChild(nameEl);
-            text.appendChild(sizeEl);
-            info.appendChild(text);
-
-            var actions = document.createElement('div');
-            actions.className = 'd-flex gap-1 flex-shrink-0';
-
-            var eye = document.createElement('button');
-            eye.type = 'button';
-            eye.className = 'btn btn-sm btn-outline-primary';
-            eye.title = 'Vista previa';
-            eye.innerHTML = '<i class="fas fa-eye"></i>';
-            eye.addEventListener('click', function (e) {
-                e.preventDefault();
-                if (typeof window.openGlobalAttachPreview === 'function') {
-                    window.openGlobalAttachPreview(file, index);
-                } else if (typeof bootstrap !== 'undefined') {
-                    alert(file.name + '\n' + formatSize(file.size));
-                }
-            });
-
-            var del = document.createElement('button');
-            del.type = 'button';
-            del.className = 'btn btn-sm btn-outline-danger';
-            del.title = 'Quitar';
-            del.innerHTML = '<i class="fas fa-times"></i>';
-            del.addEventListener('click', function (e) {
-                e.preventDefault();
-                window.commRemoveGlobalAttach(index);
-            });
-
-            actions.appendChild(eye);
-            actions.appendChild(del);
-            row.appendChild(info);
-            row.appendChild(actions);
-            preview.appendChild(row);
-        });
-    }
-
-    window.commGlobalOnAttachChange = function (input) {
-        if (!input || input._commSkipChange) return;
-        var selected = Array.from(input.files || []);
-        if (!selected.length) return;
-        setFiles(getFiles().concat(selected));
-        input._commSkipChange = true;
-        try { input.value = ''; } catch (e) {}
-        setTimeout(function () { input._commSkipChange = false; }, 50);
-    };
-
-    window.commRemoveGlobalAttach = function (index) {
-        var files = getFiles().filter(function (_f, i) { return i !== index; });
-        setFiles(files);
-    };
-
-    // Por si el onchange inline no alcanza
-    if (!window.__commGlobalAttachDocBound) {
-        window.__commGlobalAttachDocBound = true;
-        document.addEventListener('change', function (e) {
-            if (!e.target || e.target.id !== 'emailAttachGlobal') return;
-            window.commGlobalOnAttachChange(e.target);
-        }, true);
     }
 })();
 
