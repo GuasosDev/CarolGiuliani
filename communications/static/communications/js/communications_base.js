@@ -259,14 +259,12 @@
         if (!input || input._commSkipChange) return;
         var selected = Array.from(input.files || []);
         if (!selected.length) return;
-        // Copiar YA los File (el FileList se vacía al limpiar el input)
         var copies = selected.slice();
-        input._commSkipChange = true;
-        try {
-            input.value = '';
-        } catch (e1) {}
-        input._commSkipChange = false;
         appendGlobalFiles(copies);
+        // Vaciar después para poder elegir el mismo archivo otra vez
+        input._commSkipChange = true;
+        try { input.value = ''; } catch (e1) {}
+        setTimeout(function () { input._commSkipChange = false; }, 0);
     }
 
     function removeGlobalAttach(index) {
@@ -279,14 +277,42 @@
     }
     window.commRemoveGlobalAttach = removeGlobalAttach;
 
-    // Fallback por si el label no está disponible en algún template viejo
-    window.commGlobalAttachClick = function () {
+    window.commGlobalAttachClick = function (ev) {
+        if (ev) {
+            try { ev.preventDefault(); } catch (e0) {}
+            try { ev.stopPropagation(); } catch (e1) {}
+        }
         var input = getGlobalAttachInput();
-        if (!input) return;
-        input.click();
+        if (!input) {
+            alert('No se encontró el selector de archivos.');
+            return false;
+        }
+        try {
+            input.click();
+        } catch (e2) {
+            alert('No se pudo abrir el selector de archivos.');
+        }
+        return false;
     };
 
-    // Listener global: no depende de bind por modal (clips siempre funciona)
+    function bindGlobalAttachControls() {
+        var btn = document.getElementById('emailAttachGlobalBtn');
+        var input = getGlobalAttachInput();
+        if (btn && !btn.dataset.commAttachBtnBound) {
+            btn.dataset.commAttachBtnBound = '1';
+            btn.addEventListener('click', function (ev) {
+                window.commGlobalAttachClick(ev);
+            });
+        }
+        if (input && !input.dataset.commAttachChangeBound) {
+            input.dataset.commAttachChangeBound = '1';
+            input.addEventListener('change', function () {
+                handleGlobalAttachChange(input);
+            });
+        }
+    }
+
+    // También en document por si el input se recrea
     if (!window.__commGlobalAttachChangeBound) {
         window.__commGlobalAttachChangeBound = true;
         document.addEventListener('change', function (e) {
@@ -553,6 +579,7 @@
         }
         ensureComposeModalBound(modalEl);
         bindGlobalAttachDnD(modalEl);
+        bindGlobalAttachControls();
         if (modalEl.parentElement !== document.body) {
             document.body.appendChild(modalEl);
         }
@@ -579,6 +606,8 @@
             }
         } catch (eCfg) {}
         inst.show();
+        // Re-bind after show por si el DOM del modal se movió
+        bindGlobalAttachControls();
         try {
             var to = document.getElementById('emailToInputGlobal');
             if (to) to.focus();
@@ -588,6 +617,7 @@
     if (modalEl) {
         ensureComposeModalBound(modalEl);
         bindGlobalAttachDnD(modalEl);
+        bindGlobalAttachControls();
     }
 
     function initAutocomplete() {
