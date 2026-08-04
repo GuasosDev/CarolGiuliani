@@ -411,7 +411,7 @@
                         </div>
                         {% if email_account %}
                         <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
-                            id="emailForm" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1"
+                            id="emailForm" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1 comm-email-compose-form"
                             style="min-height: 0;"
                             data-reply-to="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
                             data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
@@ -426,6 +426,10 @@
                             <div class="bg-white p-2 rounded border mb-1 flex-grow-1 d-flex flex-column comm-compose-email-card">
                                 <div id="emailFilePreview" class="mb-1"></div>
                                 <label class="form-label small text-muted mb-0" for="emailToInput">Para</label>
+                                <div class="d-flex gap-2 mb-1">
+                                    <a href="#" class="comm-email-field-toggle" data-comm-email-toggle="cc">Cc</a>
+                                    <a href="#" class="comm-email-field-toggle" data-comm-email-toggle="bcc">Cco</a>
+                                </div>
                                 <div class="position-relative mb-1">
                                     <input type="text" name="to_addresses" id="emailToInput"
                                         class="form-control form-control-sm"
@@ -436,23 +440,27 @@
                                         required>
                                     <div id="emailToSuggest" class="comm-email-suggest d-none"></div>
                                 </div>
-                                <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
-                                <div class="position-relative mb-1">
-                                    <input type="text" name="cc_addresses" id="emailCcInput"
-                                        class="form-control form-control-sm"
-                                        placeholder="Con copia (opcional)"
-                                        value=""
-                                        autocomplete="off"
-                                        spellcheck="false">
+                                <div class="comm-email-field-row mb-1" data-comm-email-row="cc">
+                                    <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
+                                    <div class="position-relative">
+                                        <input type="text" name="cc_addresses" id="emailCcInput"
+                                            class="form-control form-control-sm"
+                                            placeholder="Con copia (opcional)"
+                                            value=""
+                                            autocomplete="off"
+                                            spellcheck="false">
+                                    </div>
                                 </div>
-                                <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
-                                <div class="position-relative mb-1">
-                                    <input type="text" name="bcc_addresses" id="emailBccInput"
-                                        class="form-control form-control-sm"
-                                        placeholder="Copia oculta (opcional)"
-                                        value=""
-                                        autocomplete="off"
-                                        spellcheck="false">
+                                <div class="comm-email-field-row mb-1" data-comm-email-row="bcc">
+                                    <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
+                                    <div class="position-relative">
+                                        <input type="text" name="bcc_addresses" id="emailBccInput"
+                                            class="form-control form-control-sm"
+                                            placeholder="Copia oculta (opcional)"
+                                            value=""
+                                            autocomplete="off"
+                                            spellcheck="false">
+                                    </div>
                                 </div>
                                 <label class="form-label small text-muted mb-0" for="emailSubjectInput">Asunto</label>
                                 <div class="mb-1">

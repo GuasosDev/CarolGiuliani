@@ -8,7 +8,7 @@
 <div class="modal-body">
     {% if email_account %}
     <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
-        id="emailForm" enctype="multipart/form-data"
+        id="emailForm" enctype="multipart/form-data" class="comm-email-compose-form"
         data-reply-to="{% if client %}{{ client.email|default:'' }}{% endif %}"
         data-reply-subject="{% if conversation %}{{ conversation.subject|default:''|decode_email_subject }}{% endif %}"
         data-reply-cc="{{ reply_cc_joined|default:'' }}"
@@ -22,6 +22,10 @@
         <div class="bg-white p-2 rounded border mb-2">
             <div id="emailFilePreview" class="mb-2" aria-live="polite"></div>
             <label class="form-label small text-muted mb-0" for="emailToInput">Para</label>
+            <div class="d-flex gap-2 mb-1">
+                <a href="#" class="comm-email-field-toggle" data-comm-email-toggle="cc">Cc</a>
+                <a href="#" class="comm-email-field-toggle" data-comm-email-toggle="bcc">Cco</a>
+            </div>
             <div class="position-relative mb-2">
                 <input type="text" name="to_addresses" id="emailToInput"
                     class="form-control form-control-sm"
@@ -34,29 +38,33 @@
                     aria-label="Destinatarios en campo Para: escribí correos separados por coma o elegí sugerencias al escribir.">
                 <div id="emailToSuggest" class="comm-email-suggest"></div>
             </div>
-            <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
-            <div class="position-relative mb-2">
-                <input type="text" name="cc_addresses" id="emailCcInput"
-                    class="form-control form-control-sm"
-                    placeholder="Con copia (opcional)"
-                    value=""
-                    autocomplete="off"
-                    spellcheck="false"
-                    title="Destinatarios en copia visibles, separados por coma."
-                    aria-label="Campo copia (Cc): correos separados por coma.">
-                <div id="emailCcSuggest" class="comm-email-suggest"></div>
+            <div class="comm-email-field-row mb-2" data-comm-email-row="cc">
+                <label class="form-label small text-muted mb-0" for="emailCcInput">Cc</label>
+                <div class="position-relative">
+                    <input type="text" name="cc_addresses" id="emailCcInput"
+                        class="form-control form-control-sm"
+                        placeholder="Con copia (opcional)"
+                        value=""
+                        autocomplete="off"
+                        spellcheck="false"
+                        title="Destinatarios en copia visibles, separados por coma."
+                        aria-label="Campo copia (Cc): correos separados por coma.">
+                    <div id="emailCcSuggest" class="comm-email-suggest"></div>
+                </div>
             </div>
-            <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
-            <div class="position-relative mb-2">
-                <input type="text" name="bcc_addresses" id="emailBccInput"
-                    class="form-control form-control-sm"
-                    placeholder="Copia oculta (opcional)"
-                    value=""
-                    autocomplete="off"
-                    spellcheck="false"
-                    title="Destinatarios en copia oculta, separados por coma."
-                    aria-label="Campo copia oculta (Cco): correos separados por coma.">
-                <div id="emailBccSuggest" class="comm-email-suggest"></div>
+            <div class="comm-email-field-row mb-2" data-comm-email-row="bcc">
+                <label class="form-label small text-muted mb-0" for="emailBccInput">Cco</label>
+                <div class="position-relative">
+                    <input type="text" name="bcc_addresses" id="emailBccInput"
+                        class="form-control form-control-sm"
+                        placeholder="Copia oculta (opcional)"
+                        value=""
+                        autocomplete="off"
+                        spellcheck="false"
+                        title="Destinatarios en copia oculta, separados por coma."
+                        aria-label="Campo copia oculta (Cco): correos separados por coma.">
+                    <div id="emailBccSuggest" class="comm-email-suggest"></div>
+                </div>
             </div>
             <label class="form-label small text-muted mb-0" for="emailSubjectInput">Asunto</label>
             <div class="mb-2">
@@ -136,6 +144,7 @@
         </div>
     </form>
     <script src="{% static 'communications/js/client_email_compose.js' %}"></script>
+    <script src="{% static 'communications/js/email_compose_ui.js' %}"></script>
     {% else %}
     <div class="alert alert-warning mb-0 text-center rounded-3 p-2 small" role="alert">
         <i class="fas fa-envelope me-2" aria-hidden="true"></i>Configura una cuenta de Email activa para enviar desde aquí.

@@ -23,11 +23,15 @@
                 <div class="modal-body d-flex flex-column flex-grow-1 px-3 py-2">
                     {% if email_account %}
                     <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
-                        id="emailFormGlobal" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1" style="min-height: 0;">
+                        id="emailFormGlobal" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1 comm-email-compose-form" style="min-height: 0;">
                         {% csrf_token %}
                         <input type="file" id="emailAttachGlobal" name="attachments" multiple hidden>
                         <div class="bg-white p-2 rounded border mb-1 flex-grow-1 d-flex flex-column">
                             <label class="form-label small text-muted mb-0" for="emailToInputGlobal">Para</label>
+                            <div class="d-flex gap-2 mb-1">
+                                <a href="#" class="comm-email-field-toggle" data-comm-email-toggle="cc">Cc</a>
+                                <a href="#" class="comm-email-field-toggle" data-comm-email-toggle="bcc">Cco</a>
+                            </div>
                             <div class="position-relative mb-1">
                                 <input type="text" name="to_addresses" id="emailToInputGlobal"
                                     class="form-control form-control-sm"
@@ -38,23 +42,27 @@
                                     required>
                                 <div id="emailToSuggestGlobal" class="comm-email-suggest d-none"></div>
                             </div>
-                            <label class="form-label small text-muted mb-0" for="emailCcInputGlobal">Cc</label>
-                            <div class="position-relative mb-1">
-                                <input type="text" name="cc_addresses" id="emailCcInputGlobal"
-                                    class="form-control form-control-sm"
-                                    placeholder="Con copia (opcional)"
-                                    value=""
-                                    autocomplete="off"
-                                    spellcheck="false">
+                            <div class="comm-email-field-row mb-1" data-comm-email-row="cc">
+                                <label class="form-label small text-muted mb-0" for="emailCcInputGlobal">Cc</label>
+                                <div class="position-relative">
+                                    <input type="text" name="cc_addresses" id="emailCcInputGlobal"
+                                        class="form-control form-control-sm"
+                                        placeholder="Con copia (opcional)"
+                                        value=""
+                                        autocomplete="off"
+                                        spellcheck="false">
+                                </div>
                             </div>
-                            <label class="form-label small text-muted mb-0" for="emailBccInputGlobal">Cco</label>
-                            <div class="position-relative mb-1">
-                                <input type="text" name="bcc_addresses" id="emailBccInputGlobal"
-                                    class="form-control form-control-sm"
-                                    placeholder="Copia oculta (opcional)"
-                                    value=""
-                                    autocomplete="off"
-                                    spellcheck="false">
+                            <div class="comm-email-field-row mb-1" data-comm-email-row="bcc">
+                                <label class="form-label small text-muted mb-0" for="emailBccInputGlobal">Cco</label>
+                                <div class="position-relative">
+                                    <input type="text" name="bcc_addresses" id="emailBccInputGlobal"
+                                        class="form-control form-control-sm"
+                                        placeholder="Copia oculta (opcional)"
+                                        value=""
+                                        autocomplete="off"
+                                        spellcheck="false">
+                                </div>
                             </div>
                             <label class="form-label small text-muted mb-0" for="emailSubjectInputGlobal">Asunto</label>
                             <div class="mb-1">
@@ -311,6 +319,7 @@
 {% block extra_js %}
     <script src="{% static 'communications/js/websocket.js' %}"></script>
     <script src="{% static 'communications/js/email_rich_text_toolbar.js' %}"></script>
+    <script src="{% static 'communications/js/email_compose_ui.js' %}"></script>
 <script src="{% static 'communications/js/communications_base.js' %}"></script>
 
 {% block comm_js %}{% endblock %}

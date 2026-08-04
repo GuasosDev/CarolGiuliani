@@ -229,20 +229,25 @@
 }
 .comm-rich-text-toolbar {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.25rem;
     padding: 0.35rem;
     background: #f8fafc;
     border: 1px solid #dbe5ef;
     border-radius: 0.5rem;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 .comm-rich-text-toolbar-primary {
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    flex: 0 0 100%;
+    flex: 0 0 auto;
     flex-wrap: nowrap;
+}
+.comm-rich-text-toolbar > * {
+    flex-shrink: 0;
 }
 .comm-rich-text-toolbar .btn {
     min-width: 1.75rem;
@@ -268,6 +273,26 @@
 .comm-email-template-form #emailBodyDiv,
 #channel-email #emailBodyDiv {
     background: #fff;
+}
+.comm-email-field-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.45rem;
+    padding: 0 0.55rem;
+    border: 1px solid #d0d7e2;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.comm-email-field-toggle:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #b8c3d1;
+    text-decoration: none;
 }
 .comm-email-suggest {
     position: absolute;
