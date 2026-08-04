@@ -16,14 +16,21 @@ function closeModalSecondary() {
     document.getElementById('modal-secondary-body').innerHTML = '';
 }
 
+function isLegacyModalBackdropLocked(modalId) {
+    var bodyId = modalId === 'modal-secondary' ? 'modal-secondary-body' : 'modal-body';
+    var body = document.getElementById(bodyId);
+    if (!body) return false;
+    return !!body.querySelector('[data-lock-legacy-modal="true"]');
+}
+
 // Close modal when clicking outside
 window.onclick = function (event) {
     var modal = document.getElementById('modal');
     var modalSecondary = document.getElementById('modal-secondary');
-    if (event.target == modal) {
+    if (event.target == modal && !isLegacyModalBackdropLocked('modal')) {
         closeModal();
     }
-    if (event.target == modalSecondary) {
+    if (event.target == modalSecondary && !isLegacyModalBackdropLocked('modal-secondary')) {
         closeModalSecondary();
     }
 }

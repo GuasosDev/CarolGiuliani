@@ -13,7 +13,7 @@
 <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
     {% if current_channel == 'email' %}
     {% include "communications/partials/email_toolbar.html" %}
-    <div class="modal fade" id="emailComposeModalGlobal" tabindex="-1" aria-labelledby="emailComposeModalGlobalLabel" aria-hidden="true" data-contacts-endpoint="{% url 'communications:contacts_email_search' %}">
+    <div class="modal fade" id="emailComposeModalGlobal" tabindex="-1" aria-labelledby="emailComposeModalGlobalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" data-contacts-endpoint="{% url 'communications:contacts_email_search' %}">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable comm-compose-email-modal">
             <div class="modal-content d-flex flex-column">
                 <div class="modal-header border-bottom flex-shrink-0 py-2">
