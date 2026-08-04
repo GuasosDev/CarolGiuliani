@@ -408,34 +408,33 @@
         document.removeEventListener('drop', globalComposeDropGuard, false);
     }
 
-    function ensureComposeModalBound() {
-        if (modalEl.dataset.commComposeBound) return;
-        modalEl.dataset.commComposeBound = '1';
-        modalEl.setAttribute('data-bs-backdrop', 'static');
-        modalEl.setAttribute('data-bs-keyboard', 'false');
-        modalEl.addEventListener('click', function (e) {
-            if (e.target === modalEl) {
+    function ensureComposeModalBound(el) {
+        if (!el || el.dataset.commComposeBound) return;
+        el.dataset.commComposeBound = '1';
+        el.setAttribute('data-bs-backdrop', 'static');
+        el.setAttribute('data-bs-keyboard', 'false');
+        // Capture: corta el dismiss de Bootstrap antes de que cierre por click en el fondo
+        function blockBackdropDismiss(e) {
+            if (e.target === el) {
                 e.preventDefault();
-                e.stopPropagation();
+                e.stopImmediatePropagation();
             }
-        });
-        modalEl.addEventListener('mousedown', function (e) {
-            if (e.target === modalEl) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-        modalEl.addEventListener('shown.bs.modal', enableGlobalComposeDropGuard);
-        modalEl.addEventListener('hidden.bs.modal', function () {
+        }
+        el.addEventListener('click', blockBackdropDismiss, true);
+        el.addEventListener('mousedown', blockBackdropDismiss, true);
+        el.addEventListener('shown.bs.modal', enableGlobalComposeDropGuard);
+        el.addEventListener('hidden.bs.modal', function () {
             disableGlobalComposeDropGuard();
             clearGlobalAttach();
-            setTimeout(function () { cleanupOverlays(modalEl.id); }, 0);
+            setTimeout(function () { cleanupOverlays(el.id); }, 0);
         });
     }
 
-    function bindGlobalAttachDnD() {
+    function bindGlobalAttachDnD(el) {
+        el = el || modalEl;
+        if (!el) return;
         var input = getGlobalAttachInput();
-        var dropTarget = modalEl.querySelector('.modal-content') || modalEl;
+        var dropTarget = el.querySelector('.modal-content') || el;
         var bodyDiv = document.getElementById('emailBodyDivGlobal');
         if (input && !input.dataset.commAttachBound) {
             input.dataset.commAttachBound = '1';
@@ -504,7 +503,13 @@
 
     window.commMailOpenComposeGlobal = function () {
         if (typeof bootstrap === 'undefined') return;
-        ensureComposeModalBound();
+        modalEl = getComposeModalEl();
+        if (!modalEl) {
+            alert('No se pudo abrir el redactor de correo.');
+            return;
+        }
+        ensureComposeModalBound(modalEl);
+        bindGlobalAttachDnD(modalEl);
         if (modalEl.parentElement !== document.body) {
             document.body.appendChild(modalEl);
         }
@@ -521,7 +526,15 @@
         if (existing) {
             try { existing.dispose(); } catch (eDisp) {}
         }
+        modalEl.setAttribute('data-bs-backdrop', 'static');
+        modalEl.setAttribute('data-bs-keyboard', 'false');
         var inst = new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+        try {
+            if (inst._config) {
+                inst._config.backdrop = 'static';
+                inst._config.keyboard = false;
+            }
+        } catch (eCfg) {}
         inst.show();
         try {
             var to = document.getElementById('emailToInputGlobal');
@@ -529,8 +542,10 @@
         } catch (e) {}
     };
 
-    ensureComposeModalBound();
-    bindGlobalAttachDnD();
+    if (modalEl) {
+        ensureComposeModalBound(modalEl);
+        bindGlobalAttachDnD(modalEl);
+    }
 
     function initAutocomplete() {
         var input = document.getElementById('emailToInputGlobal');
