@@ -221,15 +221,16 @@
     }
 
     function syncGlobalAttachToInput() {
-        var input = getGlobalAttachInput();
         globalAttachFiles = dedupeGlobalFiles(globalAttachFiles);
         var next = new DataTransfer();
         globalAttachFiles.forEach(function (f) { next.items.add(f); });
         globalAttachStore = next;
+        var input = getGlobalAttachInput();
+        // Input nativo vacío: el clips puede elegir otro archivo después
         if (input) {
-            input.dataset.commAttachSync = '1';
-            try { input.files = next.files; } catch (e) {}
-            setTimeout(function () { input.dataset.commAttachSync = ''; }, 100);
+            input._commSkipChange = true;
+            try { input.value = ''; } catch (e) {}
+            input._commSkipChange = false;
         }
         renderGlobalAttachPreview();
     }
@@ -239,9 +240,9 @@
         globalAttachStore = new DataTransfer();
         var input = getGlobalAttachInput();
         if (input) {
-            input.dataset.commAttachSync = '1';
+            input._commSkipChange = true;
             try { input.value = ''; } catch (e) {}
-            setTimeout(function () { input.dataset.commAttachSync = ''; }, 100);
+            input._commSkipChange = false;
         }
         var preview = document.getElementById('emailFilePreviewGlobal');
         if (preview) preview.innerHTML = '';
@@ -307,13 +308,14 @@
             info.appendChild(textWrap);
 
             var actions = document.createElement('div');
-            actions.className = 'd-flex gap-1 flex-shrink-0';
+            actions.className = 'd-flex gap-1 flex-shrink-0 align-items-center';
 
             var eyeBtn = document.createElement('button');
             eyeBtn.type = 'button';
             eyeBtn.className = 'btn btn-sm btn-outline-primary';
             eyeBtn.title = 'Vista previa';
-            eyeBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            eyeBtn.setAttribute('aria-label', 'Vista previa del adjunto');
+            eyeBtn.innerHTML = '<i class="fas fa-eye" aria-hidden="true"></i>';
             eyeBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -324,7 +326,8 @@
             delBtn.type = 'button';
             delBtn.className = 'btn btn-sm btn-outline-danger';
             delBtn.title = 'Quitar';
-            delBtn.innerHTML = '<i class="fas fa-times"></i>';
+            delBtn.setAttribute('aria-label', 'Quitar adjunto');
+            delBtn.innerHTML = '<i class="fas fa-times" aria-hidden="true"></i>';
             delBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -453,11 +456,9 @@
         if (input && !input.dataset.commAttachBound) {
             input.dataset.commAttachBound = '1';
             input.addEventListener('change', function () {
-                if (input.dataset.commAttachSync === '1') return;
+                if (input._commSkipChange) return;
                 var selected = Array.from(input.files || []);
                 if (!selected.length) return;
-                input.dataset.commAttachSync = '1';
-                try { input.value = ''; } catch (err) {}
                 appendGlobalFiles(selected);
             });
         }

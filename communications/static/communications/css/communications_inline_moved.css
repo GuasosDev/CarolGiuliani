@@ -333,10 +333,17 @@
     color: #6b7280;
     flex-shrink: 0;
 }
-.comm-compose-drop-active {
-    outline: 2px dashed #0d6efd !important;
-    outline-offset: 2px;
-    background-color: rgba(13, 110, 253, 0.06) !important;
+#emailFilePreviewGlobal,
+#emailFilePreview {
+    flex-shrink: 0;
+}
+#emailFilePreviewGlobal .btn,
+#emailFilePreview .btn {
+    min-width: 2rem;
+    min-height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .comm-import-cursor-pointer { cursor: pointer; }
 .comm-import-border-dashed { border-style: dashed !important; }
