@@ -210,7 +210,7 @@
                 <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
                     id="emailFormGlobal" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1 comm-email-compose-form" style="min-height: 0;">
                     {% csrf_token %}
-                    <input type="file" id="emailAttachGlobal" name="attachments" multiple hidden>
+                    <input type="file" id="emailAttachGlobal" name="attachments" multiple class="d-none">
                     <div class="bg-white p-2 rounded border mb-1 flex-grow-1 d-flex flex-column" id="emailComposeDropZoneGlobal">
                         <label class="form-label small text-muted mb-0" for="emailToInputGlobal">Para</label>
                         <div class="d-flex gap-2 mb-1">
@@ -298,9 +298,9 @@
                     </div>
                     <div id="emailFilePreviewGlobal" class="mb-1 mt-1 flex-shrink-0" aria-live="polite"></div>
                     <div class="d-flex justify-content-between align-items-center gap-2 flex-shrink-0 pt-2 pb-1 mt-1 border-top">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="commGlobalAttachClick()" title="Adjuntar (también podés arrastrar o pegar)">
+                        <label for="emailAttachGlobal" class="btn btn-sm btn-outline-secondary mb-0" title="Adjuntar (también podés arrastrar o pegar)" style="cursor: pointer;">
                             <i class="fas fa-paperclip me-1"></i> Adjuntar
-                        </button>
+                        </label>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                             <button type="submit" class="btn btn-primary btn-sm px-4" id="emailSendBtnGlobal">

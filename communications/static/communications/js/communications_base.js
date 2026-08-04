@@ -200,8 +200,6 @@
 
     var globalAttachStore = new DataTransfer();
     var globalAttachFiles = [];
-    var lastGlobalClipSig = '';
-    var lastGlobalClipTs = 0;
 
     function getGlobalAttachInput() {
         return document.getElementById('emailAttachGlobal');
@@ -241,8 +239,6 @@
     function clearGlobalAttach() {
         globalAttachFiles = [];
         globalAttachStore = new DataTransfer();
-        lastGlobalClipSig = '';
-        lastGlobalClipTs = 0;
         var input = getGlobalAttachInput();
         if (input) {
             input._commSkipChange = true;
@@ -263,21 +259,14 @@
         if (!input || input._commSkipChange) return;
         var selected = Array.from(input.files || []);
         if (!selected.length) return;
-        var sig = selected.map(fileKey).join(';');
-        var now = Date.now();
-        if (sig && sig === lastGlobalClipSig && (now - lastGlobalClipTs) < 600) {
-            input._commSkipChange = true;
-            try { input.value = ''; } catch (e0) {}
-            input._commSkipChange = false;
-            return;
-        }
-        lastGlobalClipSig = sig;
-        lastGlobalClipTs = now;
-        // Vaciar el input YA, antes de acumular (evita change doble / picker bloqueado)
+        // Copiar YA los File (el FileList se vacía al limpiar el input)
+        var copies = selected.slice();
         input._commSkipChange = true;
-        try { input.value = ''; } catch (e1) {}
+        try {
+            input.value = '';
+        } catch (e1) {}
         input._commSkipChange = false;
-        appendGlobalFiles(selected);
+        appendGlobalFiles(copies);
     }
 
     function removeGlobalAttach(index) {
@@ -290,14 +279,22 @@
     }
     window.commRemoveGlobalAttach = removeGlobalAttach;
 
+    // Fallback por si el label no está disponible en algún template viejo
     window.commGlobalAttachClick = function () {
         var input = getGlobalAttachInput();
         if (!input) return;
-        input._commSkipChange = true;
-        try { input.value = ''; } catch (e) {}
-        input._commSkipChange = false;
         input.click();
     };
+
+    // Listener global: no depende de bind por modal (clips siempre funciona)
+    if (!window.__commGlobalAttachChangeBound) {
+        window.__commGlobalAttachChangeBound = true;
+        document.addEventListener('change', function (e) {
+            var t = e.target;
+            if (!t || t.id !== 'emailAttachGlobal') return;
+            handleGlobalAttachChange(t);
+        }, true);
+    }
 
     function renderGlobalAttachPreview() {
         var preview = document.getElementById('emailFilePreviewGlobal');
@@ -487,15 +484,9 @@
         el = el || getComposeModalEl();
         if (!el) return;
         modalEl = el;
-        var input = getGlobalAttachInput();
         var dropTarget = el.querySelector('.modal-content') || el;
         var bodyDiv = document.getElementById('emailBodyDivGlobal');
-        if (input && !input.dataset.commAttachBound) {
-            input.dataset.commAttachBound = '1';
-            input.addEventListener('change', function () {
-                handleGlobalAttachChange(input);
-            });
-        }
+        // El change del clips se maneja con listener global en document (ver arriba)
         if (dropTarget && !dropTarget.dataset.commDropBound) {
             dropTarget.dataset.commDropBound = '1';
             var dragDepth = 0;
