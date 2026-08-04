@@ -333,6 +333,11 @@
     color: #6b7280;
     flex-shrink: 0;
 }
+.comm-compose-drop-active {
+    outline: 2px dashed #0d6efd !important;
+    outline-offset: 2px;
+    background-color: rgba(13, 110, 253, 0.06) !important;
+}
 .comm-import-cursor-pointer { cursor: pointer; }
 .comm-import-border-dashed { border-style: dashed !important; }
 .comm-import-upload-area { transition: all 0.2s ease; border-width: 2px !important; }

@@ -19,8 +19,7 @@
         <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
         <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{% if conversation %}{{ conversation.id }}{% endif %}">
 
-        <div class="bg-white p-2 rounded border mb-2">
-            <div id="emailFilePreview" class="mb-2" aria-live="polite"></div>
+        <div class="bg-white p-2 rounded border mb-2" id="emailComposeDropZone">
             <label class="form-label small text-muted mb-0" for="emailToInput">Para</label>
             <div class="d-flex gap-2 mb-1">
                 <a href="#" class="comm-email-field-toggle" data-comm-email-toggle="cc">Cc</a>
@@ -115,32 +114,33 @@
                     role="textbox"
                     aria-multiline="true"
                     aria-label="Cuerpo del mensaje de correo."
-                    title="Escribí el cuerpo del correo. Podés adjuntar archivos con el botón de abajo."
+                    title="Escribí el cuerpo del correo. Podés adjuntar con el clips, arrastrar archivos o pegar (Ctrl+V)."
                     placeholder="Escribe el contenido del correo..."
-                    data-placeholder="Escribe el contenido del correo..."></div>
+                    data-placeholder="Escribe el contenido del correo... (arrastrá archivos o pegá con Ctrl+V)"></div>
                 <input type="hidden" name="body" id="emailBodyInput">
-            </div>
-            <div class="mt-2 d-flex gap-2 flex-wrap align-items-center">
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                    onclick="document.getElementById('imageInputEmail').click()"
-                    title="Adjuntar uno o más archivos al correo"
-                    aria-label="Adjuntar archivos al correo">
-                    <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Adjuntar
-                </button>
             </div>
         </div>
 
-        <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()"
-                title="Cerrar sin enviar y volver al listado de contactos"
-                aria-label="Cancelar: cerrar sin enviar el correo">
-                Cancelar
+        <div id="emailFilePreview" class="mb-2" aria-live="polite"></div>
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                onclick="document.getElementById('imageInputEmail').click()"
+                title="Adjuntar uno o más archivos al correo"
+                aria-label="Adjuntar archivos al correo">
+                <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Adjuntar
             </button>
-            <button type="submit" class="btn btn-primary btn-sm px-4"
-                title="Enviar el correo y volver al listado de contactos"
-                aria-label="Enviar correo y volver al listado de contactos">
-                <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Enviar
-            </button>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()"
+                    title="Cerrar sin enviar y volver al listado de contactos"
+                    aria-label="Cancelar: cerrar sin enviar el correo">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm px-4"
+                    title="Enviar el correo y volver al listado de contactos"
+                    aria-label="Enviar correo y volver al listado de contactos">
+                    <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Enviar
+                </button>
+            </div>
         </div>
     </form>
     <script src="{% static 'communications/js/client_email_compose.js' %}"></script>

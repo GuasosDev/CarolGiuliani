@@ -59,6 +59,10 @@
     window.commMailCompose = function (mode) {
         mode = mode || 'new';
         if (mode === 'new') {
+            if (typeof window.commMailOpenComposeGlobal === 'function' && document.getElementById('emailComposeModalGlobal')) {
+                window.commMailOpenComposeGlobal();
+                return;
+            }
             var composeUrl = configValue('composeUrl');
             if (typeof htmx === 'undefined') {
                 window.location.href = composeUrl;
@@ -66,6 +70,8 @@
             }
             try { if (typeof window.closeModal === 'function') window.closeModal(); } catch (e0) {}
             try { if (typeof window.closeModalSecondary === 'function') window.closeModalSecondary(); } catch (e1) {}
+            var modal = document.getElementById('modal');
+            if (modal) modal.setAttribute('data-no-backdrop-close', '1');
             var modalBody = document.getElementById('modal-body');
             if (modalBody) {
                 modalBody.innerHTML = '<div class="p-4 text-center text-muted"><div class="spinner-border text-primary mb-3" role="status"></div><div>Abriendo redaccion...</div></div>';
@@ -137,7 +143,11 @@
 })();
 
 (function () {
-    var modalEl = document.getElementById('emailComposeModalGlobal');
+    function getComposeModalEl() {
+        return document.getElementById('emailComposeModalGlobal');
+    }
+
+    var modalEl = getComposeModalEl();
     if (!modalEl) return;
 
     function cleanupOverlays(exceptId) {
@@ -178,8 +188,326 @@
         document.body.style.removeProperty('overflow');
     }
 
+    function formatFileSize(bytes) {
+        if (!bytes && bytes !== 0) return '';
+        var k = 1024;
+        var sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        var i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    var globalAttachStore = new DataTransfer();
+
+    function getGlobalAttachInput() {
+        return document.getElementById('emailAttachGlobal');
+    }
+
+    function fileKey(f) {
+        return [f.name || '', f.size || 0, f.lastModified || 0].join('|');
+    }
+
+    function clearGlobalAttach() {
+        globalAttachStore = new DataTransfer();
+        var input = getGlobalAttachInput();
+        if (input) {
+            try { input.value = ''; } catch (e) {}
+            input.files = globalAttachStore.files;
+        }
+        var preview = document.getElementById('emailFilePreviewGlobal');
+        if (preview) preview.innerHTML = '';
+    }
+
+    function appendGlobalFiles(fileList) {
+        var input = getGlobalAttachInput();
+        if (!input || !fileList || !fileList.length) return;
+        var next = new DataTransfer();
+        var seen = {};
+        Array.from(globalAttachStore.files || []).forEach(function (f) {
+            var k = fileKey(f);
+            if (seen[k]) return;
+            seen[k] = true;
+            next.items.add(f);
+        });
+        Array.from(fileList).forEach(function (f) {
+            if (!f || f.size == null) return;
+            var k = fileKey(f);
+            if (seen[k]) return;
+            seen[k] = true;
+            next.items.add(f);
+        });
+        globalAttachStore = next;
+        input.files = next.files;
+        renderGlobalAttachPreview();
+    }
+
+    function removeGlobalAttach(index) {
+        var input = getGlobalAttachInput();
+        if (!input) return;
+        var next = new DataTransfer();
+        Array.from(globalAttachStore.files || []).forEach(function (f, i) {
+            if (i !== index) next.items.add(f);
+        });
+        globalAttachStore = next;
+        input.files = next.files;
+        renderGlobalAttachPreview();
+    }
+
+    function renderGlobalAttachPreview() {
+        var preview = document.getElementById('emailFilePreviewGlobal');
+        var input = getGlobalAttachInput();
+        if (!preview) return;
+        preview.innerHTML = '';
+        var files = (input && input.files) ? input.files : globalAttachStore.files;
+        if (!files || !files.length) return;
+        Array.from(files).forEach(function (file, index) {
+            var fileItem = document.createElement('div');
+            fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
+            var size = formatFileSize(file.size);
+            var eyeBtn = '<button type="button" class="btn btn-sm btn-outline-primary" title="Vista previa"><i class="fas fa-eye"></i></button>';
+            var delBtn = '<button type="button" class="btn btn-sm btn-outline-danger" title="Quitar"><i class="fas fa-times"></i></button>';
+            if (file.type && file.type.indexOf('image/') === 0) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    fileItem.innerHTML = '<div class="d-flex align-items-center flex-grow-1">' +
+                        '<img src="' + e.target.result + '" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2">' +
+                        '<div><div class="small fw-bold"></div><div class="text-muted" style="font-size: 0.7rem;"></div></div></div>' +
+                        '<div class="d-flex gap-1">' + eyeBtn + delBtn + '</div>';
+                    fileItem.querySelector('.fw-bold').textContent = file.name;
+                    fileItem.querySelector('.text-muted').textContent = size;
+                    bindPreviewButtons(fileItem, file, index);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                var icon = 'fas fa-file text-secondary';
+                if (file.type && file.type.indexOf('pdf') !== -1) icon = 'fas fa-file-pdf text-danger';
+                else if (file.type && (file.type.indexOf('word') !== -1 || file.type.indexOf('document') !== -1)) icon = 'fas fa-file-word text-primary';
+                else if (file.type && (file.type.indexOf('excel') !== -1 || file.type.indexOf('spreadsheet') !== -1)) icon = 'fas fa-file-excel text-success';
+                fileItem.innerHTML = '<div class="d-flex align-items-center flex-grow-1">' +
+                    '<i class="' + icon + ' me-2"></i><div><div class="small fw-bold"></div><div class="text-muted" style="font-size: 0.7rem;"></div></div></div>' +
+                    '<div class="d-flex gap-1">' + eyeBtn + delBtn + '</div>';
+                fileItem.querySelector('.fw-bold').textContent = file.name;
+                fileItem.querySelector('.text-muted').textContent = size;
+                bindPreviewButtons(fileItem, file, index);
+            }
+            preview.appendChild(fileItem);
+        });
+    }
+
+    function bindPreviewButtons(fileItem, file, index) {
+        var buttons = fileItem.querySelectorAll('button');
+        if (buttons[0]) {
+            buttons[0].addEventListener('click', function (e) {
+                e.preventDefault();
+                openGlobalAttachPreview(file, index);
+            });
+        }
+        if (buttons[1]) {
+            buttons[1].addEventListener('click', function (e) {
+                e.preventDefault();
+                removeGlobalAttach(index);
+            });
+        }
+    }
+
+    function ensureUploadPreviewModal() {
+        var modal = document.getElementById('uploadPreviewModal');
+        if (modal) return modal;
+        modal = document.createElement('div');
+        modal.id = 'uploadPreviewModal';
+        modal.className = 'modal fade';
+        modal.tabIndex = -1;
+        modal.innerHTML = '<div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">' +
+            '<div class="modal-header"><h5 class="modal-title" id="uploadPreviewFileName">Vista previa</h5>' +
+            '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
+            '<div class="modal-body text-center" id="uploadPreviewContent"></div>' +
+            '<div class="modal-footer">' +
+            '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>' +
+            '<button type="button" class="btn btn-danger" id="uploadPreviewRemoveBtn">Eliminar archivo</button>' +
+            '</div></div></div>';
+        document.body.appendChild(modal);
+        var removeBtn = modal.querySelector('#uploadPreviewRemoveBtn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function () {
+                if (window.currentUploadFileSource === 'global' && window.currentUploadFileIndex != null) {
+                    removeGlobalAttach(window.currentUploadFileIndex);
+                    window.currentUploadFileSource = null;
+                    var inst = bootstrap.Modal.getInstance(modal);
+                    if (inst) inst.hide();
+                } else if (typeof window.removeUploadFile === 'function') {
+                    window.removeUploadFile();
+                }
+            });
+        }
+        return modal;
+    }
+
+    function openGlobalAttachPreview(file, index) {
+        if (!file || typeof bootstrap === 'undefined') return;
+        var modal = ensureUploadPreviewModal();
+        var fileNameElement = document.getElementById('uploadPreviewFileName');
+        var previewContent = document.getElementById('uploadPreviewContent');
+        if (!fileNameElement || !previewContent) return;
+        window.currentUploadFileIndex = index;
+        window.currentUploadFileSource = 'global';
+        fileNameElement.textContent = file.name;
+        var ext = (file.name.split('.').pop() || '').toLowerCase();
+        var url = URL.createObjectURL(file);
+        var html = '';
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) !== -1) {
+            html = '<img src="' + url + '" alt="" style="max-width:100%;max-height:500px;border-radius:8px;">';
+        } else if (ext === 'pdf') {
+            html = '<div class="p-4"><i class="fas fa-file-pdf fa-4x text-danger mb-3"></i><h5></h5><p class="text-muted">Vista previa de PDF no disponible.</p></div>';
+        } else {
+            html = '<div class="p-4"><i class="fas fa-file fa-4x text-secondary mb-3"></i><h5></h5><p class="text-muted">Vista previa no disponible.</p></div>';
+        }
+        previewContent.innerHTML = html;
+        var h5 = previewContent.querySelector('h5');
+        if (h5) h5.textContent = file.name;
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+    }
+
+    function isGlobalFileDrag(e) {
+        var dt = e && e.dataTransfer;
+        if (!dt || !dt.types) return false;
+        for (var i = 0; i < dt.types.length; i++) {
+            if (dt.types[i] === 'Files') return true;
+        }
+        return false;
+    }
+
+    var globalComposeDropGuardOn = false;
+    var lastGlobalDropTs = 0;
+    function consumeGlobalDropOnce() {
+        var now = Date.now();
+        if (now - lastGlobalDropTs < 200) return false;
+        lastGlobalDropTs = now;
+        return true;
+    }
+    function globalComposeDropGuard(e) {
+        if (!isGlobalFileDrag(e)) return;
+        e.preventDefault();
+        if (e.type !== 'drop') return;
+        if (!modalEl.classList.contains('show')) return;
+        if (!consumeGlobalDropOnce()) return;
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+            appendGlobalFiles(e.dataTransfer.files);
+        }
+        var content = modalEl.querySelector('.modal-content');
+        if (content) content.classList.remove('comm-compose-drop-active');
+    }
+    function enableGlobalComposeDropGuard() {
+        if (globalComposeDropGuardOn) return;
+        globalComposeDropGuardOn = true;
+        document.addEventListener('dragover', globalComposeDropGuard, false);
+        document.addEventListener('drop', globalComposeDropGuard, false);
+    }
+    function disableGlobalComposeDropGuard() {
+        if (!globalComposeDropGuardOn) return;
+        globalComposeDropGuardOn = false;
+        document.removeEventListener('dragover', globalComposeDropGuard, false);
+        document.removeEventListener('drop', globalComposeDropGuard, false);
+    }
+
+    function ensureComposeModalBound() {
+        if (modalEl.dataset.commComposeBound) return;
+        modalEl.dataset.commComposeBound = '1';
+        modalEl.setAttribute('data-bs-backdrop', 'static');
+        modalEl.setAttribute('data-bs-keyboard', 'false');
+        modalEl.addEventListener('click', function (e) {
+            if (e.target === modalEl) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+        modalEl.addEventListener('mousedown', function (e) {
+            if (e.target === modalEl) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+        modalEl.addEventListener('shown.bs.modal', enableGlobalComposeDropGuard);
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            disableGlobalComposeDropGuard();
+            clearGlobalAttach();
+            setTimeout(function () { cleanupOverlays(modalEl.id); }, 0);
+        });
+    }
+
+    function bindGlobalAttachDnD() {
+        var input = getGlobalAttachInput();
+        var dropTarget = modalEl.querySelector('.modal-content') || modalEl;
+        var bodyDiv = document.getElementById('emailBodyDivGlobal');
+        if (input && !input.dataset.commAttachBound) {
+            input.dataset.commAttachBound = '1';
+            input.addEventListener('change', function () {
+                var selected = Array.from(this.files || []);
+                if (!selected.length) return;
+                appendGlobalFiles(selected);
+            });
+        }
+        if (dropTarget && !dropTarget.dataset.commDropBound) {
+            dropTarget.dataset.commDropBound = '1';
+            var dragDepth = 0;
+            dropTarget.addEventListener('dragenter', function (e) {
+                if (!isGlobalFileDrag(e)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                dragDepth += 1;
+                dropTarget.classList.add('comm-compose-drop-active');
+            });
+            dropTarget.addEventListener('dragleave', function (e) {
+                if (!isGlobalFileDrag(e)) return;
+                e.preventDefault();
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (dragDepth === 0) dropTarget.classList.remove('comm-compose-drop-active');
+            });
+            dropTarget.addEventListener('dragover', function (e) {
+                if (!isGlobalFileDrag(e)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            });
+            dropTarget.addEventListener('drop', function (e) {
+                if (!isGlobalFileDrag(e) && !(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                dragDepth = 0;
+                dropTarget.classList.remove('comm-compose-drop-active');
+                if (!consumeGlobalDropOnce()) return;
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                    appendGlobalFiles(e.dataTransfer.files);
+                }
+            });
+        }
+        if (bodyDiv && !bodyDiv.dataset.commPasteBound) {
+            bodyDiv.dataset.commPasteBound = '1';
+            bodyDiv.addEventListener('paste', function (e) {
+                var cd = e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
+                if (!cd) return;
+                var files = [];
+                if (cd.files && cd.files.length) {
+                    files = Array.from(cd.files);
+                } else if (cd.items) {
+                    for (var i = 0; i < cd.items.length; i++) {
+                        if (cd.items[i].kind !== 'file') continue;
+                        var blob = cd.items[i].getAsFile();
+                        if (!blob) continue;
+                        files.push(new File([blob], blob.name || ('pegado_' + Date.now() + '.png'), { type: blob.type || 'application/octet-stream' }));
+                    }
+                }
+                if (!files.length) return;
+                e.preventDefault();
+                appendGlobalFiles(files);
+            });
+        }
+    }
+
     window.commMailOpenComposeGlobal = function () {
         if (typeof bootstrap === 'undefined') return;
+        ensureComposeModalBound();
+        if (modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
         cleanupOverlays(modalEl.id);
         ['emailToInputGlobal', 'emailSubjectInputGlobal', 'emailCcInputGlobal', 'emailBccInputGlobal'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -187,16 +515,22 @@
         });
         var body = document.getElementById('emailBodyDivGlobal');
         if (body) body.innerHTML = '';
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        clearGlobalAttach();
+
+        var existing = bootstrap.Modal.getInstance(modalEl);
+        if (existing) {
+            try { existing.dispose(); } catch (eDisp) {}
+        }
+        var inst = new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+        inst.show();
         try {
             var to = document.getElementById('emailToInputGlobal');
             if (to) to.focus();
         } catch (e) {}
     };
 
-    modalEl.addEventListener('hidden.bs.modal', function () {
-        setTimeout(function () { cleanupOverlays(modalEl.id); }, 0);
-    });
+    ensureComposeModalBound();
+    bindGlobalAttachDnD();
 
     function initAutocomplete() {
         var input = document.getElementById('emailToInputGlobal');
@@ -298,9 +632,17 @@
             if (bodyIn) bodyIn.value = bodyDiv ? (bodyDiv.innerHTML || '') : '';
             var btn = document.getElementById('emailSendBtnGlobal');
             if (btn) btn.disabled = true;
+            var fd = new FormData(form);
+            var attachInput = getGlobalAttachInput();
+            if (attachInput && attachInput.files && attachInput.files.length) {
+                fd.delete('attachments');
+                Array.from(attachInput.files).forEach(function (file) {
+                    fd.append('attachments', file);
+                });
+            }
             fetch(form.action, {
                 method: 'POST',
-                body: new FormData(form),
+                body: fd,
                 credentials: 'same-origin',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             }).then(function (r) {
