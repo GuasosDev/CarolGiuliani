@@ -199,7 +199,11 @@
     }
 
     var globalAttachStore = new DataTransfer();
-    var globalAttachFiles = [];
+    // Estado en window: sobrevive y es el mismo que usa el onchange del HTML
+    if (!Array.isArray(window.__commGlobalAttachFiles)) {
+        window.__commGlobalAttachFiles = [];
+    }
+    var globalAttachFiles = window.__commGlobalAttachFiles;
 
     function getGlobalAttachInput() {
         return document.getElementById('emailAttachGlobal');
@@ -213,7 +217,7 @@
         var out = [];
         var seen = {};
         Array.from(files || []).forEach(function (f) {
-            if (!f || f.size == null) return;
+            if (!f) return;
             var k = fileKey(f);
             if (seen[k]) return;
             seen[k] = true;
@@ -223,27 +227,25 @@
     }
 
     function syncGlobalAttachToInput() {
-        globalAttachFiles = dedupeGlobalFiles(globalAttachFiles);
+        window.__commGlobalAttachFiles = dedupeGlobalFiles(window.__commGlobalAttachFiles);
+        globalAttachFiles = window.__commGlobalAttachFiles;
         var next = new DataTransfer();
-        globalAttachFiles.forEach(function (f) { next.items.add(f); });
+        globalAttachFiles.forEach(function (f) {
+            try { next.items.add(f); } catch (eAdd) {}
+        });
         globalAttachStore = next;
-        var input = getGlobalAttachInput();
-        if (input) {
-            input._commSkipChange = true;
-            try { input.value = ''; } catch (e) {}
-            input._commSkipChange = false;
-        }
         renderGlobalAttachPreview();
     }
 
     function clearGlobalAttach() {
-        globalAttachFiles = [];
+        window.__commGlobalAttachFiles = [];
+        globalAttachFiles = window.__commGlobalAttachFiles;
         globalAttachStore = new DataTransfer();
         var input = getGlobalAttachInput();
         if (input) {
             input._commSkipChange = true;
             try { input.value = ''; } catch (e) {}
-            input._commSkipChange = false;
+            setTimeout(function () { input._commSkipChange = false; }, 0);
         }
         var preview = document.getElementById('emailFilePreviewGlobal');
         if (preview) preview.innerHTML = '';
@@ -251,7 +253,10 @@
 
     function appendGlobalFiles(fileList) {
         if (!fileList || !fileList.length) return;
-        globalAttachFiles = dedupeGlobalFiles(globalAttachFiles.concat(Array.from(fileList)));
+        window.__commGlobalAttachFiles = dedupeGlobalFiles(
+            (window.__commGlobalAttachFiles || []).concat(Array.from(fileList))
+        );
+        globalAttachFiles = window.__commGlobalAttachFiles;
         syncGlobalAttachToInput();
     }
 
@@ -259,16 +264,20 @@
         if (!input || input._commSkipChange) return;
         var selected = Array.from(input.files || []);
         if (!selected.length) return;
-        var copies = selected.slice();
-        appendGlobalFiles(copies);
-        // Vaciar después para poder elegir el mismo archivo otra vez
+        appendGlobalFiles(selected.slice());
         input._commSkipChange = true;
         try { input.value = ''; } catch (e1) {}
-        setTimeout(function () { input._commSkipChange = false; }, 0);
+        setTimeout(function () { input._commSkipChange = false; }, 50);
     }
 
+    // Expuesto para el onchange inline del template (no depende de bind)
+    window.commGlobalOnAttachChange = handleGlobalAttachChange;
+
     function removeGlobalAttach(index) {
-        globalAttachFiles = globalAttachFiles.filter(function (_f, i) { return i !== index; });
+        window.__commGlobalAttachFiles = (window.__commGlobalAttachFiles || []).filter(function (_f, i) {
+            return i !== index;
+        });
+        globalAttachFiles = window.__commGlobalAttachFiles;
         syncGlobalAttachToInput();
         if (!globalAttachFiles.length) {
             var preview = document.getElementById('emailFilePreviewGlobal');
@@ -277,49 +286,21 @@
     }
     window.commRemoveGlobalAttach = removeGlobalAttach;
 
-    window.commGlobalAttachClick = function (ev) {
-        if (ev) {
-            try { ev.preventDefault(); } catch (e0) {}
-            try { ev.stopPropagation(); } catch (e1) {}
-        }
-        var input = getGlobalAttachInput();
-        if (!input) {
-            alert('No se encontró el selector de archivos.');
-            return false;
-        }
-        try {
-            input.click();
-        } catch (e2) {
-            alert('No se pudo abrir el selector de archivos.');
-        }
-        return false;
-    };
-
-    function bindGlobalAttachControls() {
-        var btn = document.getElementById('emailAttachGlobalBtn');
-        var input = getGlobalAttachInput();
-        if (btn && !btn.dataset.commAttachBtnBound) {
-            btn.dataset.commAttachBtnBound = '1';
-            btn.addEventListener('click', function (ev) {
-                window.commGlobalAttachClick(ev);
-            });
-        }
-        if (input && !input.dataset.commAttachChangeBound) {
-            input.dataset.commAttachChangeBound = '1';
-            input.addEventListener('change', function () {
-                handleGlobalAttachChange(input);
-            });
-        }
-    }
-
-    // También en document por si el input se recrea
     if (!window.__commGlobalAttachChangeBound) {
         window.__commGlobalAttachChangeBound = true;
         document.addEventListener('change', function (e) {
             var t = e.target;
             if (!t || t.id !== 'emailAttachGlobal') return;
+            // Evitar doble proceso si también disparó el onchange inline
+            if (t._commHandledChange) return;
+            t._commHandledChange = true;
+            setTimeout(function () { t._commHandledChange = false; }, 0);
             handleGlobalAttachChange(t);
         }, true);
+    }
+
+    function bindGlobalAttachControls() {
+        // noop: onchange inline + listener document
     }
 
     function renderGlobalAttachPreview() {
@@ -440,6 +421,7 @@
         }
         bootstrap.Modal.getOrCreateInstance(modal).show();
     }
+    window.openGlobalAttachPreview = openGlobalAttachPreview;
 
     function isGlobalFileDrag(e) {
         var dt = e && e.dataTransfer;
@@ -723,9 +705,10 @@
             var btn = document.getElementById('emailSendBtnGlobal');
             if (btn) btn.disabled = true;
             var fd = new FormData(form);
-            if (globalAttachFiles.length) {
+            var filesToSend = window.__commGlobalAttachFiles || globalAttachFiles || [];
+            if (filesToSend.length) {
                 fd.delete('attachments');
-                globalAttachFiles.forEach(function (file) {
+                filesToSend.forEach(function (file) {
                     fd.append('attachments', file);
                 });
             } else {
@@ -761,6 +744,135 @@
                 if (btn) btn.disabled = false;
             });
         });
+    }
+})();
+
+/* Adjuntos de Redactar: IIFE propio para que el preview SIEMPRE se registre,
+   aunque el bloque del modal haya salido antes por un flag de init. */
+(function () {
+    function fileKey(f) {
+        return [(f && f.name) || '', (f && f.size) || 0].join('|');
+    }
+
+    function dedupe(files) {
+        var out = [];
+        var seen = {};
+        Array.from(files || []).forEach(function (f) {
+            if (!f) return;
+            var k = fileKey(f);
+            if (seen[k]) return;
+            seen[k] = true;
+            out.push(f);
+        });
+        return out;
+    }
+
+    function formatSize(bytes) {
+        if (!bytes && bytes !== 0) return '';
+        var k = 1024;
+        var sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        var i = Math.floor(Math.log(bytes) / Math.log(k)) || 0;
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function getFiles() {
+        if (!Array.isArray(window.__commGlobalAttachFiles)) {
+            window.__commGlobalAttachFiles = [];
+        }
+        return window.__commGlobalAttachFiles;
+    }
+
+    function setFiles(files) {
+        window.__commGlobalAttachFiles = dedupe(files);
+        renderPreview();
+    }
+
+    function renderPreview() {
+        var preview = document.getElementById('emailFilePreviewGlobal');
+        if (!preview) return;
+        preview.innerHTML = '';
+        var files = getFiles();
+        files.forEach(function (file, index) {
+            var row = document.createElement('div');
+            row.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
+
+            var info = document.createElement('div');
+            info.className = 'd-flex align-items-center flex-grow-1';
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-file text-secondary me-2';
+            if (file.type && file.type.indexOf('image/') === 0) icon.className = 'fas fa-file-image text-primary me-2';
+            else if (file.type && file.type.indexOf('pdf') !== -1) icon.className = 'fas fa-file-pdf text-danger me-2';
+            info.appendChild(icon);
+
+            var text = document.createElement('div');
+            var nameEl = document.createElement('div');
+            nameEl.className = 'small fw-bold';
+            nameEl.textContent = file.name || 'archivo';
+            var sizeEl = document.createElement('div');
+            sizeEl.className = 'text-muted';
+            sizeEl.style.fontSize = '0.7rem';
+            sizeEl.textContent = formatSize(file.size);
+            text.appendChild(nameEl);
+            text.appendChild(sizeEl);
+            info.appendChild(text);
+
+            var actions = document.createElement('div');
+            actions.className = 'd-flex gap-1 flex-shrink-0';
+
+            var eye = document.createElement('button');
+            eye.type = 'button';
+            eye.className = 'btn btn-sm btn-outline-primary';
+            eye.title = 'Vista previa';
+            eye.innerHTML = '<i class="fas fa-eye"></i>';
+            eye.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (typeof window.openGlobalAttachPreview === 'function') {
+                    window.openGlobalAttachPreview(file, index);
+                } else if (typeof bootstrap !== 'undefined') {
+                    alert(file.name + '\n' + formatSize(file.size));
+                }
+            });
+
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'btn btn-sm btn-outline-danger';
+            del.title = 'Quitar';
+            del.innerHTML = '<i class="fas fa-times"></i>';
+            del.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.commRemoveGlobalAttach(index);
+            });
+
+            actions.appendChild(eye);
+            actions.appendChild(del);
+            row.appendChild(info);
+            row.appendChild(actions);
+            preview.appendChild(row);
+        });
+    }
+
+    window.commGlobalOnAttachChange = function (input) {
+        if (!input || input._commSkipChange) return;
+        var selected = Array.from(input.files || []);
+        if (!selected.length) return;
+        setFiles(getFiles().concat(selected));
+        input._commSkipChange = true;
+        try { input.value = ''; } catch (e) {}
+        setTimeout(function () { input._commSkipChange = false; }, 50);
+    };
+
+    window.commRemoveGlobalAttach = function (index) {
+        var files = getFiles().filter(function (_f, i) { return i !== index; });
+        setFiles(files);
+    };
+
+    // Por si el onchange inline no alcanza
+    if (!window.__commGlobalAttachDocBound) {
+        window.__commGlobalAttachDocBound = true;
+        document.addEventListener('change', function (e) {
+            if (!e.target || e.target.id !== 'emailAttachGlobal') return;
+            window.commGlobalOnAttachChange(e.target);
+        }, true);
     }
 })();
 

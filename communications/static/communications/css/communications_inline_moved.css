@@ -336,6 +336,12 @@
 #emailFilePreviewGlobal,
 #emailFilePreview {
     flex-shrink: 0;
+    min-height: 0;
+}
+#emailFilePreviewGlobal:not(:empty),
+#emailFilePreview:not(:empty) {
+    max-height: 160px;
+    overflow-y: auto;
 }
 #emailFilePreviewGlobal .btn,
 #emailFilePreview .btn {
@@ -344,6 +350,21 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+.comm-attach-btn-wrap {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.comm-attach-file-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 0;
+    z-index: 2;
 }
 .comm-import-cursor-pointer { cursor: pointer; }
 .comm-import-border-dashed { border-style: dashed !important; }

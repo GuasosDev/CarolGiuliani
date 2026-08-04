@@ -78,7 +78,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
-<link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}">
+<link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}?v=attach-overlay-1">
 {% block comm_css %}{% endblock %}
 {% endblock %}
 
@@ -210,9 +210,6 @@
                 <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
                     id="emailFormGlobal" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1 comm-email-compose-form" style="min-height: 0;">
                     {% csrf_token %}
-                    <input type="file" id="emailAttachGlobal" name="attachments" multiple
-                        style="position:fixed;left:-10000px;top:0;width:1px;height:1px;opacity:0;overflow:hidden;"
-                        tabindex="-1" aria-hidden="true">
                     <div class="bg-white p-2 rounded border mb-1 flex-grow-1 d-flex flex-column" id="emailComposeDropZoneGlobal">
                         <label class="form-label small text-muted mb-0" for="emailToInputGlobal">Para</label>
                         <div class="d-flex gap-2 mb-1">
@@ -300,9 +297,17 @@
                     </div>
                     <div id="emailFilePreviewGlobal" class="mb-1 mt-1 flex-shrink-0" aria-live="polite"></div>
                     <div class="d-flex justify-content-between align-items-center gap-2 flex-shrink-0 pt-2 pb-1 mt-1 border-top">
-                        <button type="button" id="emailAttachGlobalBtn" class="btn btn-sm btn-outline-secondary" title="Adjuntar (también podés arrastrar o pegar)">
-                            <i class="fas fa-paperclip me-1"></i> Adjuntar
-                        </button>
+                        {# Input encima del botón: click real del usuario (sin input.click() por JS) #}
+                        <div class="comm-attach-btn-wrap" title="Adjuntar (también podés arrastrar o pegar)">
+                            <span class="btn btn-sm btn-outline-secondary pe-none">
+                                <i class="fas fa-paperclip me-1"></i> Adjuntar
+                            </span>
+                            <input type="file" id="emailAttachGlobal" name="attachments" multiple
+                                class="comm-attach-file-overlay"
+                                title="Adjuntar archivos"
+                                aria-label="Adjuntar archivos"
+                                onchange="window.commGlobalOnAttachChange && window.commGlobalOnAttachChange(this)">
+                        </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                             <button type="submit" class="btn btn-primary btn-sm px-4" id="emailSendBtnGlobal">
@@ -327,7 +332,7 @@
     <script src="{% static 'communications/js/websocket.js' %}"></script>
     <script src="{% static 'communications/js/email_rich_text_toolbar.js' %}"></script>
     <script src="{% static 'communications/js/email_compose_ui.js' %}"></script>
-<script src="{% static 'communications/js/communications_base.js' %}?v=attach-clip-3"></script>
+<script src="{% static 'communications/js/communications_base.js' %}?v=attach-preview-3"></script>
 
 {% block comm_js %}{% endblock %}
 {% endblock %}
