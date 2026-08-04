@@ -353,6 +353,7 @@ class EmailHandler:
             sender_name, from_address = parseaddr(
                 email_message.get('From', '')
             )
+            sender_name = decode_mime_header(sender_name) or sender_name
 
             logger.info(
                 f"UID={imap_uid} "
@@ -676,6 +677,9 @@ class EmailHandler:
 
         from clients.models import Client
 
+        decoded_sender_name = decode_mime_header(sender_name or '').strip()
+        sender_name = decoded_sender_name or (sender_name or '').strip()
+
         clients = Client.objects.filter(email__iexact=email_address)
 
         if clients.exists():
@@ -685,6 +689,12 @@ class EmailHandler:
                 logger.warning(
                     f"Multiple clients found for {email_address}"
                 )
+            if sender_name and (
+                not (client.name or '').strip()
+                or ((client.name or '').strip().startswith('=?') and (client.name or '').strip().endswith('?='))
+            ):
+                client.name = sender_name
+                client.save(update_fields=['name'])
         else:
             client = Client.objects.create(
                 email=email_address,
