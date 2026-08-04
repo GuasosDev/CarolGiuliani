@@ -56,6 +56,53 @@
 
     window.commMailRefreshList = commMailRefreshList;
 
+    window.commMailSyncNow = function (buttonEl) {
+        var syncUrl = configValue('syncNowUrl');
+        if (!syncUrl) {
+            alert('No hay una cuenta de email activa para sincronizar.');
+            return;
+        }
+
+        var btn = buttonEl || document.getElementById('commMailSyncNowBtn');
+        var originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="comm-mail-tb-ico"><i class="fas fa-spinner fa-spin"></i></span><span>Sincronizando...</span>';
+        }
+
+        fetch(syncUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': commMailGetCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (data) {
+                return { ok: r.ok, data: data };
+            });
+        }).then(function (res) {
+            if (!res.ok) {
+                var msg = (res.data && (res.data.error || res.data.detail)) ? (res.data.error || res.data.detail) : 'No se pudo iniciar la sincronizacion manual.';
+                throw new Error(msg);
+            }
+            alert('Sincronizacion iniciada. El sistema va a consultar el servidor de correo y actualizar la bandeja en unos segundos.');
+            setTimeout(function () {
+                commMailRefreshList();
+            }, 3000);
+            setTimeout(function () {
+                commMailRefreshList();
+            }, 7000);
+        }).catch(function (err) {
+            alert(err.message || 'No se pudo iniciar la sincronizacion manual.');
+        }).finally(function () {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    };
+
     window.commMailCompose = function (mode) {
         mode = mode || 'new';
         if (mode === 'new') {

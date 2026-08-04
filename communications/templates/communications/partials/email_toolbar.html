@@ -79,6 +79,15 @@ href="{% url 'communications:dashboard' %}?channel=email&folder=sent">
     <span class="comm-mail-tb-ico"><i class="fas fa-sync-alt"></i></span>
     <span>Actualizar</span> 
 </button>
+    <button type="button"
+        class="btn btn-toolbar-mail"
+        id="commMailSyncNowBtn"
+        title="Traer correos manualmente desde el servidor"
+        onclick="if(typeof window.commMailSyncNow === 'function') { window.commMailSyncNow(this); }"
+        {% if not email_account %}disabled aria-disabled="true"{% endif %}>
+        <span class="comm-mail-tb-ico"><i class="fas fa-cloud-download-alt"></i></span>
+        <span>Sincronizar</span>
+    </button>
 
     <button type="button" class="btn btn-toolbar-mail" title="Redactar" onclick="commMailCompose('new')">
         <span class="comm-mail-tb-ico"><i class="fas fa-pen"></i></span><span>Redactar</span>
