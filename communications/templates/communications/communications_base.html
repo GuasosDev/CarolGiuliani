@@ -65,22 +65,25 @@
                             </div>
                             <div class="form-label small text-muted mb-0">Mensaje</div>
                             <div class="comm-rich-text-toolbar mb-2" data-editor-selector="#emailBodyDivGlobal">
-                                <select class="form-select form-select-sm" data-command="fontName" aria-label="Tipo de letra">
-                                    <option value="">Fuente</option>
-                                    <option value="Arial">Arial</option>
-                                    <option value="Georgia">Georgia</option>
-                                    <option value="Tahoma">Tahoma</option>
-                                    <option value="Times New Roman">Times</option>
-                                    <option value="Verdana">Verdana</option>
-                                </select>
-                                <select class="form-select form-select-sm" data-command="fontSize" aria-label="Tamaño de letra">
-                                    <option value="">Tamaño</option>
-                                    <option value="2">Pequeño</option>
-                                    <option value="3">Normal</option>
-                                    <option value="4">Mediano</option>
-                                    <option value="5">Grande</option>
-                                    <option value="6">Muy grande</option>
-                                </select>
+                                <div class="comm-rich-text-toolbar-primary">
+                                    <select class="form-select form-select-sm" data-command="fontName" aria-label="Tipo de letra">
+                                        <option value="">Fuente</option>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Tahoma">Tahoma</option>
+                                        <option value="Times New Roman">Times</option>
+                                        <option value="Verdana">Verdana</option>
+                                    </select>
+                                    <select class="form-select form-select-sm" data-command="fontSize" aria-label="Tamaño de letra">
+                                        <option value="">Tamaño</option>
+                                        <option value="2">Pequeño</option>
+                                        <option value="3">Normal</option>
+                                        <option value="4">Mediano</option>
+                                        <option value="5">Grande</option>
+                                        <option value="6">Muy grande</option>
+                                    </select>
+                                    <input type="color" class="form-control form-control-color form-control-sm" data-command="foreColor" value="#1f2937" title="Color de texto" aria-label="Color de texto">
+                                </div>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-command="bold" title="Negrita"><i class="fas fa-bold"></i></button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-command="italic" title="Cursiva"><i class="fas fa-italic"></i></button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-command="underline" title="Subrayado"><i class="fas fa-underline"></i></button>
@@ -89,7 +92,6 @@
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-command="justifyRight" title="Alinear a la derecha"><i class="fas fa-align-right"></i></button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-command="insertUnorderedList" title="Lista con viñetas"><i class="fas fa-list-ul"></i></button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-command="insertOrderedList" title="Lista numerada"><i class="fas fa-list-ol"></i></button>
-                                <input type="color" class="form-control form-control-color form-control-sm" data-command="foreColor" value="#1f2937" title="Color de texto" aria-label="Color de texto">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-command="removeFormat" title="Limpiar formato"><i class="fas fa-eraser"></i></button>
                             </div>
                             <div class="d-flex align-items-stretch flex-grow-1">
