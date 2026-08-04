@@ -227,6 +227,41 @@
     max-height: 46vh;
     overflow: auto;
 }
+.comm-rich-text-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem;
+    background: #f8fafc;
+    border: 1px solid #dbe5ef;
+    border-radius: 0.5rem;
+}
+.comm-rich-text-toolbar .btn {
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.comm-rich-text-toolbar .form-select,
+.comm-rich-text-toolbar .form-control-color {
+    width: auto;
+    min-width: 5.5rem;
+    height: 2rem;
+    font-size: 0.78rem;
+}
+.comm-rich-text-toolbar .form-control-color {
+    min-width: 2.5rem;
+    padding: 0.15rem 0.25rem;
+}
+#emailComposeModalGlobal #emailBodyDivGlobal,
+#emailComposeModal #emailBodyDiv,
+.comm-email-template-form #emailBodyDiv,
+#channel-email #emailBodyDiv {
+    background: #fff;
+}
 .comm-email-suggest {
     position: absolute;
     top: calc(100% + 4px);
