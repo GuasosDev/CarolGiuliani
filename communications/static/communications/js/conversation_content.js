@@ -1,4 +1,12 @@
 (function () {
+    if (window.__commConversationContentInit) {
+        if (typeof window.__commInitConversationContent === 'function') {
+            window.__commInitConversationContent();
+        }
+        return;
+    }
+    window.__commConversationContentInit = true;
+
     function getConfig() {
         return document.getElementById('conversationContentConfig');
     }
@@ -345,6 +353,20 @@
 
     window.refreshMessages = refreshMessages;
 
+    function setForwardPreviewVisible(modalEl, visible) {
+        if (!modalEl) return;
+        var preview = modalEl.querySelector('#emailForwardPreview');
+        if (!preview) return;
+        preview.classList.toggle('d-none', !visible);
+    }
+
+    function getReplyQuoteHtml(modalEl) {
+        if (!modalEl) return '';
+        var tpl = modalEl.querySelector('#emailReplyQuoteTemplate');
+        if (!tpl) return '';
+        return tpl.innerHTML || '';
+    }
+
     window.commMailOpenCompose = function (mode, options) {
         var modalEl = getEmailComposeModal();
         if (!modalEl || typeof bootstrap === 'undefined') return;
@@ -386,11 +408,12 @@
             if (srcInNew) srcInNew.value = '';
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-pen', 'Redactar correo');
         } else if (mode === 'forward') {
             if (to) to.value = '';
             if (subj) subj.value = replySubject ? ('Fwd: ' + replySubject) : 'Fwd: ';
-            if (body) body.innerHTML = '<p></p><p>---------- Mensaje reenviado ----------</p>';
+            if (body) body.innerHTML = '';
             if (convInput) {
                 convInput.value = '';
                 convInput.removeAttribute('name');
@@ -400,11 +423,12 @@
             if (srcIn) srcIn.value = srcId;
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, true);
             setTitle('fas fa-share', 'Reenviar correo');
         } else if (mode === 'reply-all') {
             if (to) to.value = replyTo;
             if (subj) subj.value = replySubject ? ('Re: ' + replySubject) : 'Re: ';
-            if (body) body.innerHTML = '';
+            if (body) body.innerHTML = '<p><br></p>' + getReplyQuoteHtml(modalEl);
             if (convInput) {
                 convInput.setAttribute('name', 'conversation_id');
                 convInput.value = convIdDefault;
@@ -413,11 +437,12 @@
             if (srcInAll) srcInAll.value = '';
             if (ccIn) ccIn.value = replyCc;
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-reply-all', 'Responder a todos');
         } else {
             if (to) to.value = replyTo;
             if (subj) subj.value = replySubject ? ('Re: ' + replySubject) : 'Re: ';
-            if (body) body.innerHTML = '';
+            if (body) body.innerHTML = '<p><br></p>' + getReplyQuoteHtml(modalEl);
             if (convInput) {
                 convInput.setAttribute('name', 'conversation_id');
                 convInput.value = convIdDefault;
@@ -426,6 +451,7 @@
             if (srcInReply) srcInReply.value = '';
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
+            setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-reply', 'Responder');
         }
         modalEl.setAttribute('data-bs-backdrop', 'static');
@@ -654,6 +680,9 @@
         if (whatsappContainer && !whatsappContainer.classList.contains('d-none') && whatsappInput) {
             whatsappInput.click();
         } else if (emailInput) {
+            emailInput._commSkipChange = true;
+            try { emailInput.value = ''; } catch (e) {}
+            emailInput._commSkipChange = false;
             emailInput.click();
         }
     };
@@ -1663,6 +1692,20 @@
                 if (input._commSkipChange) return;
                 var selected = Array.from(input.files || []);
                 if (!selected.length) return;
+                var sig = selected.map(function (f) { return fileKey(f); }).join(';');
+                var now = Date.now();
+                if (input._commLastClipSig === sig && (now - (input._commLastClipTs || 0)) < 600) {
+                    input._commSkipChange = true;
+                    try { input.value = ''; } catch (e0) {}
+                    input._commSkipChange = false;
+                    return;
+                }
+                input._commLastClipSig = sig;
+                input._commLastClipTs = now;
+                // Vaciar YA el input nativo para que un 2º change no vuelva a sumar el mismo archivo
+                input._commSkipChange = true;
+                try { input.value = ''; } catch (e1) {}
+                input._commSkipChange = false;
                 appendEmailFiles(input, selected, formContext);
             });
         }
@@ -1742,6 +1785,7 @@
         initMoreMessagesIndicator();
         initPolling();
     }
+    window.__commInitConversationContent = initConversationContent;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initConversationContent);

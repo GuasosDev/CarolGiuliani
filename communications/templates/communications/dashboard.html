@@ -449,7 +449,6 @@
 
 {% block comm_js %}
 <script src="{% static 'communications/js/dashboard.js' %}"></script>
-<script src="{% static 'communications/js/communications_base.js' %}"></script>
-<script src="{% static 'communications/js/conversation_content.js' %}"></script>
-
+{# communications_base.js ya se carga en communications_base.html #}
+{# conversation_content.js se carga con el partial de la conversación #}
 {% endblock %}

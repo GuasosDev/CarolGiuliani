@@ -143,12 +143,14 @@
 })();
 
 (function () {
+    if (window.__commGlobalComposeInit) return;
+    window.__commGlobalComposeInit = true;
+
     function getComposeModalEl() {
         return document.getElementById('emailComposeModalGlobal');
     }
 
     var modalEl = getComposeModalEl();
-    if (!modalEl) return;
 
     function cleanupOverlays(exceptId) {
         exceptId = exceptId || '';
@@ -198,6 +200,8 @@
 
     var globalAttachStore = new DataTransfer();
     var globalAttachFiles = [];
+    var lastGlobalClipSig = '';
+    var lastGlobalClipTs = 0;
 
     function getGlobalAttachInput() {
         return document.getElementById('emailAttachGlobal');
@@ -226,7 +230,6 @@
         globalAttachFiles.forEach(function (f) { next.items.add(f); });
         globalAttachStore = next;
         var input = getGlobalAttachInput();
-        // Input nativo vacío: el clips puede elegir otro archivo después
         if (input) {
             input._commSkipChange = true;
             try { input.value = ''; } catch (e) {}
@@ -238,6 +241,8 @@
     function clearGlobalAttach() {
         globalAttachFiles = [];
         globalAttachStore = new DataTransfer();
+        lastGlobalClipSig = '';
+        lastGlobalClipTs = 0;
         var input = getGlobalAttachInput();
         if (input) {
             input._commSkipChange = true;
@@ -254,6 +259,27 @@
         syncGlobalAttachToInput();
     }
 
+    function handleGlobalAttachChange(input) {
+        if (!input || input._commSkipChange) return;
+        var selected = Array.from(input.files || []);
+        if (!selected.length) return;
+        var sig = selected.map(fileKey).join(';');
+        var now = Date.now();
+        if (sig && sig === lastGlobalClipSig && (now - lastGlobalClipTs) < 600) {
+            input._commSkipChange = true;
+            try { input.value = ''; } catch (e0) {}
+            input._commSkipChange = false;
+            return;
+        }
+        lastGlobalClipSig = sig;
+        lastGlobalClipTs = now;
+        // Vaciar el input YA, antes de acumular (evita change doble / picker bloqueado)
+        input._commSkipChange = true;
+        try { input.value = ''; } catch (e1) {}
+        input._commSkipChange = false;
+        appendGlobalFiles(selected);
+    }
+
     function removeGlobalAttach(index) {
         globalAttachFiles = globalAttachFiles.filter(function (_f, i) { return i !== index; });
         syncGlobalAttachToInput();
@@ -263,6 +289,15 @@
         }
     }
     window.commRemoveGlobalAttach = removeGlobalAttach;
+
+    window.commGlobalAttachClick = function () {
+        var input = getGlobalAttachInput();
+        if (!input) return;
+        input._commSkipChange = true;
+        try { input.value = ''; } catch (e) {}
+        input._commSkipChange = false;
+        input.click();
+    };
 
     function renderGlobalAttachPreview() {
         var preview = document.getElementById('emailFilePreviewGlobal');
@@ -404,12 +439,13 @@
         if (!isGlobalFileDrag(e)) return;
         e.preventDefault();
         if (e.type !== 'drop') return;
-        if (!modalEl.classList.contains('show')) return;
+        var el = getComposeModalEl() || modalEl;
+        if (!el || !el.classList.contains('show')) return;
         if (!consumeGlobalDropOnce()) return;
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
             appendGlobalFiles(e.dataTransfer.files);
         }
-        var content = modalEl.querySelector('.modal-content');
+        var content = el.querySelector('.modal-content');
         if (content) content.classList.remove('comm-compose-drop-active');
     }
     function enableGlobalComposeDropGuard() {
@@ -448,18 +484,16 @@
     }
 
     function bindGlobalAttachDnD(el) {
-        el = el || modalEl;
+        el = el || getComposeModalEl();
         if (!el) return;
+        modalEl = el;
         var input = getGlobalAttachInput();
         var dropTarget = el.querySelector('.modal-content') || el;
         var bodyDiv = document.getElementById('emailBodyDivGlobal');
         if (input && !input.dataset.commAttachBound) {
             input.dataset.commAttachBound = '1';
             input.addEventListener('change', function () {
-                if (input._commSkipChange) return;
-                var selected = Array.from(input.files || []);
-                if (!selected.length) return;
-                appendGlobalFiles(selected);
+                handleGlobalAttachChange(input);
             });
         }
         if (dropTarget && !dropTarget.dataset.commDropBound) {
@@ -569,7 +603,8 @@
         var input = document.getElementById('emailToInputGlobal');
         var suggest = document.getElementById('emailToSuggestGlobal');
         if (!input || !suggest) return;
-        var endpoint = modalEl.dataset.contactsEndpoint || '';
+        var composeEl = getComposeModalEl() || modalEl;
+        var endpoint = (composeEl && composeEl.dataset.contactsEndpoint) || '';
         if (!endpoint) return;
         var items = [];
         var activeIndex = -1;
@@ -657,7 +692,8 @@
     initAutocomplete();
 
     var form = document.getElementById('emailFormGlobal');
-    if (form) {
+    if (form && !form.dataset.commGlobalSubmitBound) {
+        form.dataset.commGlobalSubmitBound = '1';
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             var bodyDiv = document.getElementById('emailBodyDivGlobal');
@@ -680,6 +716,7 @@
                     });
                 }
             }
+            var activeModal = getComposeModalEl() || modalEl;
             fetch(form.action, {
                 method: 'POST',
                 body: fd,
@@ -693,7 +730,9 @@
                     alert(msg);
                     return;
                 }
-                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                if (activeModal && typeof bootstrap !== 'undefined') {
+                    bootstrap.Modal.getOrCreateInstance(activeModal).hide();
+                }
                 if (typeof window.commMailRefreshList === 'function') window.commMailRefreshList();
             }).catch(function () {
                 alert('Error de red al enviar el correo.');

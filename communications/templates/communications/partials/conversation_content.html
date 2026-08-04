@@ -362,7 +362,6 @@
             </div>
             {% endif %}
             {% endif %}
-          <script src="{% static 'communications/js/conversation_content.js' %}" defer></script>
         </div>
 
         {% if conversation.channel == 'email' %}
@@ -502,6 +501,14 @@
                                          placeholder="Escribe el contenido del correo..."
                                          data-placeholder="Escribe el contenido del correo... (arrastrá archivos o pegá con Ctrl+V)"></div>
                                     <input type="hidden" name="body" id="emailBodyInput">
+                                </div>
+                                <template id="emailReplyQuoteTemplate">{{ reply_quote_html|default:''|safe }}</template>
+                                <div id="emailForwardPreview" class="d-none mt-2 border-top pt-2">
+                                    <div class="small text-muted mb-1">---------- Mensaje reenviado ----------</div>
+                                    <div id="emailForwardPreviewBody" class="small bg-light border rounded p-2"
+                                         style="max-height: 220px; overflow-y: auto;">
+                                        {{ forward_preview_html|default:''|safe }}
+                                    </div>
                                 </div>
                             </div>
 

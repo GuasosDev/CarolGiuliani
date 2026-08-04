@@ -88,6 +88,71 @@ def _get_user_email_account(user):
     return None
 
 
+def _email_message_body_html(email_msg):
+    """HTML limpio del cuerpo de un EmailMessage (para preview/cita)."""
+    if not email_msg:
+        return ''
+    if email_msg.html_body and str(email_msg.html_body).strip():
+        raw_src = email_msg.html_body
+    elif email_msg.plain_body and str(email_msg.plain_body).strip():
+        raw_src = plain_text_to_email_html(email_msg.plain_body)
+    else:
+        msg = getattr(email_msg, 'message', None)
+        content = (msg.content if msg else '') or ''
+        if content and '<' in content and '>' in content:
+            raw_src = content
+        else:
+            raw_src = plain_text_to_email_html(content)
+    return limpiar_email_html(raw_src)
+
+
+def _email_forward_preview_html(email_msg):
+    """HTML limpio para previsualizar el mensaje a reenviar (solo lectura en el modal)."""
+    return _email_message_body_html(email_msg)
+
+
+def _email_reply_quote_html(email_msg):
+    """Cita HTML editable del mensaje original para Responder / Responder a todos."""
+    from django.utils.html import escape
+    from .utils.email_headers import decode_mime_header
+
+    body = _email_message_body_html(email_msg)
+    if not email_msg and not body:
+        return ''
+
+    from_addr = escape((getattr(email_msg, 'from_address', None) or '').strip())
+    subject_raw = getattr(email_msg, 'subject', None) or ''
+    subject = escape(decode_mime_header(subject_raw) or subject_raw or '')
+
+    when = ''
+    msg = getattr(email_msg, 'message', None)
+    dt = getattr(email_msg, 'email_date', None) or (msg.created_at if msg else None)
+    if dt:
+        try:
+            when = escape(timezone.localtime(dt).strftime('%d/%m/%Y %H:%M'))
+        except Exception:
+            when = escape(str(dt))
+
+    header_bits = []
+    if when:
+        header_bits.append('El %s' % when)
+    if from_addr:
+        header_bits.append('%s escribió:' % from_addr)
+    elif subject:
+        header_bits.append('escribió:')
+    header_line = ' '.join(header_bits) if header_bits else 'Mensaje original:'
+
+    subject_line = ('<div><strong>Asunto:</strong> %s</div>' % subject) if subject else ''
+    return (
+        '<br><br>'
+        '<div class="comm-email-reply-quote" style="border-left:3px solid #c5c5c5;padding-left:12px;margin-left:4px;color:#555;">'
+        '<div style="margin-bottom:8px;font-size:0.9em;">%s</div>'
+        '%s'
+        '<div>%s</div>'
+        '</div>'
+    ) % (header_line, subject_line, body or '')
+
+
 @login_required
 def import_contacts_csv(request):
     """View to import contacts from a CSV file"""
@@ -1023,6 +1088,8 @@ def conversation_detail(request, pk):
 
         reply_cc_joined = ''
         forward_email_message_id = None
+        forward_preview_html = ''
+        reply_quote_html = ''
         if conversation.channel == 'email':
             last_inbound = (
                 EmailMessage.objects.filter(
@@ -1043,6 +1110,10 @@ def conversation_detail(request, pk):
             )
             if last_any:
                 forward_email_message_id = last_any.id
+                forward_preview_html = _email_forward_preview_html(last_any)
+            quote_src = last_inbound or last_any
+            if quote_src:
+                reply_quote_html = _email_reply_quote_html(quote_src)
 
         wa_freeform_blocked = False
         wa_freeform_block_reason = ''
@@ -1094,6 +1165,8 @@ def conversation_detail(request, pk):
             'company_settings': company_settings,
             'reply_cc_joined': reply_cc_joined,
             'forward_email_message_id': forward_email_message_id,
+            'forward_preview_html': forward_preview_html,
+            'reply_quote_html': reply_quote_html,
             'email_compose_recipients_catalog': email_compose_recipients_catalog,
             'wa_freeform_blocked': wa_freeform_blocked,
             'wa_freeform_block_reason': wa_freeform_block_reason,
@@ -1188,6 +1261,9 @@ def email_message_detail(request, pk):
     if email_message.cc_addresses:
         reply_cc_joined = ', '.join(str(x).strip() for x in email_message.cc_addresses if x)
 
+    forward_preview_html = _email_forward_preview_html(email_message)
+    reply_quote_html = _email_reply_quote_html(email_message)
+
     from django.contrib.auth.models import User as AuthUser
     transfer_users = AuthUser.objects.filter(is_active=True).exclude(
         pk=request.user.pk
@@ -1215,6 +1291,8 @@ def email_message_detail(request, pk):
         'company_settings': company_settings,
         'reply_cc_joined': reply_cc_joined,
         'forward_email_message_id': email_message.id,
+        'forward_preview_html': forward_preview_html,
+        'reply_quote_html': reply_quote_html,
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
         **counts,
     }
