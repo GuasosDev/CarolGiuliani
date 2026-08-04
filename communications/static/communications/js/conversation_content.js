@@ -78,43 +78,56 @@
 
     function clearEmailAttachInput(input) {
         if (!input) return;
+        input._commFiles = [];
         emailAttachStores.set(input, new DataTransfer());
         input.dataset.commAttachSync = '1';
         try { input.value = ''; } catch (e) {}
-        try { input.files = emailAttachStores.get(input).files; } catch (e2) {}
-        setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
+        setTimeout(function () { input.dataset.commAttachSync = ''; }, 100);
     }
 
     function fileKey(f) {
-        // name+size alcanza; lastModified a veces cambia al pasar por DataTransfer
         return [f.name || '', f.size || 0].join('|');
     }
 
-    function setEmailAttachFiles(input, files, formContext) {
-        if (!input) return;
-        var next = new DataTransfer();
+    function dedupeFiles(files) {
+        var out = [];
         var seen = {};
         Array.from(files || []).forEach(function (f) {
             if (!f || f.size == null) return;
             var k = fileKey(f);
             if (seen[k]) return;
             seen[k] = true;
-            next.items.add(f);
+            out.push(f);
         });
+        return out;
+    }
+
+    function syncEmailAttachToInput(input, formContext) {
+        if (!input) return;
+        var files = dedupeFiles(input._commFiles || []);
+        input._commFiles = files;
+        var next = new DataTransfer();
+        files.forEach(function (f) { next.items.add(f); });
         emailAttachStores.set(input, next);
         input.dataset.commAttachSync = '1';
         try {
             input.files = next.files;
         } catch (e) {}
-        setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
-        displayEmailFilePreview(next.files, formContext || input.closest('form') || getEmailComposeModal());
+        displayEmailFilePreview(files, formContext || input.closest('form') || getEmailComposeModal());
+        setTimeout(function () { input.dataset.commAttachSync = ''; }, 100);
     }
 
     function appendEmailFiles(input, fileList, formContext) {
         if (!input || !fileList || !fileList.length) return;
-        var prev = Array.from(getEmailAttachStore(input).files || []);
-        var incoming = Array.from(fileList);
-        setEmailAttachFiles(input, prev.concat(incoming), formContext);
+        if (!input._commFiles) input._commFiles = Array.from(getEmailAttachStore(input).files || []);
+        input._commFiles = dedupeFiles(input._commFiles.concat(Array.from(fileList)));
+        syncEmailAttachToInput(input, formContext);
+    }
+
+    function setEmailAttachFiles(input, files, formContext) {
+        if (!input) return;
+        input._commFiles = dedupeFiles(files);
+        syncEmailAttachToInput(input, formContext);
     }
 
     function filesFromClipboardData(clipboardData) {
@@ -640,40 +653,69 @@
         }
         if (!preview) return;
         preview.innerHTML = '';
-        Array.from(files).forEach(function (file, index) {
+        var fileArr = Array.from(files || []);
+        fileArr.forEach(function (file, index) {
             var fileItem = document.createElement('div');
             fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
-            fileItem.style.cursor = 'pointer';
-            fileItem.draggable = true;
-            var size = formatFileSize(file.size);
-            if (file.type.startsWith('image/')) {
+
+            var info = document.createElement('div');
+            info.className = 'd-flex align-items-center flex-grow-1';
+
+            if (file.type && file.type.indexOf('image/') === 0) {
+                var img = document.createElement('img');
+                img.className = 'me-2';
+                img.style.cssText = 'width:40px;height:40px;object-fit:cover;border-radius:4px;';
+                info.appendChild(img);
                 var reader = new FileReader();
-                reader.onload = function (e) {
-                    fileItem.innerHTML = '<div class="d-flex align-items-center flex-grow-1" onclick="handleFileClick(' + index + ')">' +
-                        '<img src="' + e.target.result + '" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2">' +
-                        '<div><div class="small fw-bold">' + file.name + '</div><div class="text-muted" style="font-size: 0.7rem;">' + size + '</div></div></div>' +
-                        '<div class="d-flex gap-1">' +
-                        '<button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); openUploadPreview(document.getElementById(\'imageInputEmail\').files[' + index + '], ' + index + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeEmailFile(' + index + ')"><i class="fas fa-times"></i></button>' +
-                        '</div>';
-                };
-                reader.readAsDataURL(file);
+                reader.onload = function (e) { img.src = e.target.result; };
+                try { reader.readAsDataURL(file); } catch (err) {}
             } else {
-                var icon = 'fas fa-file text-secondary';
-                if (file.type.includes('pdf')) icon = 'fas fa-file-pdf text-danger';
-                else if (file.type.includes('word') || file.type.includes('document')) icon = 'fas fa-file-word text-primary';
-                else if (file.type.includes('excel') || file.type.includes('spreadsheet')) icon = 'fas fa-file-excel text-success';
-                fileItem.innerHTML = '<div class="d-flex align-items-center flex-grow-1" onclick="handleFileClick(' + index + ')">' +
-                    '<i class="' + icon + ' me-2"></i><div><div class="small fw-bold">' + file.name + '</div><div class="text-muted" style="font-size: 0.7rem;">' + size + '</div></div></div>' +
-                    '<div class="d-flex gap-1">' +
-                    '<button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); openUploadPreview(document.getElementById(\'imageInputEmail\').files[' + index + '], ' + index + ')" title="Vista previa"><i class="fas fa-eye"></i></button>' +
-                    '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeEmailFile(' + index + ')"><i class="fas fa-times"></i></button>' +
-                    '</div>';
+                var icon = document.createElement('i');
+                icon.className = 'fas fa-file text-secondary me-2';
+                if (file.type && file.type.indexOf('pdf') !== -1) icon.className = 'fas fa-file-pdf text-danger me-2';
+                else if (file.type && (file.type.indexOf('word') !== -1 || file.type.indexOf('document') !== -1)) icon.className = 'fas fa-file-word text-primary me-2';
+                else if (file.type && (file.type.indexOf('excel') !== -1 || file.type.indexOf('spreadsheet') !== -1)) icon.className = 'fas fa-file-excel text-success me-2';
+                info.appendChild(icon);
             }
-            fileItem.addEventListener('dragstart', function (e) {
-                e.dataTransfer.effectAllowed = 'copy';
-                e.dataTransfer.setData('text/plain', file.name);
+
+            var textWrap = document.createElement('div');
+            var nameEl = document.createElement('div');
+            nameEl.className = 'small fw-bold';
+            nameEl.textContent = file.name || 'archivo';
+            var sizeEl = document.createElement('div');
+            sizeEl.className = 'text-muted';
+            sizeEl.style.fontSize = '0.7rem';
+            sizeEl.textContent = formatFileSize(file.size);
+            textWrap.appendChild(nameEl);
+            textWrap.appendChild(sizeEl);
+            info.appendChild(textWrap);
+
+            var actions = document.createElement('div');
+            actions.className = 'd-flex gap-1 flex-shrink-0';
+
+            var eyeBtn = document.createElement('button');
+            eyeBtn.type = 'button';
+            eyeBtn.className = 'btn btn-sm btn-outline-primary';
+            eyeBtn.title = 'Vista previa';
+            eyeBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            eyeBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                openUploadPreview(file, index);
             });
+
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-sm btn-outline-danger';
+            delBtn.innerHTML = '<i class="fas fa-times"></i>';
+            delBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                removeEmailFile(index);
+            });
+
+            actions.appendChild(eyeBtn);
+            actions.appendChild(delBtn);
+            fileItem.appendChild(info);
+            fileItem.appendChild(actions);
             preview.appendChild(fileItem);
         });
     }
@@ -684,14 +726,13 @@
             || document.getElementById('imageInputEmail')
             || document.getElementById('imageInputEmailInline');
         if (!input) return;
-        var store = getEmailAttachStore(input);
-        var kept = [];
-        Array.from(store.files || []).forEach(function (file, i) {
-            if (i !== index) kept.push(file);
-        });
+        if (!input._commFiles) {
+            input._commFiles = Array.from(getEmailAttachStore(input).files || []);
+        }
+        input._commFiles = input._commFiles.filter(function (_f, i) { return i !== index; });
         var ctx = (modal && modal.contains(input)) ? modal : (input.closest('form') || modal);
-        setEmailAttachFiles(input, kept, ctx);
-        if (!kept.length) {
+        syncEmailAttachToInput(input, ctx);
+        if (!input._commFiles.length) {
             var preview = (ctx && ctx.querySelector('#emailFilePreview, #emailFilePreviewInline'))
                 || document.getElementById('emailFilePreview');
             if (preview) preview.innerHTML = '';
@@ -1366,6 +1407,7 @@
         var previewContent = document.getElementById('uploadPreviewContent');
         if (!modal || !fileNameElement || !previewContent) return;
         window.currentUploadFileIndex = index;
+        window.currentUploadFileSource = null;
         fileNameElement.textContent = file.name;
         var fileExtension = file.name.split('.').pop().toLowerCase();
         var previewHTML = '';
@@ -1393,7 +1435,15 @@
     };
 
     window.removeUploadFile = function () {
-        if (window.currentUploadFileIndex === undefined) return;
+        if (window.currentUploadFileIndex === undefined || window.currentUploadFileIndex === null) return;
+        if (window.currentUploadFileSource === 'global') {
+            if (typeof window.commRemoveGlobalAttach === 'function') {
+                window.commRemoveGlobalAttach(window.currentUploadFileIndex);
+            }
+            window.currentUploadFileSource = null;
+            window.closeUploadPreview();
+            return;
+        }
         var whatsappContainer = document.getElementById('channel-whatsapp');
         if (whatsappContainer && !whatsappContainer.classList.contains('d-none')) {
             window.removeWhatsappFile(window.currentUploadFileIndex);
@@ -1583,13 +1633,19 @@
         function bindEmailFileInput(input, formContext) {
             if (!input || input.dataset.bound) return;
             input.dataset.bound = '1';
+            if (!input._commFiles) input._commFiles = [];
             input.addEventListener('change', function () {
                 if (input.dataset.commAttachSync === '1') return;
-                var selected = Array.from(this.files || []);
+                // Snapshot YA: el browser trae solo lo recién elegido
+                var selected = Array.from(input.files || []);
                 if (!selected.length) return;
-                // this.files es SOLO la selección nueva (el browser pisó el input).
-                // Acumular contra el store, no contra this.files.
-                appendEmailFiles(this, selected, formContext);
+
+                // Bloquear reentrada y vaciar el input nativo YA
+                // (evita un 2º change que vuelva a sumar el mismo archivo)
+                input.dataset.commAttachSync = '1';
+                try { input.value = ''; } catch (err) {}
+
+                appendEmailFiles(input, selected, formContext);
             });
         }
         var composeModal = getEmailComposeModal();

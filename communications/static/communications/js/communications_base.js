@@ -197,6 +197,7 @@
     }
 
     var globalAttachStore = new DataTransfer();
+    var globalAttachFiles = [];
 
     function getGlobalAttachInput() {
         return document.getElementById('emailAttachGlobal');
@@ -206,36 +207,41 @@
         return [f.name || '', f.size || 0].join('|');
     }
 
-    function setGlobalAttachFiles(files) {
-        var input = getGlobalAttachInput();
-        var next = new DataTransfer();
+    function dedupeGlobalFiles(files) {
+        var out = [];
         var seen = {};
         Array.from(files || []).forEach(function (f) {
             if (!f || f.size == null) return;
             var k = fileKey(f);
             if (seen[k]) return;
             seen[k] = true;
-            next.items.add(f);
+            out.push(f);
         });
+        return out;
+    }
+
+    function syncGlobalAttachToInput() {
+        var input = getGlobalAttachInput();
+        globalAttachFiles = dedupeGlobalFiles(globalAttachFiles);
+        var next = new DataTransfer();
+        globalAttachFiles.forEach(function (f) { next.items.add(f); });
         globalAttachStore = next;
         if (input) {
             input.dataset.commAttachSync = '1';
-            try {
-                input.files = next.files;
-            } catch (e) {}
-            setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
+            try { input.files = next.files; } catch (e) {}
+            setTimeout(function () { input.dataset.commAttachSync = ''; }, 100);
         }
         renderGlobalAttachPreview();
     }
 
     function clearGlobalAttach() {
-        var input = getGlobalAttachInput();
+        globalAttachFiles = [];
         globalAttachStore = new DataTransfer();
+        var input = getGlobalAttachInput();
         if (input) {
             input.dataset.commAttachSync = '1';
             try { input.value = ''; } catch (e) {}
-            try { input.files = globalAttachStore.files; } catch (e2) {}
-            setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
+            setTimeout(function () { input.dataset.commAttachSync = ''; }, 100);
         }
         var preview = document.getElementById('emailFilePreviewGlobal');
         if (preview) preview.innerHTML = '';
@@ -243,114 +249,115 @@
 
     function appendGlobalFiles(fileList) {
         if (!fileList || !fileList.length) return;
-        var prev = Array.from(globalAttachStore.files || []);
-        setGlobalAttachFiles(prev.concat(Array.from(fileList)));
+        globalAttachFiles = dedupeGlobalFiles(globalAttachFiles.concat(Array.from(fileList)));
+        syncGlobalAttachToInput();
     }
 
     function removeGlobalAttach(index) {
-        var kept = [];
-        Array.from(globalAttachStore.files || []).forEach(function (f, i) {
-            if (i !== index) kept.push(f);
-        });
-        setGlobalAttachFiles(kept);
-        if (!kept.length) {
+        globalAttachFiles = globalAttachFiles.filter(function (_f, i) { return i !== index; });
+        syncGlobalAttachToInput();
+        if (!globalAttachFiles.length) {
             var preview = document.getElementById('emailFilePreviewGlobal');
             if (preview) preview.innerHTML = '';
         }
     }
+    window.commRemoveGlobalAttach = removeGlobalAttach;
 
     function renderGlobalAttachPreview() {
         var preview = document.getElementById('emailFilePreviewGlobal');
-        var input = getGlobalAttachInput();
         if (!preview) return;
         preview.innerHTML = '';
-        var files = (input && input.files) ? input.files : globalAttachStore.files;
-        if (!files || !files.length) return;
-        Array.from(files).forEach(function (file, index) {
+        var files = globalAttachFiles.length ? globalAttachFiles : Array.from(globalAttachStore.files || []);
+        if (!files.length) return;
+        files.forEach(function (file, index) {
             var fileItem = document.createElement('div');
             fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
             var size = formatFileSize(file.size);
-            var eyeBtn = '<button type="button" class="btn btn-sm btn-outline-primary" title="Vista previa"><i class="fas fa-eye"></i></button>';
-            var delBtn = '<button type="button" class="btn btn-sm btn-outline-danger" title="Quitar"><i class="fas fa-times"></i></button>';
+
+            var info = document.createElement('div');
+            info.className = 'd-flex align-items-center flex-grow-1';
+
             if (file.type && file.type.indexOf('image/') === 0) {
+                var img = document.createElement('img');
+                img.className = 'me-2';
+                img.style.cssText = 'width:40px;height:40px;object-fit:cover;border-radius:4px;';
+                info.appendChild(img);
                 var reader = new FileReader();
-                reader.onload = function (e) {
-                    fileItem.innerHTML = '<div class="d-flex align-items-center flex-grow-1">' +
-                        '<img src="' + e.target.result + '" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2">' +
-                        '<div><div class="small fw-bold"></div><div class="text-muted" style="font-size: 0.7rem;"></div></div></div>' +
-                        '<div class="d-flex gap-1">' + eyeBtn + delBtn + '</div>';
-                    fileItem.querySelector('.fw-bold').textContent = file.name;
-                    fileItem.querySelector('.text-muted').textContent = size;
-                    bindPreviewButtons(fileItem, file, index);
-                };
-                reader.readAsDataURL(file);
+                reader.onload = function (e) { img.src = e.target.result; };
+                try { reader.readAsDataURL(file); } catch (err) {}
             } else {
-                var icon = 'fas fa-file text-secondary';
-                if (file.type && file.type.indexOf('pdf') !== -1) icon = 'fas fa-file-pdf text-danger';
-                else if (file.type && (file.type.indexOf('word') !== -1 || file.type.indexOf('document') !== -1)) icon = 'fas fa-file-word text-primary';
-                else if (file.type && (file.type.indexOf('excel') !== -1 || file.type.indexOf('spreadsheet') !== -1)) icon = 'fas fa-file-excel text-success';
-                fileItem.innerHTML = '<div class="d-flex align-items-center flex-grow-1">' +
-                    '<i class="' + icon + ' me-2"></i><div><div class="small fw-bold"></div><div class="text-muted" style="font-size: 0.7rem;"></div></div></div>' +
-                    '<div class="d-flex gap-1">' + eyeBtn + delBtn + '</div>';
-                fileItem.querySelector('.fw-bold').textContent = file.name;
-                fileItem.querySelector('.text-muted').textContent = size;
-                bindPreviewButtons(fileItem, file, index);
+                var icon = document.createElement('i');
+                icon.className = 'fas fa-file text-secondary me-2';
+                if (file.type && file.type.indexOf('pdf') !== -1) icon.className = 'fas fa-file-pdf text-danger me-2';
+                else if (file.type && (file.type.indexOf('word') !== -1 || file.type.indexOf('document') !== -1)) icon.className = 'fas fa-file-word text-primary me-2';
+                else if (file.type && (file.type.indexOf('excel') !== -1 || file.type.indexOf('spreadsheet') !== -1)) icon.className = 'fas fa-file-excel text-success me-2';
+                info.appendChild(icon);
             }
+
+            var textWrap = document.createElement('div');
+            var nameEl = document.createElement('div');
+            nameEl.className = 'small fw-bold';
+            nameEl.textContent = file.name || 'archivo';
+            var sizeEl = document.createElement('div');
+            sizeEl.className = 'text-muted';
+            sizeEl.style.fontSize = '0.7rem';
+            sizeEl.textContent = size;
+            textWrap.appendChild(nameEl);
+            textWrap.appendChild(sizeEl);
+            info.appendChild(textWrap);
+
+            var actions = document.createElement('div');
+            actions.className = 'd-flex gap-1 flex-shrink-0';
+
+            var eyeBtn = document.createElement('button');
+            eyeBtn.type = 'button';
+            eyeBtn.className = 'btn btn-sm btn-outline-primary';
+            eyeBtn.title = 'Vista previa';
+            eyeBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            eyeBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openGlobalAttachPreview(file, index);
+            });
+
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-sm btn-outline-danger';
+            delBtn.title = 'Quitar';
+            delBtn.innerHTML = '<i class="fas fa-times"></i>';
+            delBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                removeGlobalAttach(index);
+            });
+
+            actions.appendChild(eyeBtn);
+            actions.appendChild(delBtn);
+            fileItem.appendChild(info);
+            fileItem.appendChild(actions);
             preview.appendChild(fileItem);
         });
     }
 
-    function bindPreviewButtons(fileItem, file, index) {
-        var buttons = fileItem.querySelectorAll('button');
-        if (buttons[0]) {
-            buttons[0].addEventListener('click', function (e) {
-                e.preventDefault();
-                openGlobalAttachPreview(file, index);
-            });
-        }
-        if (buttons[1]) {
-            buttons[1].addEventListener('click', function (e) {
-                e.preventDefault();
-                removeGlobalAttach(index);
-            });
-        }
-    }
-
-    function ensureUploadPreviewModal() {
-        var modal = document.getElementById('uploadPreviewModal');
-        if (modal) return modal;
-        modal = document.createElement('div');
-        modal.id = 'uploadPreviewModal';
-        modal.className = 'modal fade';
-        modal.tabIndex = -1;
-        modal.innerHTML = '<div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">' +
-            '<div class="modal-header"><h5 class="modal-title" id="uploadPreviewFileName">Vista previa</h5>' +
-            '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
-            '<div class="modal-body text-center" id="uploadPreviewContent"></div>' +
-            '<div class="modal-footer">' +
-            '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>' +
-            '<button type="button" class="btn btn-danger" id="uploadPreviewRemoveBtn">Eliminar archivo</button>' +
-            '</div></div></div>';
-        document.body.appendChild(modal);
-        var removeBtn = modal.querySelector('#uploadPreviewRemoveBtn');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function () {
-                if (window.currentUploadFileSource === 'global' && window.currentUploadFileIndex != null) {
-                    removeGlobalAttach(window.currentUploadFileIndex);
-                    window.currentUploadFileSource = null;
-                    var inst = bootstrap.Modal.getInstance(modal);
-                    if (inst) inst.hide();
-                } else if (typeof window.removeUploadFile === 'function') {
-                    window.removeUploadFile();
-                }
-            });
-        }
-        return modal;
-    }
-
     function openGlobalAttachPreview(file, index) {
         if (!file || typeof bootstrap === 'undefined') return;
-        var modal = ensureUploadPreviewModal();
+        var modal = document.getElementById('uploadPreviewModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'uploadPreviewModal';
+            modal.className = 'modal fade';
+            modal.tabIndex = -1;
+            modal.innerHTML = '<div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">' +
+                '<div class="modal-header"><h5 class="modal-title"><i class="fas fa-eye me-2"></i><span id="uploadPreviewFileName">Vista previa</span></h5>' +
+                '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
+                '<div class="modal-body text-center" id="uploadPreviewContent"></div>' +
+                '<div class="modal-footer">' +
+                '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>' +
+                '<button type="button" class="btn btn-danger" onclick="if(window.commRemoveGlobalAttach&&window.currentUploadFileIndex!=null){window.commRemoveGlobalAttach(window.currentUploadFileIndex);}var m=document.getElementById(\'uploadPreviewModal\');if(m&&bootstrap.Modal.getInstance(m))bootstrap.Modal.getInstance(m).hide();"><i class="fas fa-trash me-2"></i>Eliminar</button>' +
+                '</div></div></div>';
+            document.body.appendChild(modal);
+        }
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
         var fileNameElement = document.getElementById('uploadPreviewFileName');
         var previewContent = document.getElementById('uploadPreviewContent');
         if (!fileNameElement || !previewContent) return;
@@ -359,17 +366,17 @@
         fileNameElement.textContent = file.name;
         var ext = (file.name.split('.').pop() || '').toLowerCase();
         var url = URL.createObjectURL(file);
-        var html = '';
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) !== -1) {
-            html = '<img src="' + url + '" alt="" style="max-width:100%;max-height:500px;border-radius:8px;">';
+            previewContent.innerHTML = '<img src="' + url + '" alt="" style="max-width:100%;max-height:500px;border-radius:8px;">';
         } else if (ext === 'pdf') {
-            html = '<div class="p-4"><i class="fas fa-file-pdf fa-4x text-danger mb-3"></i><h5></h5><p class="text-muted">Vista previa de PDF no disponible.</p></div>';
+            previewContent.innerHTML = '<div class="p-4"><i class="fas fa-file-pdf fa-4x text-danger mb-3"></i><h5></h5><p class="text-muted">Vista previa de PDF no disponible.</p></div>';
+            var h5p = previewContent.querySelector('h5');
+            if (h5p) h5p.textContent = file.name;
         } else {
-            html = '<div class="p-4"><i class="fas fa-file fa-4x text-secondary mb-3"></i><h5></h5><p class="text-muted">Vista previa no disponible.</p></div>';
+            previewContent.innerHTML = '<div class="p-4"><i class="fas fa-file fa-4x text-secondary mb-3"></i><h5></h5><p class="text-muted">Vista previa no disponible.</p></div>';
+            var h5o = previewContent.querySelector('h5');
+            if (h5o) h5o.textContent = file.name;
         }
-        previewContent.innerHTML = html;
-        var h5 = previewContent.querySelector('h5');
-        if (h5) h5.textContent = file.name;
         bootstrap.Modal.getOrCreateInstance(modal).show();
     }
 
@@ -447,8 +454,10 @@
             input.dataset.commAttachBound = '1';
             input.addEventListener('change', function () {
                 if (input.dataset.commAttachSync === '1') return;
-                var selected = Array.from(this.files || []);
+                var selected = Array.from(input.files || []);
                 if (!selected.length) return;
+                input.dataset.commAttachSync = '1';
+                try { input.value = ''; } catch (err) {}
                 appendGlobalFiles(selected);
             });
         }
@@ -656,12 +665,19 @@
             var btn = document.getElementById('emailSendBtnGlobal');
             if (btn) btn.disabled = true;
             var fd = new FormData(form);
-            var attachInput = getGlobalAttachInput();
-            if (attachInput && attachInput.files && attachInput.files.length) {
+            if (globalAttachFiles.length) {
                 fd.delete('attachments');
-                Array.from(attachInput.files).forEach(function (file) {
+                globalAttachFiles.forEach(function (file) {
                     fd.append('attachments', file);
                 });
+            } else {
+                var attachInput = getGlobalAttachInput();
+                if (attachInput && attachInput.files && attachInput.files.length) {
+                    fd.delete('attachments');
+                    Array.from(attachInput.files).forEach(function (file) {
+                        fd.append('attachments', file);
+                    });
+                }
             }
             fetch(form.action, {
                 method: 'POST',
