@@ -76,34 +76,25 @@
         return dt;
     }
 
-    function syncEmailAttachInput(input) {
-        if (!input) return;
-        input.files = getEmailAttachStore(input).files;
-    }
-
     function clearEmailAttachInput(input) {
         if (!input) return;
         emailAttachStores.set(input, new DataTransfer());
+        input.dataset.commAttachSync = '1';
         try { input.value = ''; } catch (e) {}
-        syncEmailAttachInput(input);
+        try { input.files = emailAttachStores.get(input).files; } catch (e2) {}
+        setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
     }
 
     function fileKey(f) {
-        return [f.name || '', f.size || 0, f.lastModified || 0].join('|');
+        // name+size alcanza; lastModified a veces cambia al pasar por DataTransfer
+        return [f.name || '', f.size || 0].join('|');
     }
 
-    function appendEmailFiles(input, fileList, formContext) {
-        if (!input || !fileList || !fileList.length) return;
-        var store = getEmailAttachStore(input);
+    function setEmailAttachFiles(input, files, formContext) {
+        if (!input) return;
         var next = new DataTransfer();
         var seen = {};
-        Array.from(store.files || []).forEach(function (f) {
-            var k = fileKey(f);
-            if (seen[k]) return;
-            seen[k] = true;
-            next.items.add(f);
-        });
-        Array.from(fileList).forEach(function (f) {
+        Array.from(files || []).forEach(function (f) {
             if (!f || f.size == null) return;
             var k = fileKey(f);
             if (seen[k]) return;
@@ -111,8 +102,19 @@
             next.items.add(f);
         });
         emailAttachStores.set(input, next);
-        input.files = next.files;
-        displayEmailFilePreview(input.files, formContext || input.closest('form') || getEmailComposeModal());
+        input.dataset.commAttachSync = '1';
+        try {
+            input.files = next.files;
+        } catch (e) {}
+        setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
+        displayEmailFilePreview(next.files, formContext || input.closest('form') || getEmailComposeModal());
+    }
+
+    function appendEmailFiles(input, fileList, formContext) {
+        if (!input || !fileList || !fileList.length) return;
+        var prev = Array.from(getEmailAttachStore(input).files || []);
+        var incoming = Array.from(fileList);
+        setEmailAttachFiles(input, prev.concat(incoming), formContext);
     }
 
     function filesFromClipboardData(clipboardData) {
@@ -683,15 +685,13 @@
             || document.getElementById('imageInputEmailInline');
         if (!input) return;
         var store = getEmailAttachStore(input);
-        var next = new DataTransfer();
+        var kept = [];
         Array.from(store.files || []).forEach(function (file, i) {
-            if (i !== index) next.items.add(file);
+            if (i !== index) kept.push(file);
         });
-        emailAttachStores.set(input, next);
-        input.files = next.files;
         var ctx = (modal && modal.contains(input)) ? modal : (input.closest('form') || modal);
-        if (input.files.length > 0) displayEmailFilePreview(input.files, ctx);
-        else {
+        setEmailAttachFiles(input, kept, ctx);
+        if (!kept.length) {
             var preview = (ctx && ctx.querySelector('#emailFilePreview, #emailFilePreviewInline'))
                 || document.getElementById('emailFilePreview');
             if (preview) preview.innerHTML = '';
@@ -1584,9 +1584,11 @@
             if (!input || input.dataset.bound) return;
             input.dataset.bound = '1';
             input.addEventListener('change', function () {
+                if (input.dataset.commAttachSync === '1') return;
                 var selected = Array.from(this.files || []);
                 if (!selected.length) return;
-                // Al elegir de nuevo, el input trae SOLO la selección nueva: acumular con el store.
+                // this.files es SOLO la selección nueva (el browser pisó el input).
+                // Acumular contra el store, no contra this.files.
                 appendEmailFiles(this, selected, formContext);
             });
         }

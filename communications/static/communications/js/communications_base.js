@@ -203,32 +203,14 @@
     }
 
     function fileKey(f) {
-        return [f.name || '', f.size || 0, f.lastModified || 0].join('|');
+        return [f.name || '', f.size || 0].join('|');
     }
 
-    function clearGlobalAttach() {
-        globalAttachStore = new DataTransfer();
+    function setGlobalAttachFiles(files) {
         var input = getGlobalAttachInput();
-        if (input) {
-            try { input.value = ''; } catch (e) {}
-            input.files = globalAttachStore.files;
-        }
-        var preview = document.getElementById('emailFilePreviewGlobal');
-        if (preview) preview.innerHTML = '';
-    }
-
-    function appendGlobalFiles(fileList) {
-        var input = getGlobalAttachInput();
-        if (!input || !fileList || !fileList.length) return;
         var next = new DataTransfer();
         var seen = {};
-        Array.from(globalAttachStore.files || []).forEach(function (f) {
-            var k = fileKey(f);
-            if (seen[k]) return;
-            seen[k] = true;
-            next.items.add(f);
-        });
-        Array.from(fileList).forEach(function (f) {
+        Array.from(files || []).forEach(function (f) {
             if (!f || f.size == null) return;
             var k = fileKey(f);
             if (seen[k]) return;
@@ -236,20 +218,45 @@
             next.items.add(f);
         });
         globalAttachStore = next;
-        input.files = next.files;
+        if (input) {
+            input.dataset.commAttachSync = '1';
+            try {
+                input.files = next.files;
+            } catch (e) {}
+            setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
+        }
         renderGlobalAttachPreview();
     }
 
-    function removeGlobalAttach(index) {
+    function clearGlobalAttach() {
         var input = getGlobalAttachInput();
-        if (!input) return;
-        var next = new DataTransfer();
+        globalAttachStore = new DataTransfer();
+        if (input) {
+            input.dataset.commAttachSync = '1';
+            try { input.value = ''; } catch (e) {}
+            try { input.files = globalAttachStore.files; } catch (e2) {}
+            setTimeout(function () { input.dataset.commAttachSync = ''; }, 0);
+        }
+        var preview = document.getElementById('emailFilePreviewGlobal');
+        if (preview) preview.innerHTML = '';
+    }
+
+    function appendGlobalFiles(fileList) {
+        if (!fileList || !fileList.length) return;
+        var prev = Array.from(globalAttachStore.files || []);
+        setGlobalAttachFiles(prev.concat(Array.from(fileList)));
+    }
+
+    function removeGlobalAttach(index) {
+        var kept = [];
         Array.from(globalAttachStore.files || []).forEach(function (f, i) {
-            if (i !== index) next.items.add(f);
+            if (i !== index) kept.push(f);
         });
-        globalAttachStore = next;
-        input.files = next.files;
-        renderGlobalAttachPreview();
+        setGlobalAttachFiles(kept);
+        if (!kept.length) {
+            var preview = document.getElementById('emailFilePreviewGlobal');
+            if (preview) preview.innerHTML = '';
+        }
     }
 
     function renderGlobalAttachPreview() {
@@ -439,6 +446,7 @@
         if (input && !input.dataset.commAttachBound) {
             input.dataset.commAttachBound = '1';
             input.addEventListener('change', function () {
+                if (input.dataset.commAttachSync === '1') return;
                 var selected = Array.from(this.files || []);
                 if (!selected.length) return;
                 appendGlobalFiles(selected);

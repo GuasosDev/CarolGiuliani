@@ -15,7 +15,7 @@
     var attachStore = new DataTransfer();
 
     function fileKey(f) {
-        return [f.name || '', f.size || 0, f.lastModified || 0].join('|');
+        return [f.name || '', f.size || 0].join('|');
     }
 
     function renderPreview(files) {
@@ -33,17 +33,10 @@
         prev.appendChild(ul);
     }
 
-    function appendFiles(fileList) {
-        if (!inp || !fileList || !fileList.length) return;
+    function setFiles(files) {
         var next = new DataTransfer();
         var seen = {};
-        Array.from(attachStore.files || []).forEach(function (f) {
-            var k = fileKey(f);
-            if (seen[k]) return;
-            seen[k] = true;
-            next.items.add(f);
-        });
-        Array.from(fileList).forEach(function (f) {
+        Array.from(files || []).forEach(function (f) {
             if (!f || f.size == null) return;
             var k = fileKey(f);
             if (seen[k]) return;
@@ -51,12 +44,23 @@
             next.items.add(f);
         });
         attachStore = next;
-        inp.files = next.files;
-        renderPreview(inp.files);
+        if (inp) {
+            inp.dataset.commAttachSync = '1';
+            try { inp.files = next.files; } catch (e) {}
+            setTimeout(function () { inp.dataset.commAttachSync = ''; }, 0);
+        }
+        renderPreview(next.files);
+    }
+
+    function appendFiles(fileList) {
+        if (!fileList || !fileList.length) return;
+        var prevFiles = Array.from(attachStore.files || []);
+        setFiles(prevFiles.concat(Array.from(fileList)));
     }
 
     if (inp) {
         inp.addEventListener('change', function () {
+            if (inp.dataset.commAttachSync === '1') return;
             var selected = Array.from(this.files || []);
             if (!selected.length) return;
             appendFiles(selected);

@@ -483,6 +483,7 @@ body.dark-mode .comm-mail-search .form-control {
 }
 /* Conversation Content Extracted */
 #emailComposeModal,
+#emailComposeModalGlobal,
 #attachmentPreviewModal,
 #uploadPreviewModal,
 #whatsappTemplateModal,
@@ -497,6 +498,7 @@ body.dark-mode .comm-mail-search .form-control {
     -webkit-backdrop-filter: blur(8px);
 }
 #emailComposeModal .modal-dialog,
+#emailComposeModalGlobal .modal-dialog,
 #attachmentPreviewModal .modal-dialog,
 #uploadPreviewModal .modal-dialog,
 #whatsappTemplateModal .modal-dialog,
@@ -505,6 +507,7 @@ body.dark-mode .comm-mail-search .form-control {
     position: relative;
 }
 #emailComposeModal .modal-content,
+#emailComposeModalGlobal .modal-content,
 #attachmentPreviewModal .modal-content,
 #uploadPreviewModal .modal-content,
 #whatsappTemplateModal .modal-content,
