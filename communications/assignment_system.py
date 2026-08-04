@@ -4,6 +4,7 @@ Distributes conversations among available agents based on workload
 """
 
 import logging
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from .models import Conversation, ConversationAssignment
@@ -30,6 +31,14 @@ def get_agent_workload(agent):
 
 
 def assign_conversation_to_agent(conversation, email_account=None, agent=None, assigned_by=None):
+    if agent is None and not getattr(settings, 'COMM_AUTO_ASSIGN_BY_WORKLOAD', False):
+        try:
+            if conversation.status != 'pending':
+                conversation.status = 'pending'
+                conversation.save(update_fields=['status'])
+        except Exception:
+            pass
+        return None
 
     if email_account is None:
         email_account = conversation.email_account
@@ -123,6 +132,9 @@ def distribute_workload():
     Redistribute unassigned conversations among agents
     This can be run periodically to balance workload
     """
+    if not getattr(settings, 'COMM_AUTO_ASSIGN_BY_WORKLOAD', False):
+        return 0
+
     unassigned = get_unassigned_conversations()
     
     assigned_count = 0

@@ -28,10 +28,10 @@ href="{% url 'communications:dashboard' %}?channel=email&folder=inbox">
             <li>
                 <a class="dropdown-item {% if current_status == 'pending' %}active{% endif %}" href="{% url 'communications:dashboard' %}?channel=email&status=pending">
                     <span class="comm-mail-folder-row">
-                        <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-file-alt"></i></span>
-                        <span>Borradores</span>
+                        <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
+                        <span>Pendientes</span>
                     </span>
-                    <span class="comm-mail-folder-badge">0</span>
+                    <span class="comm-mail-folder-badge">{{ pending_count }}</span>
                 </a>
             </li>
             <li>
@@ -88,6 +88,10 @@ href="{% url 'communications:dashboard' %}?channel=email&folder=sent">
         <span class="comm-mail-tb-ico"><i class="fas fa-cloud-download-alt"></i></span>
         <span>Sincronizar</span>
     </button>
+    <a class="btn btn-toolbar-mail" title="Ver pendientes" href="{% url 'communications:dashboard' %}?channel=email&status=pending">
+        <span class="comm-mail-tb-ico"><i class="fas fa-hourglass-half"></i></span>
+        <span>Pendientes</span>
+    </a>
 
     <button type="button" class="btn btn-toolbar-mail" title="Redactar" onclick="commMailCompose('new')">
         <span class="comm-mail-tb-ico"><i class="fas fa-pen"></i></span><span>Redactar</span>
