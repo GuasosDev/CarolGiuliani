@@ -21,7 +21,6 @@
         <input type="hidden" name="conversation_id" id="emailConversationIdInput" value="{% if conversation %}{{ conversation.id }}{% endif %}">
 
         <div class="bg-white p-2 rounded border mb-2">
-            <div id="emailFilePreview" class="mb-2" aria-live="polite"></div>
             <label class="form-label small text-muted mb-0" for="emailToInput">Para</label>
             <div class="position-relative mb-2">
                 <input type="text" name="to_addresses" id="emailToInput"
@@ -111,6 +110,7 @@
                     data-placeholder="Escribe el contenido del correo..."></div>
                 <input type="hidden" name="body" id="emailBodyInput">
             </div>
+            <div id="emailFilePreview" class="mt-2" aria-live="polite"></div>
             <div class="mt-2 d-flex gap-2 flex-wrap align-items-center">
                 <button type="button" class="btn btn-sm btn-outline-secondary"
                     onclick="document.getElementById('imageInputEmail').click()"

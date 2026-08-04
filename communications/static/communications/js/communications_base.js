@@ -187,6 +187,10 @@
         });
         var body = document.getElementById('emailBodyDivGlobal');
         if (body) body.innerHTML = '';
+        var preview = document.getElementById('emailFilePreviewGlobal');
+        if (preview) preview.innerHTML = '';
+        var fileInput = document.getElementById('emailAttachGlobal');
+        if (fileInput) fileInput.value = '';
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
         try {
             var to = document.getElementById('emailToInputGlobal');
@@ -288,6 +292,24 @@
     }
 
     initAutocomplete();
+
+    var attachInput = document.getElementById('emailAttachGlobal');
+    var attachPreview = document.getElementById('emailFilePreviewGlobal');
+    if (attachInput && attachPreview) {
+        attachInput.addEventListener('change', function () {
+            attachPreview.innerHTML = '';
+            if (!this.files || !this.files.length) return;
+            var ul = document.createElement('ul');
+            ul.className = 'list-unstyled small mb-0';
+            Array.from(this.files).forEach(function (f) {
+                var li = document.createElement('li');
+                li.className = 'text-muted';
+                li.textContent = f.name + ' (' + (f.size ? Math.round((f.size / 1024) * 10) / 10 + ' KB' : 'Archivo') + ')';
+                ul.appendChild(li);
+            });
+            attachPreview.appendChild(ul);
+        });
+    }
 
     var form = document.getElementById('emailFormGlobal');
     if (form) {
