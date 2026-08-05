@@ -32,6 +32,7 @@ from .utils.email_threading import (
     _OPEN_CONVERSATION_STATUSES,
 )
 from django.db import transaction, IntegrityError
+from django.db.models import Q
 from email.utils import parsedate_to_datetime
 from django.utils.timezone import make_aware, is_naive
 
@@ -728,14 +729,20 @@ class EmailHandler:
         if not norm:
             return None
 
-        open_convos = Conversation.objects.filter( email_account=account,
+        # Incluye hilos creados al redactar sin email_account aún
+        open_convos = Conversation.objects.filter(
             contact=contact,
             channel='email',
             status__in=_OPEN_CONVERSATION_STATUSES,
+        ).filter(
+            Q(email_account=account) | Q(email_account__isnull=True)
         ).order_by('-last_message_at')
 
         for conv in open_convos:
             if subjects_match(conv.subject, subject):
+                if conv.email_account_id is None:
+                    conv.email_account = account
+                    conv.save(update_fields=['email_account'])
                 return conv
 
         email_msgs = EmailMessage.objects.filter(

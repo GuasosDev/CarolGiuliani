@@ -451,6 +451,21 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
             contact = handler.get_or_create_contact_from_email(primary_to)
             conversation = handler.get_or_create_conversation(account,contact, subject, None, None)
 
+        # Pegar el hilo a la casilla y al agente que lo genera (sin reasignar si ya tiene dueño)
+        update_fields = []
+        if conversation.email_account_id is None:
+            conversation.email_account = account
+            update_fields.append('email_account')
+        if update_fields:
+            conversation.save(update_fields=update_fields)
+        if conversation.assigned_to_id is None:
+            assign_conversation_to_agent(
+                conversation,
+                email_account=account,
+                agent=request.user,
+                assigned_by=request.user,
+            )
+
         if body and not html_body and ('<' in body and '>' in body):
             html_body = body
             from django.utils.html import strip_tags

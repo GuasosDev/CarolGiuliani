@@ -264,16 +264,37 @@ def add_conversation_note(request, conversation_id):
 def get_agent_conversations(user):
     """
     Conversaciones visibles para el agente:
-    - Asignadas a él, o sin asignar (bandeja común).
     - Supervisores / superusuarios: todas.
-    Ya no se mezcla por dueño de cuenta IMAP (evita que dos recepcionistas vean lo mismo).
+    - Asignadas a él (aunque el EmailMessage sea de otra casilla IMAP).
+      Así, si por carga el sistema reasigna de A → B, solo B lo ve.
+    - Sin asignar (no email): bandeja común.
+    - Email sin asignar: solo de su EmailAccount (filtro por casilla).
+
+    El dueño de la casilla NO sigue viendo hilos ya asignados a otro.
     """
     if user.is_superuser or user.groups.filter(name='Supervisor').exists():
         return Conversation.objects.all()
 
-    return Conversation.objects.filter(
-        models.Q(assigned_to=user) | models.Q(assigned_to__isnull=True)
-    ).distinct()
+    user_email_account = _get_user_email_account(user)
+    q = models.Q(assigned_to=user) | (
+        models.Q(assigned_to__isnull=True) & ~models.Q(channel='email')
+    )
+
+    if user_email_account:
+        my_unassigned_email_ids = EmailMessage.objects.filter(
+            email_account=user_email_account,
+            message__conversation__assigned_to__isnull=True,
+            message__conversation__channel='email',
+        ).values_list('message__conversation_id', flat=True)
+        q |= models.Q(
+            channel='email',
+            assigned_to__isnull=True,
+            id__in=my_unassigned_email_ids,
+        )
+
+    return Conversation.objects.filter(q).distinct()
+
+
 @login_required
 def dashboard(request):
     """Main communication dashboard"""
@@ -289,19 +310,6 @@ def dashboard(request):
         "contact__client"
     )
     user_email_account = _get_user_email_account(request.user)
-
-    if user_email_account:
-        allowed_email_conversations = EmailMessage.objects.filter(
-            email_account=user_email_account
-        ).values_list('message__conversation_id', flat=True)
-
-        base_qs = base_qs.filter(
-            Q(channel='email', id__in=allowed_email_conversations)
-            | ~Q(channel='email')
-        ).distinct()
-    else:
-        # si no tiene email configurado, ocultar emails
-        base_qs = base_qs.exclude(channel='email')
     # Base filtering
     conversations = base_qs
     
@@ -442,20 +450,14 @@ def dashboard(request):
                 )
 
             else:
-                email_conversation_ids = EmailMessage.objects.filter(
-                    email_account=user_email_account
-                ).values_list('message__conversation_id', flat=True)
-
-                conversations = conversations.filter(
-                    id__in=email_conversation_ids
-                ).distinct()
+                # Inbox/papelera: mails de conversaciones visibles para el agente.
+                # Incluye asignadas a mí aunque la casilla IMAP sea de otro
+                # (reasignación por carga). El dueño de la casilla deja de verlas.
+                conversations = conversations.filter(channel='email').distinct()
 
                 email_rows_qs = (
                     EmailMessage.objects.select_related(*email_select_related)
-                    .filter(
-                        message__conversation__in=conversations,
-                        email_account=user_email_account,
-                    )
+                    .filter(message__conversation__in=conversations)
                 )
 
                 if folder_filter == 'trash':
@@ -590,26 +592,7 @@ def _get_conversation_counts(user, channel=None):
     """Helper to get conversation counts for the sidebar and filters"""
 
     base_qs = get_agent_conversations(user)
-
     user_email_account = _get_user_email_account(user)
-
-    # FILTRAR emails SOLO de la cuenta del usuario
-    if user_email_account:
-        allowed_email_conversations = EmailMessage.objects.filter(
-            email_account=user_email_account
-        ).values_list(
-            'message__conversation_id',
-            flat=True
-        )
-
-        base_qs = base_qs.filter(
-            Q(channel='email', id__in=allowed_email_conversations)
-            | ~Q(channel='email')
-        ).distinct()
-
-    else:
-        # si no tiene cuenta email configurada
-        base_qs = base_qs.exclude(channel='email')
 
     # Counts sidebar
     whatsapp_pending = base_qs.filter(
@@ -1217,12 +1200,10 @@ def email_message_detail(request, pk):
     allowed = (
         request.user.is_superuser
         or request.user.groups.filter(name='Supervisor').exists()
-        or conversation.assigned_to == request.user
-        or (email_message.email_account and email_message.email_account.user_id == request.user.id)
+        or get_agent_conversations(request.user).filter(pk=conversation.pk).exists()
     )
     if not allowed:
-        if not get_agent_conversations(request.user).filter(pk=conversation.pk).exists():
-            return HttpResponse('<div class="alert alert-danger m-3">No tienes permiso para ver este email.</div>', status=200)
+        return HttpResponse('<div class="alert alert-danger m-3">No tienes permiso para ver este email.</div>', status=200)
 
     if email_message.message.direction == 'inbound' and not email_message.message.is_read:
         Message.objects.filter(pk=email_message.message.pk).update(is_read=True, read_at=timezone.now())
@@ -1988,15 +1969,18 @@ def _ensure_client_email_conversation(request, client, subject=''):
         defaults={'preferred_channel': 'email'}
     )
     display_subject = (subject or '').strip() or f"Email con {client.name}"
+    email_account = _get_user_email_account(request.user)
     conversation = Conversation.objects.create(
         contact=contact,
         channel='email',
         status='normal',
         priority='normal',
         subject=display_subject[:255],
+        email_account=email_account,
     )
     assign_conversation_to_agent(
         conversation,
+        email_account=email_account,
         agent=request.user,
         assigned_by=request.user,
     )

@@ -5,7 +5,6 @@ Distributes conversations among available agents based on workload
 
 import logging
 from django.contrib.auth.models import User
-from django.db.models import Count, Q
 from .models import Conversation, ConversationAssignment
 
 logger = logging.getLogger(__name__)
@@ -30,6 +29,17 @@ def get_agent_workload(agent):
 
 
 def assign_conversation_to_agent(conversation, email_account=None, agent=None, assigned_by=None):
+    """
+    Asigna una conversación. Si ya tiene agente, NO reasigna
+    (el hilo queda con quien lo generó / lo tiene).
+    Para mover a otro usuario usar reassign_conversation (transferencia manual).
+    """
+    if conversation.assigned_to_id:
+        logger.info(
+            f"Conversation {conversation.id} already assigned to "
+            f"{conversation.assigned_to.username}; skipping auto-assign"
+        )
+        return conversation.assigned_to
 
     if email_account is None:
         email_account = conversation.email_account
@@ -40,7 +50,7 @@ def assign_conversation_to_agent(conversation, email_account=None, agent=None, a
         if not available_agents.exists():
             logger.warning("No available agents for assignment")
             conversation.status = 'pending'
-            conversation.save()
+            conversation.save(update_fields=['status'])
             return None
 
         agent_workloads = []
@@ -65,13 +75,13 @@ def assign_conversation_to_agent(conversation, email_account=None, agent=None, a
         ).first()
         if assignment:
             assignment.assigned_by = assigned_by
-            assignment.save()
+            assignment.save(update_fields=['assigned_by'])
 
     return agent
 
 
 def reassign_conversation(conversation, new_agent, assigned_by):
-    """Reassign a conversation to a different agent"""
+    """Reassign a conversation to a different agent (solo transferencia manual)."""
     # Deactivate current assignment
     current_assignments = ConversationAssignment.objects.filter(
         conversation=conversation,
@@ -112,24 +122,23 @@ def get_agent_conversations(agent, status=None):
 
 
 def get_unassigned_conversations():
-    """Get all conversations that are not assigned to any agent"""
+    """Solo conversaciones realmente sin agente (no reasignar pending ya asignados)."""
     return Conversation.objects.filter(
-        Q(assigned_to__isnull=True) | Q(status='pending')
+        assigned_to__isnull=True
     ).order_by('-created_at')
 
 
 def distribute_workload():
     """
-    Redistribute unassigned conversations among agents
-    This can be run periodically to balance workload
+    Asigna conversaciones SIN agente. Nunca mueve hilos ya asignados.
     """
     unassigned = get_unassigned_conversations()
-    
+
     assigned_count = 0
     for conversation in unassigned:
         agent = assign_conversation_to_agent(conversation)
         if agent:
             assigned_count += 1
-    
+
     logger.info(f"Distributed {assigned_count} conversations")
     return assigned_count
