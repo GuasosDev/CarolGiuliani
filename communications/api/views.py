@@ -505,6 +505,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     message_type='email',
                     direction='outbound',
                     content=content,
+                    sender=request.user,
                     sender_name=account.name,
                     metadata={'status': 'queued'}
                 )

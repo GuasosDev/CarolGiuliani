@@ -269,7 +269,7 @@
                 {% if email_rows.has_previous %}
                 <li class="page-item">
                     <a class="page-link"
-                    href="?page={{ email_rows.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                    href="?page={{ email_rows.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
                         Anterior
                     </a>
                 </li>
@@ -285,7 +285,7 @@
                         {% else %}
                         <li class="page-item">
                             <a class="page-link"
-                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
                                 {{ num }}
                             </a>
                         </li>
@@ -297,7 +297,7 @@
                 {% if email_rows.has_next %}
                 <li class="page-item">
                     <a class="page-link"
-                    href="?page={{ email_rows.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
+                    href="?page={{ email_rows.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
                         Siguiente
                     </a>
                 </li>

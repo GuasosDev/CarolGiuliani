@@ -328,7 +328,12 @@ def dashboard(request):
             )
         if channel_filter == 'email' and status_filter == 'inbox':
             status_filter = 'all'
-        if channel_filter == 'email' and (not status_filter or status_filter == 'all'):
+        # Enviados no debe ocultar hilos cerrados/transferidos: se listan por EmailMessage.
+        if (
+            channel_filter == 'email'
+            and (not status_filter or status_filter == 'all')
+            and folder_filter != 'sent'
+        ):
             conversations = conversations.exclude(status='closed')
     else:
         # Default behavior (no channel filter)
@@ -408,54 +413,60 @@ def dashboard(request):
 
             user_email_account = _get_user_email_account(request.user)
 
-            email_conversation_ids = EmailMessage.objects.filter(
-                email_account=user_email_account
-            ).values_list('message__conversation_id', flat=True)
-
-            conversations = conversations.filter(
-                id__in=email_conversation_ids
-            ).distinct()
-
-            email_rows_qs = (
-                EmailMessage.objects.select_related(
-                    'message',
-                    'message__conversation',
-                    'message__conversation__contact',
-                    'message__conversation__contact__client',
-                    'email_account',
-                    'message__sender',
-                )
-                .filter(
-                    message__conversation__in=conversations,
-                    email_account=user_email_account
-                )
+            email_select_related = (
+                'message',
+                'message__conversation',
+                'message__conversation__contact',
+                'message__conversation__contact__client',
+                'email_account',
+                'message__sender',
             )
 
             # ==========================================
             # FOLDERS
             # ==========================================
-
+            # Enviados: todos los outbound de la cuenta IMAP del usuario.
+            # No filtrar por assigned_to: si el hilo se transfiere, el envío
+            # debe seguir visible para quien lo mandó / dueño de la cuenta.
             if folder_filter == 'sent':
-
-                email_rows_qs = email_rows_qs.filter(
-                    message__direction='outbound'
-                ).order_by(
-                    Coalesce('email_date', 'message__created_at').desc(),
-                    '-message__created_at'
-                )
-
-            elif folder_filter == 'trash':
-
-                email_rows_qs = email_rows_qs.filter(
-                    message__conversation__status='closed'
+                email_rows_qs = (
+                    EmailMessage.objects.select_related(*email_select_related)
+                    .filter(
+                        email_account=user_email_account,
+                        message__direction='outbound',
+                    )
+                    .order_by(
+                        Coalesce('email_date', 'message__created_at').desc(),
+                        '-message__created_at',
+                    )
                 )
 
             else:
-                # inbox default
+                email_conversation_ids = EmailMessage.objects.filter(
+                    email_account=user_email_account
+                ).values_list('message__conversation_id', flat=True)
 
-                email_rows_qs = email_rows_qs.filter(
-                    message__direction='inbound'
+                conversations = conversations.filter(
+                    id__in=email_conversation_ids
+                ).distinct()
+
+                email_rows_qs = (
+                    EmailMessage.objects.select_related(*email_select_related)
+                    .filter(
+                        message__conversation__in=conversations,
+                        email_account=user_email_account,
+                    )
                 )
+
+                if folder_filter == 'trash':
+                    email_rows_qs = email_rows_qs.filter(
+                        message__conversation__status='closed'
+                    )
+                else:
+                    # inbox default
+                    email_rows_qs = email_rows_qs.filter(
+                        message__direction='inbound'
+                    )
 
             # ==========================================
             # SEARCH
