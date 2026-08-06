@@ -729,14 +729,27 @@ class EmailHandler:
         if not norm:
             return None
 
-        # Incluye hilos creados al redactar sin email_account aún
+        # Incluye hilos creados al redactar sin email_account aún,
+        # pero solo si son de esta casilla o del dueño de esta cuenta
+        # (evita cruzar hilos entre Gise y Nati).
+        account_owner = getattr(account, 'user', None)
+        owner_q = Q(email_account=account)
+        if account_owner:
+            owner_q |= Q(
+                email_account__isnull=True,
+                assigned_to=account_owner,
+            )
+        else:
+            owner_q |= Q(
+                email_account__isnull=True,
+                assigned_to__isnull=True,
+            )
+
         open_convos = Conversation.objects.filter(
             contact=contact,
             channel='email',
             status__in=_OPEN_CONVERSATION_STATUSES,
-        ).filter(
-            Q(email_account=account) | Q(email_account__isnull=True)
-        ).order_by('-last_message_at')
+        ).filter(owner_q).order_by('-last_message_at')
 
         for conv in open_convos:
             if subjects_match(conv.subject, subject):
