@@ -403,7 +403,6 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         html_body = request.data.get('html_body', '')
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
-        agent_name = request.user.get_full_name() or request.user.username
 
         cc_addresses = request.data.get('cc_addresses', [])
         if isinstance(cc_addresses, str):
@@ -516,19 +515,6 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                 )
             if plain_sig:
                 body = (body or '') + f'\n\n{plain_sig}'
-        else:
-            if body:
-                body += f"\n\n---\n{agent_name}"
-
-            if html_body:
-                html_body += f"""
-            <br><br>
-            <hr>
-            <p>
-                <b>{agent_name}</b><br>
-                {account.name}
-            </p>
-            """
 
         try:
             with transaction.atomic():
