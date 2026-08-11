@@ -13,7 +13,9 @@ from email import policy as email_policy
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
 from email import encoders
+import re
 from email.utils import parseaddr, formataddr,make_msgid
 import logging
 import traceback
@@ -863,6 +865,54 @@ class EmailHandler:
 
  
 
+    def _inline_signature_image(self, html_body, email_msg=None, signature=None):
+        """Gmail no muestra data:URI. Reemplaza la imagen de firma por CID inline."""
+        if not html_body:
+            return html_body, None
+
+        sig = signature
+        if not sig and email_msg is not None:
+            sender = getattr(getattr(email_msg, 'message', None), 'sender', None)
+            if sender:
+                from .models import EmailSignature
+                sig = EmailSignature.get_default_for(sender)
+        if not sig and getattr(self, 'account', None):
+            from .models import EmailSignature
+            sig = EmailSignature.get_default_for(getattr(self.account, 'user', None))
+        if not sig or not sig.image:
+            return html_body, None
+
+        cid = 'email-signature-image'
+        html_body = re.sub(
+            r'(<img\b[^>]*\bsrc=["\'])(data:image[^"\']+|cid:email-signature-image)(["\'][^>]*>)',
+            r'\1cid:' + cid + r'\3',
+            html_body,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        if f'cid:{cid}' not in html_body:
+            html_body += (
+                f'<div style="margin-top:8px;">'
+                f'<img src="cid:{cid}" alt="Firma" style="max-width:280px;height:auto;display:block;">'
+                f'</div>'
+            )
+
+        try:
+            sig.image.open('rb')
+            data = sig.image.read()
+            sig.image.close()
+        except Exception:
+            return html_body, None
+
+        ext = (sig.image.name or 'firma.png').rsplit('.', 1)[-1].lower()
+        subtype = {
+            'jpg': 'jpeg', 'jpeg': 'jpeg', 'png': 'png', 'gif': 'gif', 'webp': 'webp',
+        }.get(ext, 'png')
+        img_part = MIMEImage(data, _subtype=subtype)
+        img_part.add_header('Content-ID', f'<{cid}>')
+        img_part.add_header('Content-Disposition', 'inline', filename=f'firma.{ext or "png"}')
+        return html_body, img_part
+
     def send_email(self, to_addresses, subject, body, html_body=None, cc_addresses=None, 
                bcc_addresses=None, attachments=None, conversation=None, signature=None, email_msg=None):
 
@@ -901,6 +951,10 @@ class EmailHandler:
             # =========================
             # BODY CORRECTO (IMPORTANTE)
             # =========================
+            html_body, signature_image_part = self._inline_signature_image(
+                html_body, email_msg=email_msg, signature=signature
+            )
+
             alternative_part = MIMEMultipart('alternative')
 
             if body:
@@ -909,7 +963,13 @@ class EmailHandler:
             if html_body:
                 alternative_part.attach(MIMEText(html_body, 'html'))
 
-            msg.attach(alternative_part)
+            if signature_image_part:
+                related_part = MIMEMultipart('related')
+                related_part.attach(alternative_part)
+                related_part.attach(signature_image_part)
+                msg.attach(related_part)
+            else:
+                msg.attach(alternative_part)
 
             # =========================
             # ATTACHMENTS (FIX)
