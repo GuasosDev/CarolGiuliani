@@ -187,6 +187,7 @@ class EmailSignatureAdmin(admin.ModelAdmin):
     list_filter = ('is_default', 'created_at')
     search_fields = ('user__username', 'name')
     readonly_fields = ('created_at', 'updated_at')
+    fields = ('user', 'name', 'html_signature', 'plain_signature', 'image', 'is_default', 'created_at', 'updated_at')
 
 
 @admin.register(EmailAttachment)

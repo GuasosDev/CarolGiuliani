@@ -331,6 +331,22 @@
         }
     }
 
+    window.commSyncSignaturePreviews = function (root) {
+        root = root || document;
+        root.querySelectorAll('.comm-email-signature-preview').forEach(function (preview) {
+            var cbId = preview.getAttribute('data-signature-checkbox');
+            var cb = cbId ? document.getElementById(cbId) : null;
+            function sync() {
+                preview.classList.toggle('d-none', !(cb && cb.checked && !cb.disabled));
+            }
+            if (cb && !cb.dataset.sigPreviewBound) {
+                cb.dataset.sigPreviewBound = '1';
+                cb.addEventListener('change', sync);
+            }
+            sync();
+        });
+    };
+
     window.commMailOpenComposeGlobal = function () {
         if (typeof bootstrap === 'undefined') return;
         modalEl = getComposeModalEl();
@@ -366,6 +382,9 @@
             }
         } catch (eCfg) {}
         inst.show();
+        if (typeof window.commSyncSignaturePreviews === 'function') {
+            window.commSyncSignaturePreviews(modalEl);
+        }
         try {
             var to = document.getElementById('emailToInputGlobal');
             if (to) to.focus();
@@ -595,5 +614,14 @@
         if (transferModal && typeof bootstrap !== 'undefined') {
             bootstrap.Modal.getOrCreateInstance(transferModal);
         }
+        if (typeof window.commSyncSignaturePreviews === 'function') {
+            window.commSyncSignaturePreviews();
+        }
     });
 })();
+
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.commSyncSignaturePreviews === 'function') {
+        window.commSyncSignaturePreviews();
+    }
+});

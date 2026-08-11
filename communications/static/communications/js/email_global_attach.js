@@ -107,12 +107,38 @@
         });
     }
 
+    function raiseUploadPreviewAboveCompose(modal) {
+        if (!modal) return;
+        modal.style.zIndex = '1100';
+        var markBackdrops = function () {
+            var backs = document.querySelectorAll('.modal-backdrop');
+            if (!backs.length) return;
+            backs[backs.length - 1].classList.add('modal-backdrop-upload-preview');
+        };
+        modal.addEventListener('shown.bs.modal', markBackdrops, { once: true });
+        setTimeout(markBackdrops, 50);
+    }
+
     function openPreview(file, index) {
-        if (!file || typeof bootstrap === 'undefined') {
-            alert((file && file.name) || 'Archivo');
+        if (!file) {
+            alert('Archivo');
             return;
         }
-        var modal = document.getElementById('uploadPreviewModal');
+        window.currentUploadFileIndex = index;
+        window.currentUploadFileSource = 'global';
+
+        var existingModal = document.getElementById('uploadPreviewModal');
+        if (existingModal && typeof window.openUploadPreview === 'function') {
+            window.openUploadPreview(file, index, 'global');
+            raiseUploadPreviewAboveCompose(existingModal);
+            return;
+        }
+
+        if (typeof bootstrap === 'undefined') {
+            alert(file.name || 'Archivo');
+            return;
+        }
+        var modal = existingModal;
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'uploadPreviewModal';
@@ -130,7 +156,6 @@
                 '<i class="fas fa-trash me-2"></i>Eliminar</button></div></div></div>';
             document.body.appendChild(modal);
         }
-        window.currentUploadFileIndex = index;
         var nameEl = document.getElementById('uploadPreviewFileName');
         var content = document.getElementById('uploadPreviewContent');
         if (nameEl) nameEl.textContent = file.name || 'Vista previa';
@@ -157,6 +182,7 @@
                 if (inst) inst.hide();
             };
         }
+        raiseUploadPreviewAboveCompose(modal);
         bootstrap.Modal.getOrCreateInstance(modal).show();
     }
 

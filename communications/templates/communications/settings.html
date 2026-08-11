@@ -9,6 +9,7 @@
     <div class="row mb-4">
         <div class="col-12 d-flex justify-content-between align-items-center">
             <h2 class="fw-bold"><i class="fas fa-cog me-2"></i>Configuración del Sistema</h2>
+            {% if can_manage_settings %}
             <div>
                 <button class="btn btn-primary rounded-pill shadow-sm" hx-get="{% url 'user_management_create' %}" hx-target="#modal-body" onclick="openModal()">
                     <i class="fas fa-user-plus me-2"></i>Nuevo Usuario
@@ -17,12 +18,14 @@
                     <i class="fas fa-briefcase me-2"></i>Nueva Área
                 </button>
             </div>
+            {% endif %}
         </div>
     </div>
 
     <div class="row">
         <!-- Columna de Gestión de Usuarios -->
         <div class="col-md-8">
+            {% if can_manage_settings %}
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold"><i class="fas fa-users me-2 text-primary"></i>Gestión de Usuarios</h5>
@@ -94,6 +97,56 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-signature me-2 text-primary"></i>Firma de correo</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Esta firma se agrega al enviar desde Redactar, Responder o Reenviar si el check “Incluir firma” está activo (viene marcado por defecto).
+                    </p>
+                    <form method="post" action="{% url 'communications:settings_email_signature' %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="signatureName">Nombre</label>
+                            <input type="text" class="form-control" id="signatureName" name="name"
+                                   value="{{ email_signature.name|default:'Principal' }}" maxlength="100">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="signatureHtml">Firma (HTML o texto)</label>
+                            <textarea class="form-control" id="signatureHtml" name="html_signature" rows="6"
+                                      placeholder="Ej: Saludos,<br>Gise — Área de Gestión">{{ email_signature.html_signature|default:'' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="signatureImage">Imagen (logo / firma escaneada)</label>
+                            {% if email_signature.image %}
+                            <div class="mb-2">
+                                <img src="{{ email_signature.image.url }}" alt="Firma actual"
+                                     style="max-width: 220px; max-height: 120px; object-fit: contain;"
+                                     class="border rounded bg-white p-1">
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="clear_signature_image" value="1" id="clearSignatureImage">
+                                <label class="form-check-label small" for="clearSignatureImage">Quitar imagen actual</label>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" id="signatureImage" name="signature_image"
+                                   accept="image/jpeg,image/png,image/gif,image/webp">
+                            <div class="form-text">JPG, PNG, GIF o WEBP. Máximo 2 MB. Se incluye en el mail junto al texto.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold" for="signaturePlain">Versión texto plano (opcional)</label>
+                            <textarea class="form-control" id="signaturePlain" name="plain_signature" rows="3"
+                                      placeholder="Si lo dejás vacío, se arma desde el HTML">{{ email_signature.plain_signature|default:'' }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Guardar firma
+                        </button>
+                    </form>
+                </div>
+            </div>
 
         </div>
 
@@ -131,6 +184,7 @@
                     </div>
                 </div>
             </div>
+            {% if can_manage_settings %}
             <!-- Áreas Laborales -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
@@ -259,6 +313,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>

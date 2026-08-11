@@ -39,6 +39,7 @@ urlpatterns = [
     path('panel/', views.role_dashboard, name='role_dashboard'),
     path('settings/', views.settings_view, name='settings'),
     path('settings/whatsapp-templates/', views.update_whatsapp_templates_settings, name='settings_whatsapp_templates'),
+    path('settings/email-signature/', views.update_email_signature, name='settings_email_signature'),
     path('contacts/email-search/', views.contacts_email_search, name='contacts_email_search'),
     path('clients/search/', views.clients_search, name='clients_search'),
     path('email/compose-modal/', views.email_compose_modal, name='email_compose_modal'),

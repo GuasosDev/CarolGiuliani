@@ -22,7 +22,7 @@ import csv
 import io
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote, EmailTemplate
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote, EmailTemplate, EmailSignature
 from .models import InternalChatMessage, InternalChatReadState
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
@@ -584,6 +584,7 @@ def dashboard(request):
         'available_users': available_users,
         'clients': clients,
         'search_q': search_q,
+        'user_email_signature': EmailSignature.get_default_for(request.user),
         **counts 
     }
 
@@ -1179,6 +1180,7 @@ def conversation_detail(request, pk):
             'wa_freeform_blocked': wa_freeform_blocked,
             'wa_freeform_block_reason': wa_freeform_block_reason,
             'wa_freeform_expires_at': wa_freeform_expires_at,
+            'user_email_signature': EmailSignature.get_default_for(request.user),
             **counts # Unpack counts into context
         }
         
@@ -1305,6 +1307,7 @@ def email_message_detail(request, pk):
         'forward_preview_html': forward_preview_html,
         'reply_quote_html': reply_quote_html,
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
+        'user_email_signature': EmailSignature.get_default_for(request.user),
         **counts,
     }
 
@@ -1465,23 +1468,28 @@ def role_dashboard(request):
 @login_required
 def settings_view(request):
     """Settings page for accounts and configuration"""
-    # Check permission
-    if not (request.user.is_superuser or 
-            request.user.groups.filter(name='Supervisor').exists()):
-        return HttpResponse('Unauthorized', status=401)
-    
+    can_manage_settings = (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+    )
+
     from .models import WhatsAppAccount, EmailAccount
     from django.contrib.auth.models import User, Group
     from core.models import WorkArea, UserRole, CompanySettings
-    
-    whatsapp_accounts = WhatsAppAccount.objects.all()
-    email_accounts = EmailAccount.objects.all()
-    users = User.objects.all().select_related('userprofile', 'userprofile__work_area', 'userprofile__user_role')
-    work_areas = WorkArea.objects.all()
-    roles = UserRole.objects.all()
-    groups = Group.objects.all().prefetch_related('permissions')
+
+    whatsapp_accounts = WhatsAppAccount.objects.all() if can_manage_settings else WhatsAppAccount.objects.none()
+    email_accounts = EmailAccount.objects.all() if can_manage_settings else EmailAccount.objects.none()
+    users = User.objects.none()
+    work_areas = WorkArea.objects.none()
+    roles = UserRole.objects.none()
+    groups = Group.objects.none()
+    if can_manage_settings:
+        users = User.objects.all().select_related('userprofile', 'userprofile__work_area', 'userprofile__user_role')
+        work_areas = WorkArea.objects.all()
+        roles = UserRole.objects.all()
+        groups = Group.objects.all().prefetch_related('permissions')
     company_settings = CompanySettings.load()
-    
+
     context = {
         'whatsapp_accounts': whatsapp_accounts,
         'email_accounts': email_accounts,
@@ -1490,9 +1498,63 @@ def settings_view(request):
         'roles': roles,
         'privileges': groups,
         'company_settings': company_settings,
+        'can_manage_settings': can_manage_settings,
+        'email_signature': EmailSignature.get_default_for(request.user),
     }
-    
+
     return render(request, 'communications/settings.html', context)
+
+
+@login_required
+@require_POST
+def update_email_signature(request):
+    """Guarda la firma de correo del usuario logueado (Configuración)."""
+    from django.contrib import messages as dj_messages
+    from django.utils.html import strip_tags
+
+    html = (request.POST.get('html_signature') or '').strip()
+    plain = (request.POST.get('plain_signature') or '').strip()
+    name = (request.POST.get('name') or 'Principal').strip() or 'Principal'
+    if not plain and html:
+        plain = strip_tags(html).strip()
+
+    uploaded = request.FILES.get('signature_image')
+    clear_image = request.POST.get('clear_signature_image') == '1'
+
+    allowed = {'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'}
+    if uploaded:
+        ctype = (getattr(uploaded, 'content_type', '') or '').lower()
+        if ctype not in allowed:
+            dj_messages.error(request, 'La imagen de firma debe ser JPG, PNG, GIF o WEBP.')
+            return redirect('communications:settings')
+        if uploaded.size and uploaded.size > 2 * 1024 * 1024:
+            dj_messages.error(request, 'La imagen de firma no puede superar 2 MB.')
+            return redirect('communications:settings')
+
+    sig = EmailSignature.get_default_for(request.user)
+    if not sig:
+        sig = EmailSignature(
+            user=request.user,
+            name=name,
+            html_signature=html,
+            plain_signature=plain,
+            is_default=True,
+        )
+    else:
+        sig.name = name
+        sig.html_signature = html
+        sig.plain_signature = plain
+        sig.is_default = True
+
+    if clear_image and sig.image:
+        sig.image.delete(save=False)
+        sig.image = None
+    if uploaded:
+        sig.image = uploaded
+
+    sig.save()
+    dj_messages.success(request, 'Firma de correo guardada.')
+    return redirect('communications:settings')
 
 
 @login_required
@@ -1584,6 +1646,7 @@ def email_compose_modal(request):
         'reply_cc_joined': '',
         'return_url': return_url,
         'quick_replies': QuickReply.objects.filter(channel='email').order_by('shortcut', 'title'),
+        'user_email_signature': EmailSignature.get_default_for(request.user),
     }
     return render(request, 'communications/partials/client_email_compose_htmx.html', context)
 
@@ -2023,6 +2086,7 @@ def client_email_compose_modal(request, client_id):
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
         'reply_cc_joined': '',
         'return_url': return_url,
+        'user_email_signature': EmailSignature.get_default_for(request.user),
     })
 
 

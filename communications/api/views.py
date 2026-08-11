@@ -473,32 +473,55 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
 
         if source_email is not None:
             from django.utils.html import strip_tags
-            forward_plain = source_email.plain_body or ''
-            forward_html = source_email.html_body or ''
-            if not forward_plain and forward_html:
-                forward_plain = strip_tags(forward_html)
+            # Si el cliente ya mandó el cuerpo reenviado editable, no lo duplicamos.
+            # source_email sigue sirviendo para copiar adjuntos del original.
+            combined_check = f'{body or ""}\n{html_body or ""}'
+            already_has_forward = (
+                'Mensaje reenviado' in combined_check
+                or '---------- Mensaje reenviado' in combined_check
+            )
+            if not already_has_forward:
+                forward_plain = source_email.plain_body or ''
+                forward_html = source_email.html_body or ''
+                if not forward_plain and forward_html:
+                    forward_plain = strip_tags(forward_html)
 
-            forward_plain = ("\n\n---------- Mensaje reenviado ----------\n" + forward_plain).strip()
-            if forward_html:
-                forward_html = "<br><br><hr><p><b>Mensaje reenviado</b></p>" + forward_html
-            elif forward_plain:
-                forward_html = "<br><br><hr><pre style=\"white-space: pre-wrap;\">" + forward_plain.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</pre>"
+                forward_plain = ("\n\n---------- Mensaje reenviado ----------\n" + forward_plain).strip()
+                if forward_html:
+                    forward_html = "<br><br><hr><p><b>Mensaje reenviado</b></p>" + forward_html
+                elif forward_plain:
+                    forward_html = "<br><br><hr><pre style=\"white-space: pre-wrap;\">" + forward_plain.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</pre>"
 
+                if body:
+                    body = (body.rstrip() + "\n\n" + forward_plain).strip()
+                else:
+                    body = forward_plain
+
+                if html_body:
+                    html_body = (html_body + forward_html)
+                else:
+                    html_body = forward_html
+
+        include_sig_raw = request.data.get('include_signature', '1')
+        include_signature = str(include_sig_raw).strip().lower() in (
+            '1', 'true', 'on', 'yes', 'si', 'sí'
+        )
+        signature = EmailSignature.get_default_for(request.user) if include_signature else None
+        if signature and signature.has_content():
+            html_sig = signature.rendered_html()
+            plain_sig = signature.rendered_plain()
+            if html_sig:
+                html_body = (html_body or body or '') + (
+                    f'<br><br><div class="comm-email-signature">{html_sig}</div>'
+                )
+            if plain_sig:
+                body = (body or '') + f'\n\n{plain_sig}'
+        else:
             if body:
-                body = (body.rstrip() + "\n\n" + forward_plain).strip()
-            else:
-                body = forward_plain
+                body += f"\n\n---\n{agent_name}"
 
             if html_body:
-                html_body = (html_body + forward_html)
-            else:
-                html_body = forward_html
-
-        if body:
-            body += f"\n\n---\n{agent_name}"
-
-        if html_body:
-            html_body += f"""
+                html_body += f"""
             <br><br>
             <hr>
             <p>

@@ -1,0 +1,9 @@
+{% if user_email_signature and user_email_signature.has_content %}
+<div id="{{ preview_id }}" class="comm-email-signature-preview mt-2 pt-2 border-top"
+     data-signature-checkbox="{{ checkbox_id }}">
+    <div class="small text-muted mb-1">Firma</div>
+    <div class="comm-email-signature-preview-body">
+        {{ user_email_signature.preview_html|safe }}
+    </div>
+</div>
+{% endif %}

@@ -119,16 +119,20 @@
                     data-placeholder="Escribe el contenido del correo... (arrastrá archivos o pegá con Ctrl+V)"></div>
                 <input type="hidden" name="body" id="emailBodyInput">
             </div>
+            {% include "communications/partials/email_signature_preview.html" with preview_id="emailSignaturePreviewClient" checkbox_id="includeSignatureClient" %}
         </div>
 
         <div id="emailFilePreview" class="mb-2" aria-live="polite"></div>
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-            <button type="button" class="btn btn-sm btn-outline-secondary"
-                onclick="document.getElementById('imageInputEmail').click()"
-                title="Adjuntar uno o más archivos al correo"
-                aria-label="Adjuntar archivos al correo">
-                <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Adjuntar
-            </button>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                    onclick="document.getElementById('imageInputEmail').click()"
+                    title="Adjuntar uno o más archivos al correo"
+                    aria-label="Adjuntar archivos al correo">
+                    <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Adjuntar
+                </button>
+                {% include "communications/partials/email_include_signature.html" with checkbox_id="includeSignatureClient" preview_id="emailSignaturePreviewClient" %}
+            </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()"
                     title="Cerrar sin enviar y volver al listado de contactos"

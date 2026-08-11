@@ -1,0 +1,14 @@
+<div class="form-check mb-0 flex-shrink-0">
+    <input type="hidden" name="include_signature" value="0">
+    <input class="form-check-input" type="checkbox" name="include_signature" value="1"
+           id="{{ checkbox_id }}"
+           data-signature-preview="{{ preview_id|default:'' }}"
+           {% if user_email_signature and user_email_signature.has_content %}checked{% else %}disabled{% endif %}>
+    <label class="form-check-label small" for="{{ checkbox_id }}"
+           title="{% if user_email_signature and user_email_signature.has_content %}Se agrega la firma configurada al enviar{% else %}Configurá tu firma en Configuración del sistema{% endif %}">
+        Incluir firma
+        {% if not user_email_signature or not user_email_signature.has_content %}
+        <span class="text-muted">(sin configurar)</span>
+        {% endif %}
+    </label>
+</div>

@@ -593,8 +593,14 @@ class EmailSignature(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_signatures')
     name = models.CharField(max_length=100, verbose_name="Nombre")
     
-    html_signature = models.TextField(verbose_name="Firma HTML")
-    plain_signature = models.TextField(verbose_name="Firma Texto Plano")
+    html_signature = models.TextField(verbose_name="Firma HTML", blank=True)
+    plain_signature = models.TextField(verbose_name="Firma Texto Plano", blank=True)
+    image = models.ImageField(
+        upload_to='email_signatures/%Y/%m/',
+        blank=True,
+        null=True,
+        verbose_name="Imagen de firma",
+    )
     
     is_default = models.BooleanField(default=False, verbose_name="Por Defecto")
     
@@ -608,10 +614,80 @@ class EmailSignature(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.name}"
 
+    @classmethod
+    def get_default_for(cls, user):
+        if not user or not getattr(user, 'pk', None):
+            return None
+        qs = cls.objects.filter(user=user)
+        return qs.filter(is_default=True).first() or qs.order_by('-updated_at').first()
+
+    def has_content(self):
+        return bool(
+            (self.html_signature or '').strip()
+            or (self.plain_signature or '').strip()
+            or self.image
+        )
+
+    def rendered_html(self):
+        """HTML listo para insertar en el mail (texto + imagen embebida)."""
+        import base64
+        html = (self.html_signature or '').strip()
+        img_html = ''
+        if self.image:
+            try:
+                self.image.open('rb')
+                data = self.image.read()
+                self.image.close()
+                ext = (self.image.name or '').rsplit('.', 1)[-1].lower()
+                mime = {
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'gif': 'image/gif',
+                    'webp': 'image/webp',
+                }.get(ext, 'image/png')
+                b64 = base64.b64encode(data).decode('ascii')
+                img_html = (
+                    f'<div style="margin-top:8px;">'
+                    f'<img src="data:{mime};base64,{b64}" alt="Firma" '
+                    f'style="max-width:280px;height:auto;display:block;">'
+                    f'</div>'
+                )
+            except Exception:
+                img_html = ''
+        parts = [p for p in (html, img_html) if p]
+        return '<br>'.join(parts)
+
+    def preview_html(self):
+        """HTML liviano para mostrar al pie del editor (imagen por URL)."""
+        from django.utils.html import escape
+        html = (self.html_signature or '').strip()
+        img_html = ''
+        if self.image:
+            try:
+                img_html = (
+                    '<div style="margin-top:8px;">'
+                    '<img src="%s" alt="Firma" style="max-width:220px;height:auto;display:block;">'
+                    '</div>'
+                ) % escape(self.image.url)
+            except Exception:
+                img_html = ''
+        parts = [p for p in (html, img_html) if p]
+        return '<br>'.join(parts)
+
+    def rendered_plain(self):
+        from django.utils.html import strip_tags
+        plain = (self.plain_signature or '').strip()
+        if not plain and (self.html_signature or '').strip():
+            plain = strip_tags(self.html_signature).strip()
+        if self.image and '[imagen de firma]' not in plain.lower():
+            plain = (plain + '\n[imagen de firma]').strip()
+        return plain
+
     def save(self, *args, **kwargs):
         """Ensure only one default signature per user"""
         if self.is_default:
-            EmailSignature.objects.filter(user=self.user, is_default=True).update(is_default=False)
+            EmailSignature.objects.filter(user=self.user, is_default=True).exclude(pk=self.pk).update(is_default=False)
         super().save(*args, **kwargs)
 
 

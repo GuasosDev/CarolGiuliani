@@ -346,14 +346,31 @@
 
     function setForwardPreviewVisible(modalEl, visible) {
         if (!modalEl) return;
+        // Compat: ya no hay preview separado; limpiar restos si existieran.
         var preview = modalEl.querySelector('#emailForwardPreview');
-        if (!preview) return;
-        preview.classList.toggle('d-none', !visible);
+        if (preview) preview.classList.add('d-none');
+        var writeHint = modalEl.querySelector('#emailComposeWriteHint');
+        if (writeHint) writeHint.classList.add('d-none');
+        modalEl.classList.remove('comm-compose-forward-mode');
+        var body = modalEl.querySelector('#emailBodyDiv');
+        if (body) {
+            body.setAttribute(
+                'data-placeholder',
+                'Escribe el contenido del correo... (arrastrá archivos o pegá con Ctrl+V)'
+            );
+        }
     }
 
     function getReplyQuoteHtml(modalEl) {
         if (!modalEl) return '';
         var tpl = modalEl.querySelector('#emailReplyQuoteTemplate');
+        if (!tpl) return '';
+        return tpl.innerHTML || '';
+    }
+
+    function getForwardBodyHtml(modalEl) {
+        if (!modalEl) return '';
+        var tpl = modalEl.querySelector('#emailForwardBodyTemplate');
         if (!tpl) return '';
         return tpl.innerHTML || '';
     }
@@ -404,7 +421,7 @@
         } else if (mode === 'forward') {
             if (to) to.value = '';
             if (subj) subj.value = replySubject ? ('Fwd: ' + replySubject) : 'Fwd: ';
-            if (body) body.innerHTML = '';
+            if (body) body.innerHTML = '<p><br></p>' + getForwardBodyHtml(modalEl);
             if (convInput) {
                 convInput.value = '';
                 convInput.removeAttribute('name');
@@ -414,7 +431,7 @@
             if (srcIn) srcIn.value = srcId;
             if (ccIn) ccIn.value = '';
             if (bccIn) bccIn.value = '';
-            setForwardPreviewVisible(modalEl, true);
+            setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-share', 'Reenviar correo');
         } else if (mode === 'reply-all') {
             if (to) to.value = replyTo;
@@ -451,7 +468,25 @@
         if (existingInst) {
             try { existingInst.dispose(); } catch (eDisp) {}
         }
-        new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false }).show();
+        var modalInst = new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+        modalEl.addEventListener('shown.bs.modal', function onShownComposeFocus() {
+            modalEl.removeEventListener('shown.bs.modal', onShownComposeFocus);
+            if ((mode === 'forward' || mode === 'reply' || mode === 'reply-all') && body) {
+                try {
+                    body.focus();
+                    var range = document.createRange();
+                    var sel = window.getSelection();
+                    range.setStart(body, 0);
+                    range.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } catch (eFocus) {}
+            }
+        });
+        modalInst.show();
+        if (typeof window.commSyncSignaturePreviews === 'function') {
+            window.commSyncSignaturePreviews(modalEl);
+        }
     };
 
     function tryOpenComposeFromQuery() {
@@ -1435,14 +1470,14 @@
         if (modalInstance) modalInstance.hide();
     };
 
-    window.openUploadPreview = function (file, index) {
+    window.openUploadPreview = function (file, index, source) {
         if (!file) return;
         var modal = document.getElementById('uploadPreviewModal');
         var fileNameElement = document.getElementById('uploadPreviewFileName');
         var previewContent = document.getElementById('uploadPreviewContent');
         if (!modal || !fileNameElement || !previewContent) return;
         window.currentUploadFileIndex = index;
-        window.currentUploadFileSource = null;
+        window.currentUploadFileSource = source || null;
         fileNameElement.textContent = file.name;
         var fileExtension = file.name.split('.').pop().toLowerCase();
         var previewHTML = '';
@@ -1459,6 +1494,12 @@
         }
         previewContent.innerHTML = previewHTML;
         ensureBootstrapModalRoot(modal);
+        modal.style.zIndex = '1100';
+        modal.addEventListener('shown.bs.modal', function onUploadPreviewShown() {
+            modal.removeEventListener('shown.bs.modal', onUploadPreviewShown);
+            var backs = document.querySelectorAll('.modal-backdrop');
+            if (backs.length) backs[backs.length - 1].classList.add('modal-backdrop-upload-preview');
+        });
         bootstrap.Modal.getOrCreateInstance(modal).show();
     };
 

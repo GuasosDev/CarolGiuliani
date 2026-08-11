@@ -891,10 +891,12 @@ class EmailHandler:
             # FIRMA
             # =========================
             if signature:
-                if html_body:
-                    html_body += f"<br><br>{signature.html_signature}"
-                if body:
-                    body += f"\n\n{signature.plain_signature}"
+                html_sig = signature.rendered_html() if hasattr(signature, 'rendered_html') else (signature.html_signature or '')
+                plain_sig = signature.rendered_plain() if hasattr(signature, 'rendered_plain') else (signature.plain_signature or '')
+                if html_body and html_sig:
+                    html_body += f"<br><br>{html_sig}"
+                if body and plain_sig:
+                    body += f"\n\n{plain_sig}"
 
             # =========================
             # BODY CORRECTO (IMPORTANTE)

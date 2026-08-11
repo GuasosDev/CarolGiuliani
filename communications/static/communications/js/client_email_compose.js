@@ -303,4 +303,8 @@
             if (btn) btn.disabled = false;
         });
     });
+
+    if (typeof window.commSyncSignaturePreviews === 'function') {
+        window.commSyncSignaturePreviews(form);
+    }
 })();

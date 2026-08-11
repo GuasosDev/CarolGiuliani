@@ -512,14 +512,20 @@ body.dark-mode .comm-mail-search .form-control {
 /* Conversation Content Extracted */
 #emailComposeModal,
 #emailComposeModalGlobal,
-#attachmentPreviewModal,
-#uploadPreviewModal,
 #whatsappTemplateModal,
 #conversationModal {
     z-index: 1060 !important;
 }
+/* Vista previa de adjuntos: por encima de Redactar / Responder / Reenviar */
+#attachmentPreviewModal,
+#uploadPreviewModal {
+    z-index: 1100 !important;
+}
 .modal-backdrop {
     z-index: 1055 !important;
+}
+.modal-backdrop.modal-backdrop-upload-preview {
+    z-index: 1095 !important;
 }
 .modal-backdrop.show {
     backdrop-filter: blur(8px);
@@ -527,20 +533,27 @@ body.dark-mode .comm-mail-search .form-control {
 }
 #emailComposeModal .modal-dialog,
 #emailComposeModalGlobal .modal-dialog,
-#attachmentPreviewModal .modal-dialog,
-#uploadPreviewModal .modal-dialog,
 #whatsappTemplateModal .modal-dialog,
 #conversationModal .modal-dialog {
     z-index: 1065 !important;
     position: relative;
 }
+#attachmentPreviewModal .modal-dialog,
+#uploadPreviewModal .modal-dialog {
+    z-index: 1105 !important;
+    position: relative;
+}
 #emailComposeModal .modal-content,
 #emailComposeModalGlobal .modal-content,
-#attachmentPreviewModal .modal-content,
-#uploadPreviewModal .modal-content,
 #whatsappTemplateModal .modal-content,
 #conversationModal .modal-content {
     z-index: 1070 !important;
+    position: relative;
+    background: #fff !important;
+}
+#attachmentPreviewModal .modal-content,
+#uploadPreviewModal .modal-content {
+    z-index: 1110 !important;
     position: relative;
     background: #fff !important;
 }
@@ -581,11 +594,34 @@ body.dark-mode .comm-mail-search .form-control {
     flex-direction: column;
     overflow: hidden;
 }
+.comm-email-signature-preview {
+    flex: 0 0 auto;
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    max-height: 160px;
+    overflow-y: auto;
+}
+.comm-email-signature-preview-body {
+    color: #374151;
+    font-size: 0.875rem;
+}
+.comm-email-signature-preview-body img {
+    max-width: 220px;
+    height: auto;
+}
 #emailComposeModal #emailBodyDiv {
     flex: 1 1 auto;
     min-height: 100px !important;
     max-height: clamp(100px, 32vh, 300px) !important;
     overflow-y: auto !important;
+}
+#emailComposeModal #emailBodyDiv:empty:before,
+#emailComposeModal #emailBodyDiv:has(> br:only-child):before,
+#emailComposeModal #emailBodyDiv:has(> p:only-child > br:only-child):before {
+    content: attr(data-placeholder);
+    color: #6c757d;
+    pointer-events: none;
 }
 #emailRecipientSuggestList {
     position: fixed;
