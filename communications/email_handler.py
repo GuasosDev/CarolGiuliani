@@ -865,10 +865,61 @@ class EmailHandler:
 
  
 
+    def _bytes_from_signature_src(self, src, fallback_sig=None):
+        """Obtiene bytes de una img de firma: data URI, /media/ o archivo de firma actual."""
+        import base64
+        from pathlib import Path
+        from urllib.parse import unquote
+        from django.conf import settings
+
+        src = (src or '').strip()
+        if src.lower().startswith('data:image') and ',' in src:
+            header, b64 = src.split(',', 1)
+            mime = 'image/png'
+            rest = header[5:] if header.lower().startswith('data:') else header
+            if ';' in rest:
+                mime = (rest.split(';')[0] or mime).strip()
+            data = base64.b64decode(b64)
+            subtype = (mime.split('/')[-1] or 'png').lower()
+            if subtype == 'jpg':
+                subtype = 'jpeg'
+            return data, subtype
+
+        media_rel = ''
+        if '/media/' in src:
+            media_rel = unquote(src.split('/media/', 1)[1].split('?', 1)[0])
+        elif src.startswith('/media/'):
+            media_rel = unquote(src[7:].split('?', 1)[0])
+        if media_rel:
+            full = Path(settings.MEDIA_ROOT) / media_rel
+            if full.is_file():
+                ext = full.suffix.lstrip('.').lower()
+                subtype = {
+                    'jpg': 'jpeg', 'jpeg': 'jpeg', 'png': 'png',
+                    'gif': 'gif', 'webp': 'webp',
+                }.get(ext, 'png')
+                return full.read_bytes(), subtype
+
+        if fallback_sig and getattr(fallback_sig, 'image', None):
+            fallback_sig.image.open('rb')
+            data = fallback_sig.image.read()
+            fallback_sig.image.close()
+            ext = (fallback_sig.image.name or 'png').rsplit('.', 1)[-1].lower()
+            subtype = {
+                'jpg': 'jpeg', 'jpeg': 'jpeg', 'png': 'png',
+                'gif': 'gif', 'webp': 'webp',
+            }.get(ext, 'png')
+            return data, subtype
+        return None, None
+
     def _inline_signature_image(self, html_body, email_msg=None, signature=None):
-        """Gmail no muestra data:URI. Reemplaza la imagen de firma por CID inline."""
+        """
+        Incrusta TODAS las imágenes de firma del hilo (la actual y las del
+        histórico / de una compañera). Cada una va con su propio CID.
+        No toca logos del mail original (sin alt=Firma).
+        """
         if not html_body:
-            return html_body, None
+            return html_body, []
 
         sig = signature
         if not sig and email_msg is not None:
@@ -879,39 +930,47 @@ class EmailHandler:
         if not sig and getattr(self, 'account', None):
             from .models import EmailSignature
             sig = EmailSignature.get_default_for(getattr(self.account, 'user', None))
-        if not sig or not sig.image:
-            return html_body, None
 
-        cid = 'email-signature-image'
+        image_parts = []
+        counter = {'n': 0}
+
+        def replace_src(src):
+            if (src or '').lower().startswith('cid:email-signature-image'):
+                return src
+            data, subtype = self._bytes_from_signature_src(src, fallback_sig=sig)
+            if not data:
+                return src
+            cid = 'email-signature-image-%s' % counter['n']
+            counter['n'] += 1
+            part = MIMEImage(data, _subtype=subtype or 'png')
+            part.add_header('Content-ID', f'<{cid}>')
+            part.add_header(
+                'Content-Disposition',
+                'inline',
+                filename='firma-%s.%s' % (counter['n'], subtype or 'png'),
+            )
+            image_parts.append(part)
+            return 'cid:' + cid
+
+        def repl_src_then_alt(match):
+            return match.group(1) + replace_src(match.group(2)) + match.group(3)
+
+        def repl_alt_then_src(match):
+            return match.group(1) + replace_src(match.group(2)) + match.group(3)
+
         html_body = re.sub(
-            r'(<img\b[^>]*\bsrc=["\'])(data:image[^"\']+|cid:email-signature-image)(["\'][^>]*>)',
-            r'\1cid:' + cid + r'\3',
+            r'(<img\b[^>]*\bsrc=["\'])([^"\']+)(["\'][^>]*\balt=["\']Firma["\'])',
+            repl_src_then_alt,
             html_body,
-            count=1,
             flags=re.IGNORECASE,
         )
-        if f'cid:{cid}' not in html_body:
-            html_body += (
-                f'<div style="margin-top:8px;">'
-                f'<img src="cid:{cid}" alt="Firma" style="max-width:280px;height:auto;display:block;">'
-                f'</div>'
-            )
-
-        try:
-            sig.image.open('rb')
-            data = sig.image.read()
-            sig.image.close()
-        except Exception:
-            return html_body, None
-
-        ext = (sig.image.name or 'firma.png').rsplit('.', 1)[-1].lower()
-        subtype = {
-            'jpg': 'jpeg', 'jpeg': 'jpeg', 'png': 'png', 'gif': 'gif', 'webp': 'webp',
-        }.get(ext, 'png')
-        img_part = MIMEImage(data, _subtype=subtype)
-        img_part.add_header('Content-ID', f'<{cid}>')
-        img_part.add_header('Content-Disposition', 'inline', filename=f'firma.{ext or "png"}')
-        return html_body, img_part
+        html_body = re.sub(
+            r'(<img\b[^>]*\balt=["\']Firma["\'][^>]*\bsrc=["\'])([^"\']+)(["\'])',
+            repl_alt_then_src,
+            html_body,
+            flags=re.IGNORECASE,
+        )
+        return html_body, image_parts
 
     def send_email(self, to_addresses, subject, body, html_body=None, cc_addresses=None, 
                bcc_addresses=None, attachments=None, conversation=None, signature=None, email_msg=None):
@@ -951,7 +1010,7 @@ class EmailHandler:
             # =========================
             # BODY CORRECTO (IMPORTANTE)
             # =========================
-            html_body, signature_image_part = self._inline_signature_image(
+            html_body, signature_image_parts = self._inline_signature_image(
                 html_body, email_msg=email_msg, signature=signature
             )
 
@@ -963,10 +1022,11 @@ class EmailHandler:
             if html_body:
                 alternative_part.attach(MIMEText(html_body, 'html'))
 
-            if signature_image_part:
+            if signature_image_parts:
                 related_part = MIMEMultipart('related')
                 related_part.attach(alternative_part)
-                related_part.attach(signature_image_part)
+                for img_part in signature_image_parts:
+                    related_part.attach(img_part)
                 msg.attach(related_part)
             else:
                 msg.attach(alternative_part)
