@@ -508,6 +508,11 @@
                 fd.append('attachments', file);
             });
             var activeModal = getComposeModalEl() || modalEl;
+            if (activeModal && typeof bootstrap !== 'undefined') {
+                try {
+                    bootstrap.Modal.getOrCreateInstance(activeModal).hide();
+                } catch (eHideG) {}
+            }
             fetch(form.action, {
                 method: 'POST',
                 body: fd,
@@ -520,9 +525,6 @@
                     var msg = (res.data && (res.data.error || res.data.detail)) ? (res.data.error || res.data.detail) : 'No se pudo enviar el correo.';
                     alert(msg);
                     return;
-                }
-                if (activeModal && typeof bootstrap !== 'undefined') {
-                    bootstrap.Modal.getOrCreateInstance(activeModal).hide();
                 }
                 if (typeof window.commMailRefreshList === 'function') window.commMailRefreshList();
             }).catch(function () {

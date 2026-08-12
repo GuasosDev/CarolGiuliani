@@ -20,6 +20,30 @@ from datetime import timedelta
 logger = logging.getLogger(__name__)
 
 
+def enqueue_send_queued_email(queue_id):
+    """
+    SMTP siempre en un hilo: el HTTP no espera a Gmail ni a Redis
+    (si Redis no está, apply_async puede colgar ~30-40s).
+    """
+    import threading
+    from django.db import close_old_connections
+
+    def _run():
+        close_old_connections()
+        try:
+            send_queued_email.apply(args=[queue_id], throw=False)
+        except Exception:
+            logger.exception('No se pudo enviar EmailQueue %s', queue_id)
+        finally:
+            close_old_connections()
+
+    threading.Thread(
+        target=_run,
+        daemon=True,
+        name='send-email-%s' % queue_id,
+    ).start()
+
+
 @shared_task
 def sync_all_email_accounts():
     """Sync all active email accounts"""

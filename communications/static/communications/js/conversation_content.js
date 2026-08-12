@@ -929,6 +929,17 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
 
+        if (channel === 'email') {
+            try {
+                var modalElSend = getEmailComposeModal();
+                if (modalElSend && typeof bootstrap !== 'undefined') {
+                    var instSend = bootstrap.Modal.getInstance(modalElSend)
+                        || bootstrap.Modal.getOrCreateInstance(modalElSend);
+                    instSend.hide();
+                }
+            } catch (eHide) {}
+        }
+
         fetch(form.action, {
             method: 'POST',
             body: formData,
@@ -993,16 +1004,6 @@
             }
 
             refreshMessages();
-
-            if (channel === 'email') {
-                try {
-                    var modalEl = getEmailComposeModal();
-                    if (modalEl && typeof bootstrap !== 'undefined') {
-                        var inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
-                        inst.hide();
-                    }
-                } catch (e) {}
-            }
 
             btn.innerHTML = '<i class="fas fa-check"></i> Enviado';
             setTimeout(function () {

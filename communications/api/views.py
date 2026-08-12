@@ -26,7 +26,7 @@ from ..assignment_system import assign_conversation_to_agent, reassign_conversat
 from django.db import transaction
 from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
 from django.core.files.base import ContentFile
-from ..tasks import send_queued_email
+from ..tasks import send_queued_email, enqueue_send_queued_email
 
 class ConversationViewSet(viewsets.ModelViewSet):
     """API endpoint for conversations"""
@@ -600,7 +600,7 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                 except Exception:
                     pass
 
-            send_queued_email.apply_async(args=[queue_entry.id])
+            enqueue_send_queued_email(queue_entry.id)
 
             return Response({'status': 'queued', 'queue_id': queue_entry.id}, status=status.HTTP_202_ACCEPTED)
 
