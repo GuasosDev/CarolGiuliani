@@ -625,63 +625,21 @@ class EmailSignature(models.Model):
         return bool(
             (self.html_signature or '').strip()
             or (self.plain_signature or '').strip()
-            or self.image
         )
 
     def rendered_html(self):
-        """HTML listo para insertar en el mail (texto + imagen embebida)."""
-        import base64
-        html = (self.html_signature or '').strip()
-        img_html = ''
-        if self.image:
-            try:
-                self.image.open('rb')
-                data = self.image.read()
-                self.image.close()
-                ext = (self.image.name or '').rsplit('.', 1)[-1].lower()
-                mime = {
-                    'jpg': 'image/jpeg',
-                    'jpeg': 'image/jpeg',
-                    'png': 'image/png',
-                    'gif': 'image/gif',
-                    'webp': 'image/webp',
-                }.get(ext, 'image/png')
-                b64 = base64.b64encode(data).decode('ascii')
-                img_html = (
-                    f'<div style="margin-top:8px;">'
-                    f'<img src="data:{mime};base64,{b64}" alt="Firma" '
-                    f'style="max-width:280px;height:auto;display:block;">'
-                    f'</div>'
-                )
-            except Exception:
-                img_html = ''
-        parts = [p for p in (html, img_html) if p]
-        return '<br>'.join(parts)
+        """HTML de la firma (solo texto). Un logo se pega/adjunta en ese mail."""
+        return (self.html_signature or '').strip()
 
     def preview_html(self):
-        """HTML liviano para mostrar al pie del editor (imagen por URL)."""
-        from django.utils.html import escape
-        html = (self.html_signature or '').strip()
-        img_html = ''
-        if self.image:
-            try:
-                img_html = (
-                    '<div style="margin-top:8px;">'
-                    '<img src="%s" alt="Firma" style="max-width:220px;height:auto;display:block;">'
-                    '</div>'
-                ) % escape(self.image.url)
-            except Exception:
-                img_html = ''
-        parts = [p for p in (html, img_html) if p]
-        return '<br>'.join(parts)
+        """HTML liviano para mostrar al pie del editor."""
+        return (self.html_signature or '').strip()
 
     def rendered_plain(self):
         from django.utils.html import strip_tags
         plain = (self.plain_signature or '').strip()
         if not plain and (self.html_signature or '').strip():
             plain = strip_tags(self.html_signature).strip()
-        if self.image and '[imagen de firma]' not in plain.lower():
-            plain = (plain + '\n[imagen de firma]').strip()
         return plain
 
     def save(self, *args, **kwargs):

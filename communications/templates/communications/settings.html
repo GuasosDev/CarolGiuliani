@@ -105,9 +105,10 @@
                 </div>
                 <div class="card-body">
                     <p class="text-muted small mb-3">
-                        Esta firma se agrega al enviar desde Redactar, Responder o Reenviar si el check “Incluir firma” está activo (viene marcado por defecto).
+                        Esta firma de texto se agrega al enviar si el check “Incluir firma” está activo.
+                        Si en un mail puntual querés un logo, pegalo o adjuntálo con el clips en Redactar / Responder / Reenviar: va solo en ese envío.
                     </p>
-                    <form method="post" action="{% url 'communications:settings_email_signature' %}" enctype="multipart/form-data">
+                    <form method="post" action="{% url 'communications:settings_email_signature' %}">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label class="form-label fw-bold" for="signatureName">Nombre</label>
@@ -118,23 +119,6 @@
                             <label class="form-label fw-bold" for="signatureHtml">Firma (HTML o texto)</label>
                             <textarea class="form-control" id="signatureHtml" name="html_signature" rows="6"
                                       placeholder="Ej: Saludos,<br>Gise — Área de Gestión">{{ email_signature.html_signature|default:'' }}</textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold" for="signatureImage">Imagen (logo / firma escaneada)</label>
-                            {% if email_signature.image %}
-                            <div class="mb-2">
-                                <img src="{{ email_signature.image.url }}" alt="Firma actual"
-                                     style="max-width: 220px; max-height: 120px; object-fit: contain;"
-                                     class="border rounded bg-white p-1">
-                            </div>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="clear_signature_image" value="1" id="clearSignatureImage">
-                                <label class="form-check-label small" for="clearSignatureImage">Quitar imagen actual</label>
-                            </div>
-                            {% endif %}
-                            <input type="file" class="form-control" id="signatureImage" name="signature_image"
-                                   accept="image/jpeg,image/png,image/gif,image/webp">
-                            <div class="form-text">JPG, PNG, GIF o WEBP. Máximo 2 MB. Se incluye en el mail junto al texto.</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold" for="signaturePlain">Versión texto plano (opcional)</label>

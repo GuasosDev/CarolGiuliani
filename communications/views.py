@@ -1518,19 +1518,6 @@ def update_email_signature(request):
     if not plain and html:
         plain = strip_tags(html).strip()
 
-    uploaded = request.FILES.get('signature_image')
-    clear_image = request.POST.get('clear_signature_image') == '1'
-
-    allowed = {'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'}
-    if uploaded:
-        ctype = (getattr(uploaded, 'content_type', '') or '').lower()
-        if ctype not in allowed:
-            dj_messages.error(request, 'La imagen de firma debe ser JPG, PNG, GIF o WEBP.')
-            return redirect('communications:settings')
-        if uploaded.size and uploaded.size > 2 * 1024 * 1024:
-            dj_messages.error(request, 'La imagen de firma no puede superar 2 MB.')
-            return redirect('communications:settings')
-
     sig = EmailSignature.get_default_for(request.user)
     if not sig:
         sig = EmailSignature(
@@ -1545,12 +1532,6 @@ def update_email_signature(request):
         sig.html_signature = html
         sig.plain_signature = plain
         sig.is_default = True
-
-    if clear_image and sig.image:
-        sig.image.delete(save=False)
-        sig.image = None
-    if uploaded:
-        sig.image = uploaded
 
     sig.save()
     dj_messages.success(request, 'Firma de correo guardada.')
