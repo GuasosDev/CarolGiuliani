@@ -4,7 +4,11 @@ Django views for communications web interface
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, FileResponse
+import tempfile
+import zipfile
+import threading
+import os
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 from django.urls import reverse_lazy, reverse
@@ -1312,6 +1316,84 @@ def email_message_detail(request, pk):
     }
 
     return render(request, 'communications/partials/conversation_content.html', context)
+
+
+@login_required
+def download_attachments(request, conversation_id):
+    """Genera un ZIP con todos los adjuntos de una conversación y lo devuelve."""
+    conversation = get_object_or_404(Conversation, pk=conversation_id)
+
+    # Permission check (same logic as conversation_detail)
+    if not (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+        or conversation.assigned_to == request.user
+    ):
+        if not get_agent_conversations(request.user).filter(pk=conversation_id).exists():
+            return HttpResponse('Unauthorized', status=403)
+
+    # Collect attachments: EmailAttachment objects and Message.file
+    from .models import EmailAttachment
+
+    email_atts = EmailAttachment.objects.filter(email_message__message__conversation=conversation).distinct()
+    message_files = Message.objects.filter(conversation=conversation, file__isnull=False)
+
+    if not email_atts.exists() and not message_files.exists():
+        return HttpResponse('No attachments found', status=404)
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+    try:
+        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add email attachments
+            for att in email_atts:
+                try:
+                    att.file.open('rb')
+                    data = att.file.read()
+                    att.file.close()
+                    fname = att.filename or os.path.basename(att.file.name)
+                    arcname = fname
+                    if arcname in zf.namelist():
+                        arcname = f"{att.id}_{fname}"
+                    zf.writestr(arcname, data)
+                except Exception:
+                    continue
+
+            # Add message files
+            for m in message_files:
+                try:
+                    m.file.open('rb')
+                    data = m.file.read()
+                    m.file.close()
+                    fname = os.path.basename(getattr(m.file, 'name', '') or f'message_{m.id}_file')
+                    arcname = fname
+                    if arcname in zf.namelist():
+                        arcname = f"message_{m.id}_{fname}"
+                    zf.writestr(arcname, data)
+                except Exception:
+                    continue
+
+        tmp.flush()
+        tmp.seek(0)
+        response = FileResponse(open(tmp.name, 'rb'), as_attachment=True, filename=f'attachments_conversation_{conversation_id}.zip')
+
+        # Schedule cleanup of temp file shortly after response starts
+        def _cleanup(path):
+            import time
+            time.sleep(10)
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+        threading.Thread(target=_cleanup, args=(tmp.name,), daemon=True).start()
+        return response
+    except Exception:
+        try:
+            os.remove(tmp.name)
+        except Exception:
+            pass
+        logger.exception('Error generating attachments zip')
+        return HttpResponse('Error generating zip', status=500)
 
 
 @login_required

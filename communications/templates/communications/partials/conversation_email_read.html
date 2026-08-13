@@ -72,6 +72,12 @@
                 </div>
             </div>
             {% endif %}
+            {% if latest_message.email_data or latest_message.file %}
+            <div class="mb-2">
+                <a href="{% url 'communications:download_attachments' conversation.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-download me-1"></i> Descargar todos los adjuntos
+                </a>
+            </div>
 
             {% if latest_message.email_data %}
             <div class="d-flex flex-wrap gap-3 mb-0">
@@ -93,6 +99,7 @@
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
             {% endif %}
         </article>
 
