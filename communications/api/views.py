@@ -586,7 +586,8 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     plain_body=body,
                     conversation=conversation,
                     email_message=email_msg,
-                    status='pending'
+                    status='pending',
+                    include_signature=bool(include_signature),
                 )
 
                 # Ensure conversation participants include sent recipients
