@@ -119,6 +119,37 @@
         setTimeout(markBackdrops, 50);
     }
 
+    function isPdfFile(file) {
+        if (!file) return false;
+        var name = (file.name || '').toLowerCase();
+        var type = (file.type || '').toLowerCase();
+        return name.slice(-4) === '.pdf' || type === 'application/pdf' || type.indexOf('pdf') !== -1;
+    }
+
+    function renderFilePreviewHtml(file) {
+        var name = file.name || 'Archivo';
+        var ext = (name.split('.').pop() || '').toLowerCase();
+        var url = URL.createObjectURL(file);
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) !== -1) {
+            return '<img src="' + url + '" alt="" style="max-width:100%;max-height:500px;border-radius:8px;">';
+        }
+        if (isPdfFile(file) || ext === 'pdf') {
+            return (
+                '<div class="text-start">' +
+                '<embed src="' + url + '#toolbar=1" type="application/pdf" ' +
+                'style="width:100%;height:min(70vh,560px);border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa;">' +
+                '<p class="text-muted small mt-2 mb-0">Si no se ve el PDF: ' +
+                '<a href="' + url + '" target="_blank" rel="noopener">abrir en pestaña</a></p>' +
+                '</div>'
+            );
+        }
+        return (
+            '<p class="text-muted mb-0">Vista previa no disponible.<br><strong>' +
+            String(name).replace(/</g, '&lt;') +
+            '</strong></p>'
+        );
+    }
+
     function openPreview(file, index) {
         if (!file) {
             alert('Archivo');
@@ -127,18 +158,17 @@
         window.currentUploadFileIndex = index;
         window.currentUploadFileSource = 'global';
 
-        var existingModal = document.getElementById('uploadPreviewModal');
-        if (existingModal && typeof window.openUploadPreview === 'function') {
-            window.openUploadPreview(file, index, 'global');
-            raiseUploadPreviewAboveCompose(existingModal);
+        if (typeof bootstrap === 'undefined') {
+            // Sin Bootstrap: al menos abrir el PDF/archivo
+            try {
+                window.open(URL.createObjectURL(file), '_blank');
+            } catch (e) {
+                alert(file.name || 'Archivo');
+            }
             return;
         }
 
-        if (typeof bootstrap === 'undefined') {
-            alert(file.name || 'Archivo');
-            return;
-        }
-        var modal = existingModal;
+        var modal = document.getElementById('uploadPreviewModal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'uploadPreviewModal';
@@ -156,25 +186,12 @@
                 '<i class="fas fa-trash me-2"></i>Eliminar</button></div></div></div>';
             document.body.appendChild(modal);
         }
+
         var nameEl = document.getElementById('uploadPreviewFileName');
         var content = document.getElementById('uploadPreviewContent');
         if (nameEl) nameEl.textContent = file.name || 'Vista previa';
-        if (content) {
-            var ext = ((file.name || '').split('.').pop() || '').toLowerCase();
-            var url = URL.createObjectURL(file);
-            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) !== -1) {
-                content.innerHTML = '<img src="' + url + '" alt="" style="max-width:100%;max-height:500px;border-radius:8px;">';
-            } else if (ext === 'pdf') {
-                content.innerHTML =
-                    '<iframe src="' + url + '#toolbar=1" title="PDF" ' +
-                    'style="width:100%;height:min(70vh,560px);border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa;"></iframe>' +
-                    '<p class="text-muted small mt-2 mb-0">Si no se ve: <a href="' + url + '" target="_blank" rel="noopener">abrir archivo</a></p>';
-            } else {
-                content.innerHTML = '<p class="text-muted mb-0">Vista previa no disponible.<br><strong></strong></p>';
-                var strong2 = content.querySelector('strong');
-                if (strong2) strong2.textContent = file.name;
-            }
-        }
+        if (content) content.innerHTML = renderFilePreviewHtml(file);
+
         var delBtn = document.getElementById('uploadPreviewDeleteBtn');
         if (delBtn) {
             delBtn.onclick = function () {
