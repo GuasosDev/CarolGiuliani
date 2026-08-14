@@ -72,16 +72,19 @@
                 </div>
             </div>
             {% endif %}
-            {% if latest_message.email_data or latest_message.file %}
+
+            {% with email_atts=latest_message.email_data.attachments.all %}
+            {% if latest_message.file or email_atts %}
             <div class="mb-2">
                 <a href="{% url 'communications:download_attachments' conversation.id %}" class="btn btn-sm btn-outline-primary">
                     <i class="fas fa-download me-1"></i> Descargar todos los adjuntos
                 </a>
             </div>
+            {% endif %}
 
-            {% if latest_message.email_data %}
+            {% if email_atts %}
             <div class="d-flex flex-wrap gap-3 mb-0">
-                {% for att in latest_message.email_data.attachments.all %}
+                {% for att in email_atts %}
                 <div class="email-thread-attachment">
                     <div class="attachment-preview" onclick="openAttachmentPreview('{{ att.file.url }}', '{{ att.filename }}')" style="cursor: pointer;">
                         {% if ".jpg" in att.file.url or ".png" in att.file.url or ".jpeg" in att.file.url or ".gif" in att.file.url %}
@@ -100,7 +103,7 @@
                 {% endfor %}
             </div>
             {% endif %}
-            {% endif %}
+            {% endwith %}
         </article>
 
         {% if previous_messages %}
