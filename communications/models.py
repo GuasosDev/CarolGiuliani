@@ -627,13 +627,27 @@ class EmailSignature(models.Model):
             or (self.plain_signature or '').strip()
         )
 
+    @staticmethod
+    def _newlines_to_br(text):
+        """Convierte Enter del textarea en <br> (HTML ignora saltos de línea)."""
+        if not text:
+            return ''
+        return text.replace('\r\n', '\n').replace('\r', '\n').replace('\n', '<br>\n')
+
     def rendered_html(self):
         """HTML de la firma (solo texto). Un logo se pega/adjunta en ese mail."""
-        return (self.html_signature or '').strip()
+        html = (self.html_signature or '').strip()
+        if html:
+            return self._newlines_to_br(html)
+        plain = (self.plain_signature or '').strip()
+        if plain:
+            from django.utils.html import escape
+            return self._newlines_to_br(escape(plain))
+        return ''
 
     def preview_html(self):
         """HTML liviano para mostrar al pie del editor."""
-        return (self.html_signature or '').strip()
+        return self.rendered_html()
 
     def rendered_plain(self):
         from django.utils.html import strip_tags

@@ -1489,7 +1489,14 @@
         } else if (['mp3', 'wav', 'ogg', 'm4a', 'opus'].includes(fileExtension)) {
             previewHTML = '<div class="text-center p-4"><i class="fas fa-file-audio" style="font-size: 4rem; color: #ff6b35; margin-bottom: 20px;"></i><h5 class="mb-3">' + file.name + '</h5><p class="text-muted mb-3">Tamaño: ' + formatFileSize(file.size) + '</p><audio controls class="w-100"><source src="' + URL.createObjectURL(file) + '">Tu navegador no soporta la reproduccion de audio.</audio></div>';
         } else if (['pdf'].includes(fileExtension)) {
-            previewHTML = '<div class="text-center p-4"><i class="fas fa-file-pdf" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i><h5 class="mb-3">' + file.name + '</h5><p class="text-muted mb-3">Tamaño: ' + formatFileSize(file.size) + '</p><p class="text-muted">Vista previa de PDF no disponible. Este archivo se enviara correctamente.</p></div>';
+            var pdfUrl = URL.createObjectURL(file);
+            previewHTML =
+                '<div class="text-start">' +
+                '<iframe src="' + pdfUrl + '#toolbar=1" title="' + (file.name || 'PDF').replace(/"/g, '') + '" ' +
+                'style="width:100%;height:min(70vh,560px);border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa;"></iframe>' +
+                '<p class="text-muted small mt-2 mb-0">Si no se ve el PDF, abrilo en una pestaña: ' +
+                '<a href="' + pdfUrl + '" target="_blank" rel="noopener">abrir archivo</a></p>' +
+                '</div>';
         } else {
             previewHTML = '<div class="text-center p-4"><i class="fas fa-file" style="font-size: 4rem; color: #6c757d; margin-bottom: 20px;"></i><h5 class="mb-3">' + file.name + '</h5><p class="text-muted mb-3">Tamaño: ' + formatFileSize(file.size) + '</p><p class="text-muted">Vista previa no disponible para este tipo de archivo. Este archivo se enviara correctamente.</p></div>';
         }

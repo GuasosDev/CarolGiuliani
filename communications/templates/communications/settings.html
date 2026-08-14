@@ -118,7 +118,8 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold" for="signatureHtml">Firma (HTML o texto)</label>
                             <textarea class="form-control" id="signatureHtml" name="html_signature" rows="6"
-                                      placeholder="Ej: Saludos,<br>Gise — Área de Gestión">{{ email_signature.html_signature|default:'' }}</textarea>
+                                      placeholder="Ej:&#10;Gisela Latini | Contadora&#10;ESTUDIO CAROLGIULIANI&#10;Mendoza 652">{{ email_signature.html_signature|default:'' }}</textarea>
+                            <div class="form-text">Podés escribir en varias líneas (Enter); se respetan al enviar. También acepta HTML (&lt;br&gt;, etc.).</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold" for="signaturePlain">Versión texto plano (opcional)</label>

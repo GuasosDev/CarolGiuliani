@@ -165,9 +165,10 @@
             if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) !== -1) {
                 content.innerHTML = '<img src="' + url + '" alt="" style="max-width:100%;max-height:500px;border-radius:8px;">';
             } else if (ext === 'pdf') {
-                content.innerHTML = '<p class="text-muted mb-0">Vista previa de PDF no disponible.<br><strong></strong></p>';
-                var strong = content.querySelector('strong');
-                if (strong) strong.textContent = file.name;
+                content.innerHTML =
+                    '<iframe src="' + url + '#toolbar=1" title="PDF" ' +
+                    'style="width:100%;height:min(70vh,560px);border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa;"></iframe>' +
+                    '<p class="text-muted small mt-2 mb-0">Si no se ve: <a href="' + url + '" target="_blank" rel="noopener">abrir archivo</a></p>';
             } else {
                 content.innerHTML = '<p class="text-muted mb-0">Vista previa no disponible.<br><strong></strong></p>';
                 var strong2 = content.querySelector('strong');
