@@ -100,7 +100,12 @@
                                 </small>
                             {% endif %}
                         {% endwith %}
-                        <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                        <span class="d-inline-flex align-items-center gap-1 ms-1 flex-shrink-0">
+                            {% if em.has_attachments or em.message.file %}
+                            <i class="fas fa-paperclip text-secondary" style="font-size: 0.75rem;" title="Tiene adjuntos" aria-label="Tiene adjuntos"></i>
+                            {% endif %}
+                            <i class="fas fa-envelope text-secondary opacity-50" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                        </span>
                     </div>
                     </button>
 

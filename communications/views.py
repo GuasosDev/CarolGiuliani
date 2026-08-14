@@ -26,7 +26,7 @@ import csv
 import io
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, InternalNote, EmailTemplate, EmailSignature
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, EmailAttachment, InternalNote, EmailTemplate, EmailSignature
 from .models import InternalChatMessage, InternalChatReadState
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
@@ -495,6 +495,12 @@ def dashboard(request):
                 email_rows_qs = email_rows_qs.order_by(
                     '-email_date'
                 )
+
+            email_rows_qs = email_rows_qs.annotate(
+                has_attachments=Exists(
+                    EmailAttachment.objects.filter(email_message_id=OuterRef('pk'))
+                )
+            )
 
             paginator = Paginator(email_rows_qs, 15)
 
