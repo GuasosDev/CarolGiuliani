@@ -1537,6 +1537,13 @@ def download_attachments(request, conversation_id):
 EMAIL_DRAFT_MODES = ('new', 'reply', 'reply-all', 'forward')
 
 
+def _email_drafts_count(user, account=None):
+    account = account or _get_user_email_account(user)
+    if not account:
+        return 0
+    return EmailDraft.objects.filter(user=user, email_account=account).count()
+
+
 def _email_draft_slot_key(mode, conversation_id=None, source_id=None):
     mode = (mode or 'new').strip()
     if mode not in EMAIL_DRAFT_MODES:
@@ -1603,7 +1610,10 @@ def email_draft_save(request):
     )
     if _email_draft_payload_empty(to_addr, cc_addr, bcc_addr, subject, html_body):
         deleted, _ = qs.delete()
-        return JsonResponse({'ok': True, 'deleted': True, 'id': None, 'removed': deleted})
+        return JsonResponse({
+            'ok': True, 'deleted': True, 'id': None, 'removed': deleted,
+            'drafts_count': _email_drafts_count(request.user, account),
+        })
 
     conversation = None
     source = None
@@ -1635,7 +1645,12 @@ def email_draft_save(request):
     draft.html_body = html_body
     draft.include_signature = include_sig
     draft.save()
-    return JsonResponse({'ok': True, 'deleted': False, **_email_draft_to_dict(draft)})
+    return JsonResponse({
+        'ok': True,
+        'deleted': False,
+        'drafts_count': _email_drafts_count(request.user, account),
+        **_email_draft_to_dict(draft),
+    })
 
 
 @login_required
@@ -1661,7 +1676,11 @@ def email_draft_detail(request, pk):
     )
     if request.method == 'POST' and (request.POST.get('action') or '') == 'discard':
         draft.delete()
-        return JsonResponse({'ok': True, 'deleted': True})
+        return JsonResponse({
+            'ok': True,
+            'deleted': True,
+            'drafts_count': _email_drafts_count(request.user, account),
+        })
     return JsonResponse({'draft': _email_draft_to_dict(draft)})
 
 

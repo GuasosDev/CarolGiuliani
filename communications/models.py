@@ -139,17 +139,19 @@ class Conversation(models.Model):
 
     def get_display_name(self):
         """Returns a human-readable name for the conversation, with fallbacks."""
+        from .utils.email_headers import decode_mime_header
+
         if self.contact and self.contact.client:
-            return self.contact.client.name
-        
+            return decode_mime_header(self.contact.client.name) or self.contact.client.name
+
         # Look for sender_name in messages if no client linked
         msg = self.messages.filter(direction='inbound').order_by('-created_at').first()
         if msg and msg.sender_name:
-            return msg.sender_name
-            
+            return decode_mime_header(msg.sender_name) or msg.sender_name
+
         if self.contact and self.contact.whatsapp_number:
             return self.contact.whatsapp_number
-            
+
         return "Desconocido"
 
     def close(self):

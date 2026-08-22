@@ -564,9 +564,13 @@
                     form.dataset.commDraftSending = '0';
                     return;
                 }
-                if (typeof window.commMailRefreshList === 'function') window.commMailRefreshList();
+                function afterSendCleanup() {
+                    if (typeof window.commMailRefreshList === 'function') window.commMailRefreshList();
+                }
                 if (typeof window.commEmailDraftDiscard === 'function') {
-                    window.commEmailDraftDiscard(form);
+                    Promise.resolve(window.commEmailDraftDiscard(form)).then(afterSendCleanup).catch(afterSendCleanup);
+                } else {
+                    afterSendCleanup();
                 }
             }).catch(function () {
                 alert('Error de red al enviar el correo.');

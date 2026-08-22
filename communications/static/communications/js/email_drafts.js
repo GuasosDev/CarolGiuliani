@@ -148,6 +148,20 @@
         form.dataset.commDraftDirty = '1';
     }
 
+    function syncDraftsCount(data, opts) {
+        opts = opts || {};
+        if (!data || data.drafts_count == null) return;
+        var n = parseInt(data.drafts_count, 10);
+        if (isNaN(n)) return;
+        var els = document.querySelectorAll('[data-comm-drafts-count]');
+        var prev = els.length ? parseInt((els[0].textContent || '').trim(), 10) : NaN;
+        els.forEach(function (el) { el.textContent = String(n); });
+        var onDrafts = /(?:\?|&)folder=drafts(?:&|$)/.test(window.location.search || '');
+        if (onDrafts && typeof window.commMailRefreshList === 'function' && (opts.refreshList || prev !== n)) {
+            window.commMailRefreshList();
+        }
+    }
+
     function saveDraft(form, opts) {
         opts = opts || {};
         if (!form || !saveUrl()) return Promise.resolve();
@@ -169,6 +183,7 @@
               if (data && data.id) form.dataset.draftId = String(data.id);
               if (data && data.deleted) form.dataset.draftId = '';
               form.dataset.commDraftDirty = '0';
+              syncDraftsCount(data);
               return data;
           }).catch(function () { return null; });
     }
@@ -187,7 +202,11 @@
                 body: fd,
                 credentials: 'same-origin',
                 headers: { 'X-CSRFToken': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
-            }).catch(function () { return null; });
+            }).then(function (r) { return r.json().catch(function () { return {}; }); })
+              .then(function (data) {
+                  syncDraftsCount(data, { refreshList: true });
+                  return data;
+              }).catch(function () { return null; });
         } else {
             p = saveDraft(form, { force: true, forceDiscardEmpty: true, keepalive: true });
         }

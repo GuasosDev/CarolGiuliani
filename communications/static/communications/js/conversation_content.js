@@ -1015,10 +1015,12 @@
                 throw new Error(errorMsg);
             }
             return data;
-        }).then(function () {
+        }).then(function (data) {
             if (channel === 'email' && typeof window.commEmailDraftDiscard === 'function') {
-                window.commEmailDraftDiscard(form);
+                return Promise.resolve(window.commEmailDraftDiscard(form)).then(function () { return data; });
             }
+            return data;
+        }).then(function () {
             if (channel === 'whatsapp') {
                 var messageTextarea = form.querySelector('textarea[name="message"]');
                 if (messageTextarea) messageTextarea.value = '';

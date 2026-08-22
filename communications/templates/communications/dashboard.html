@@ -100,7 +100,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <!-- "De:" oscuro si no está leído, gris secundario si ya se leyó -->
                             <small class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}">
-                                De: {{ em.message.sender_name|default:em.from_address|default:"-" }}
+                                De: {{ em.message.sender_name|default:em.from_address|default:"-"|decode_email_subject }}
                             </small>
                         </div>
                         <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">

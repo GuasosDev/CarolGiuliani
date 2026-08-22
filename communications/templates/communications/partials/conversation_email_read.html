@@ -38,7 +38,7 @@
                                 {% if latest_message.direction == 'outbound' %}
                                     Tú
                                 {% else %}
-                                    {% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}{{ latest_message.sender_name|default:"Remitente" }}{% endif %}
+                                    {% if conversation.contact.client %}{{ conversation.contact.client.name|decode_email_subject }}{% else %}{{ latest_message.sender_name|default:"Remitente"|decode_email_subject }}{% endif %}
                                 {% endif %}
                             </span>
                             <span class="text-muted small">· {{ latest_message.created_at|date:"d/m/Y H:i" }}</span>

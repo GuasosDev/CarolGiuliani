@@ -32,7 +32,7 @@ href="{% url 'communications:dashboard' %}?channel=email&folder=drafts">
                         <span class="comm-mail-folder-ico" aria-hidden="true"><i class="fas fa-file-alt"></i></span>
                         <span>Borradores</span>
                     </span>
-                    <span class="comm-mail-folder-badge">{{ drafts_count|default:0 }}</span>
+                    <span class="comm-mail-folder-badge" data-comm-drafts-count>{{ drafts_count|default:0 }}</span>
                 </a>
             </li>
             <li>
