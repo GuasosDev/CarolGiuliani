@@ -187,6 +187,15 @@ def _reply_all_recipients(email_msg, my_email=None):
     return reply_to, ', '.join(cc_list)
 
 
+def _email_header_recipients(email_msg):
+    """Para/Cc del mail abierto (para la barra de lectura)."""
+    if not email_msg:
+        return '', ''
+    to_list = _normalize_email_addr_list(getattr(email_msg, 'to_addresses', None))
+    cc_list = _normalize_email_addr_list(getattr(email_msg, 'cc_addresses', None))
+    return ', '.join(to_list), ', '.join(cc_list)
+
+
 def _email_reply_quote_html(email_msg):
     """Cita HTML editable del mensaje original para Responder / Responder a todos."""
     from django.utils.html import escape
@@ -1179,6 +1188,8 @@ def conversation_detail(request, pk):
 
         reply_cc_joined = ''
         reply_to_address = ''
+        email_view_to = ''
+        email_view_cc = ''
         forward_email_message_id = None
         forward_preview_html = ''
         reply_quote_html = ''
@@ -1206,6 +1217,7 @@ def conversation_detail(request, pk):
                 reply_to_address = (getattr(client, 'email', None) or '').strip()
             last_any = (
                 EmailMessage.objects.filter(message__conversation=conversation)
+                .select_related('message')
                 .order_by('-message__created_at')
                 .first()
             )
@@ -1215,6 +1227,9 @@ def conversation_detail(request, pk):
             quote_src = last_inbound or last_any
             if quote_src:
                 reply_quote_html = _email_reply_quote_html(quote_src)
+            header_src = last_any or last_inbound
+            if header_src:
+                email_view_to, email_view_cc = _email_header_recipients(header_src)
 
         wa_freeform_blocked = False
         wa_freeform_block_reason = ''
@@ -1266,6 +1281,8 @@ def conversation_detail(request, pk):
             'company_settings': company_settings,
             'reply_cc_joined': reply_cc_joined,
             'reply_to_address': reply_to_address,
+            'email_view_to': email_view_to,
+            'email_view_cc': email_view_cc,
             'forward_email_message_id': forward_email_message_id,
             'forward_preview_html': forward_preview_html,
             'reply_quote_html': reply_quote_html,
@@ -1372,6 +1389,7 @@ def email_message_detail(request, pk):
     if not reply_to_address:
         client = getattr(getattr(conversation, 'contact', None), 'client', None)
         reply_to_address = (getattr(client, 'email', None) or '').strip()
+    email_view_to, email_view_cc = _email_header_recipients(email_message)
 
     forward_preview_html = _email_forward_preview_html(email_message)
     reply_quote_html = _email_reply_quote_html(email_message)
@@ -1403,6 +1421,8 @@ def email_message_detail(request, pk):
         'company_settings': company_settings,
         'reply_cc_joined': reply_cc_joined,
         'reply_to_address': reply_to_address,
+        'email_view_to': email_view_to,
+        'email_view_cc': email_view_cc,
         'forward_email_message_id': email_message.id,
         'forward_preview_html': forward_preview_html,
         'reply_quote_html': reply_quote_html,
