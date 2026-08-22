@@ -4,7 +4,7 @@ from .models import (
     Contact, Conversation, Message, InternalNote, QuickReply,
     WhatsAppAccount, WhatsAppMessage, ConversationAssignment,
     EmailAccount, EmailMessage, EmailThread, EmailTemplate,
-    EmailSignature, EmailAttachment, EmailQueue
+    EmailSignature, EmailAttachment, EmailQueue, EmailDraft
 )
 from .forms import EmailAccountAdminForm 
 
@@ -196,6 +196,14 @@ class EmailAttachmentAdmin(admin.ModelAdmin):
     list_filter = ('mime_type', 'created_at')
     search_fields = ('filename',)
     readonly_fields = ('created_at',)
+
+
+@admin.register(EmailDraft)
+class EmailDraftAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email_account', 'compose_mode', 'subject', 'updated_at')
+    list_filter = ('compose_mode', 'updated_at')
+    search_fields = ('subject', 'to_addresses', 'user__username')
+    readonly_fields = ('created_at', 'updated_at', 'slot_key')
 
 
 @admin.register(EmailQueue)

@@ -500,9 +500,20 @@
                 } catch (eFocus) {}
             }
         });
-        modalInst.show();
-        if (typeof window.commSyncSignaturePreviews === 'function') {
-            window.commSyncSignaturePreviews(modalEl);
+        function finishOpenCompose() {
+            modalInst.show();
+            if (typeof window.commSyncSignaturePreviews === 'function') {
+                window.commSyncSignaturePreviews(modalEl);
+            }
+        }
+        if (form) {
+            form.dataset.composeMode = mode;
+            form.dataset.commDraftSending = '0';
+        }
+        if (form && typeof window.commEmailDraftPrepare === 'function') {
+            window.commEmailDraftPrepare(form, mode, modalEl).then(finishOpenCompose).catch(finishOpenCompose);
+        } else {
+            finishOpenCompose();
         }
     };
 
@@ -948,6 +959,12 @@
 
         if (channel === 'email') {
             try {
+                if (typeof window.commEmailDraftSave === 'function') {
+                    window.commEmailDraftSave(form, { force: true, keepalive: true });
+                }
+                if (typeof window.commEmailDraftMarkSending === 'function') {
+                    window.commEmailDraftMarkSending(form);
+                }
                 var modalElSend = getEmailComposeModal();
                 if (modalElSend && typeof bootstrap !== 'undefined') {
                     var instSend = bootstrap.Modal.getInstance(modalElSend)
@@ -999,6 +1016,9 @@
             }
             return data;
         }).then(function () {
+            if (channel === 'email' && typeof window.commEmailDraftDiscard === 'function') {
+                window.commEmailDraftDiscard(form);
+            }
             if (channel === 'whatsapp') {
                 var messageTextarea = form.querySelector('textarea[name="message"]');
                 if (messageTextarea) messageTextarea.value = '';
@@ -1032,6 +1052,7 @@
             alert('Error al enviar mensaje: ' + error.message);
             btn.disabled = false;
             btn.innerHTML = originalText;
+            if (form) form.dataset.commDraftSending = '0';
         });
     }
 

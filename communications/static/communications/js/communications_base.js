@@ -364,9 +364,19 @@
             var el = document.getElementById(id);
             if (el) el.value = '';
         });
+        var convG = document.getElementById('emailConversationIdInputGlobal');
+        if (convG) { convG.value = ''; convG.removeAttribute('name'); }
+        var srcG = document.getElementById('emailSourceEmailMessageIdInputGlobal');
+        if (srcG) srcG.value = '';
         var body = document.getElementById('emailBodyDivGlobal');
         if (body) body.innerHTML = '';
         if (typeof window.commClearGlobalAttach === 'function') window.commClearGlobalAttach();
+        var formG = document.getElementById('emailFormGlobal');
+        if (formG) {
+            formG.dataset.composeMode = 'new';
+            formG.dataset.commDraftSending = '0';
+            formG.dataset.draftId = '';
+        }
 
         var existing = bootstrap.Modal.getInstance(modalEl);
         if (existing) {
@@ -381,14 +391,23 @@
                 inst._config.keyboard = false;
             }
         } catch (eCfg) {}
-        inst.show();
-        if (typeof window.commSyncSignaturePreviews === 'function') {
-            window.commSyncSignaturePreviews(modalEl);
+
+        function finishOpenGlobal() {
+            inst.show();
+            if (typeof window.commSyncSignaturePreviews === 'function') {
+                window.commSyncSignaturePreviews(modalEl);
+            }
+            try {
+                var to = document.getElementById('emailToInputGlobal');
+                if (to) to.focus();
+            } catch (e) {}
         }
-        try {
-            var to = document.getElementById('emailToInputGlobal');
-            if (to) to.focus();
-        } catch (e) {}
+
+        if (!window.__commSkipDraftRestore && formG && typeof window.commEmailDraftPrepare === 'function') {
+            window.commEmailDraftPrepare(formG, 'new', modalEl).then(finishOpenGlobal).catch(finishOpenGlobal);
+        } else {
+            finishOpenGlobal();
+        }
     };
 
     if (modalEl && !modalEl.dataset.commComposeBound) {
@@ -511,6 +530,12 @@
             if (bodyIn) bodyIn.value = bodyDiv ? (bodyDiv.innerHTML || '') : '';
             var btn = document.getElementById('emailSendBtnGlobal');
             if (btn) btn.disabled = true;
+            if (typeof window.commEmailDraftSave === 'function') {
+                window.commEmailDraftSave(form, { force: true, keepalive: true });
+            }
+            if (typeof window.commEmailDraftMarkSending === 'function') {
+                window.commEmailDraftMarkSending(form);
+            }
             var fd = new FormData(form);
             var filesToSend = (typeof window.commGetGlobalAttachFiles === 'function')
                 ? window.commGetGlobalAttachFiles()
@@ -536,11 +561,16 @@
                 if (!res.ok) {
                     var msg = (res.data && (res.data.error || res.data.detail)) ? (res.data.error || res.data.detail) : 'No se pudo enviar el correo.';
                     alert(msg);
+                    form.dataset.commDraftSending = '0';
                     return;
                 }
                 if (typeof window.commMailRefreshList === 'function') window.commMailRefreshList();
+                if (typeof window.commEmailDraftDiscard === 'function') {
+                    window.commEmailDraftDiscard(form);
+                }
             }).catch(function () {
                 alert('Error de red al enviar el correo.');
+                form.dataset.commDraftSending = '0';
             }).finally(function () {
                 if (btn) btn.disabled = false;
             });

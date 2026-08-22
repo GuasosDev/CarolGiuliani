@@ -26,7 +26,7 @@ import csv
 import io
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, EmailAttachment, InternalNote, EmailTemplate, EmailSignature
+from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, EmailAttachment, InternalNote, EmailTemplate, EmailSignature, EmailDraft
 from .models import InternalChatMessage, InternalChatReadState
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
 from .whatsapp_handler import process_whatsapp_webhook
@@ -371,6 +371,7 @@ def dashboard(request):
     user_filter = request.GET.get('user')
     search_q = (request.GET.get('q') or '').strip()
     email_rows = None
+    email_drafts = None
     
     base_qs = get_agent_conversations(request.user).select_related(
         "contact__client"
@@ -420,7 +421,7 @@ def dashboard(request):
         if (
             channel_filter == 'email'
             and (not status_filter or status_filter == 'all')
-            and folder_filter != 'sent'
+            and folder_filter not in ('sent', 'drafts')
         ):
             conversations = conversations.exclude(status='closed')
     else:
@@ -513,10 +514,25 @@ def dashboard(request):
             # ==========================================
             # FOLDERS
             # ==========================================
+            if folder_filter == 'drafts':
+                drafts_qs = EmailDraft.objects.filter(
+                    user=request.user,
+                    email_account=user_email_account,
+                ).order_by('-updated_at')
+                if search_q:
+                    drafts_qs = drafts_qs.filter(
+                        Q(subject__icontains=search_q)
+                        | Q(to_addresses__icontains=search_q)
+                        | Q(cc_addresses__icontains=search_q)
+                    )
+                paginator = Paginator(drafts_qs, 15)
+                email_drafts = paginator.get_page(page_number)
+                email_rows = []
+
             # Enviados: todos los outbound de la cuenta IMAP del usuario.
             # No filtrar por assigned_to: si el hilo se transfiere, el envío
             # debe seguir visible para quien lo mandó / dueño de la cuenta.
-            if folder_filter == 'sent':
+            elif folder_filter == 'sent':
                 email_rows_qs = (
                     EmailMessage.objects.select_related(*email_select_related)
                     .filter(
@@ -557,63 +573,64 @@ def dashboard(request):
                         message__direction='inbound'
                     )
 
-            # ==========================================
-            # SEARCH
-            # ==========================================
+            if folder_filter != 'drafts':
+                # ==========================================
+                # SEARCH
+                # ==========================================
 
-            if search_q:
-                email_rows_qs = email_rows_qs.filter(
-                    Q(subject__icontains=search_q) |
-                    Q(from_address__icontains=search_q) |
-                    Q(to_addresses__icontains=search_q)
+                if search_q:
+                    email_rows_qs = email_rows_qs.filter(
+                        Q(subject__icontains=search_q) |
+                        Q(from_address__icontains=search_q) |
+                        Q(to_addresses__icontains=search_q)
+                    )
+
+                # ==========================================
+                # ORDER
+                # ==========================================
+
+                if folder_filter != 'sent':
+                    email_rows_qs = email_rows_qs.order_by(
+                        '-email_date'
+                    )
+
+                email_rows_qs = email_rows_qs.annotate(
+                    has_attachments=Exists(
+                        EmailAttachment.objects.filter(email_message_id=OuterRef('pk'))
+                    )
                 )
 
-            # ==========================================
-            # ORDER
-            # ==========================================
+                paginator = Paginator(email_rows_qs, 15)
 
-            if folder_filter != 'sent':
-                email_rows_qs = email_rows_qs.order_by(
-                    '-email_date'
-                )
+                email_rows = paginator.get_page(page_number)
+                for em in email_rows:
+                    recipients = em.to_addresses or []
+                    cc_recipients = em.cc_addresses or []
 
-            email_rows_qs = email_rows_qs.annotate(
-                has_attachments=Exists(
-                    EmailAttachment.objects.filter(email_message_id=OuterRef('pk'))
-                )
-            )
+                    if isinstance(recipients, str):
+                        recipients = [r.strip() for r in recipients.split(',') if r.strip()]
+                    if isinstance(cc_recipients, str):
+                        cc_recipients = [r.strip() for r in cc_recipients.split(',') if r.strip()]
 
-            paginator = Paginator(email_rows_qs, 15)
+                    combined = list(recipients)
+                    for cc in cc_recipients:
+                        if cc not in combined:
+                            combined.append(cc)
 
-            email_rows = paginator.get_page(page_number)
-            for em in email_rows:
-                recipients = em.to_addresses or []
-                cc_recipients = em.cc_addresses or []
+                    em.recipients = combined
+                    em.recipients_joined = ', '.join(combined)
+                    em.recipients_count = len(combined)
 
-                if isinstance(recipients, str):
-                    recipients = [r.strip() for r in recipients.split(',') if r.strip()]
-                if isinstance(cc_recipients, str):
-                    cc_recipients = [r.strip() for r in cc_recipients.split(',') if r.strip()]
+                    my_email = (
+                        em.email_account.email_address.lower()
+                        if em.email_account and em.email_account.email_address
+                        else ''
+                    )
 
-                combined = list(recipients)
-                for cc in cc_recipients:
-                    if cc not in combined:
-                        combined.append(cc)
-
-                em.recipients = combined
-                em.recipients_joined = ', '.join(combined)
-                em.recipients_count = len(combined)
-
-                my_email = (
-                    em.email_account.email_address.lower()
-                    if em.email_account and em.email_account.email_address
-                    else ''
-                )
-
-                em.is_me_recipient = any(
-                    r.lower() == my_email
-                    for r in recipients
-                )
+                    em.is_me_recipient = any(
+                        r.lower() == my_email
+                        for r in recipients
+                    )
 
             conversations = conversations.order_by(
                 '-last_message_at',
@@ -665,6 +682,7 @@ def dashboard(request):
         'conversations': conversations,
         'grouped_conversations': grouped_conversations,
         'email_rows': email_rows,
+        'email_drafts': email_drafts,
         'email_account': _get_user_email_account(request.user),
         'whatsapp_percent': whatsapp_percent,
         'email_percent': email_percent,
@@ -761,6 +779,10 @@ def _get_conversation_counts(user, channel=None):
             internal_count
         ),
         'sent_count': sent_count,
+        'drafts_count': (
+            EmailDraft.objects.filter(user=user, email_account=user_email_account).count()
+            if user_email_account else 0
+        ),
 
         'current_filter_total': filter_qs.count(),
     }
@@ -1510,6 +1532,137 @@ def download_attachments(request, conversation_id):
             pass
         logger.exception('Error generating attachments zip')
         return HttpResponse('Error generating zip', status=500)
+
+
+EMAIL_DRAFT_MODES = ('new', 'reply', 'reply-all', 'forward')
+
+
+def _email_draft_slot_key(mode, conversation_id=None, source_id=None):
+    mode = (mode or 'new').strip()
+    if mode not in EMAIL_DRAFT_MODES:
+        mode = 'new'
+    if mode == 'new':
+        return 'new'
+    return '%s:%s:%s' % (mode, conversation_id or '0', source_id or '0')
+
+
+def _email_draft_payload_empty(to_addr, cc_addr, bcc_addr, subject, html_body):
+    from django.utils.html import strip_tags
+    text = strip_tags(html_body or '').replace('\xa0', ' ').strip()
+    return not (
+        (to_addr or '').strip()
+        or (cc_addr or '').strip()
+        or (bcc_addr or '').strip()
+        or (subject or '').strip()
+        or text
+    )
+
+
+def _email_draft_to_dict(draft):
+    return {
+        'id': draft.id,
+        'compose_mode': draft.compose_mode,
+        'slot_key': draft.slot_key,
+        'conversation_id': draft.conversation_id,
+        'source_email_message_id': draft.source_email_message_id,
+        'to_addresses': draft.to_addresses or '',
+        'cc_addresses': draft.cc_addresses or '',
+        'bcc_addresses': draft.bcc_addresses or '',
+        'subject': draft.subject or '',
+        'html_body': draft.html_body or '',
+        'include_signature': bool(draft.include_signature),
+        'updated_at': timezone.localtime(draft.updated_at).strftime('%d/%m/%Y %H:%M') if draft.updated_at else '',
+    }
+
+
+@login_required
+@require_POST
+def email_draft_save(request):
+    account = _get_user_email_account(request.user)
+    if not account:
+        return JsonResponse({'error': 'No hay cuenta de correo.'}, status=400)
+
+    mode = (request.POST.get('compose_mode') or 'new').strip()
+    if mode not in EMAIL_DRAFT_MODES:
+        mode = 'new'
+    conv_id = (request.POST.get('conversation_id') or '').strip() or None
+    source_id = (request.POST.get('source_email_message_id') or '').strip() or None
+    slot_key = (request.POST.get('slot_key') or '').strip() or _email_draft_slot_key(mode, conv_id, source_id)
+
+    to_addr = request.POST.get('to_addresses') or ''
+    cc_addr = request.POST.get('cc_addresses') or ''
+    bcc_addr = request.POST.get('bcc_addresses') or ''
+    subject = (request.POST.get('subject') or '')[:500]
+    html_body = request.POST.get('html_body') or ''
+    include_sig = str(request.POST.get('include_signature', '1')).strip().lower() in (
+        '1', 'true', 'on', 'yes', 'si', 'sí'
+    )
+
+    qs = EmailDraft.objects.filter(
+        user=request.user, email_account=account, slot_key=slot_key
+    )
+    if _email_draft_payload_empty(to_addr, cc_addr, bcc_addr, subject, html_body):
+        deleted, _ = qs.delete()
+        return JsonResponse({'ok': True, 'deleted': True, 'id': None, 'removed': deleted})
+
+    conversation = None
+    source = None
+    if conv_id:
+        try:
+            conversation = Conversation.objects.filter(pk=int(conv_id)).first()
+        except (TypeError, ValueError):
+            conversation = None
+    if source_id:
+        try:
+            source = EmailMessage.objects.filter(pk=int(source_id)).first()
+        except (TypeError, ValueError):
+            source = None
+
+    draft = qs.first()
+    if draft is None:
+        draft = EmailDraft(
+            user=request.user,
+            email_account=account,
+            slot_key=slot_key,
+        )
+    draft.compose_mode = mode
+    draft.conversation = conversation
+    draft.source_email_message = source
+    draft.to_addresses = to_addr
+    draft.cc_addresses = cc_addr
+    draft.bcc_addresses = bcc_addr
+    draft.subject = subject
+    draft.html_body = html_body
+    draft.include_signature = include_sig
+    draft.save()
+    return JsonResponse({'ok': True, 'deleted': False, **_email_draft_to_dict(draft)})
+
+
+@login_required
+def email_draft_current(request):
+    account = _get_user_email_account(request.user)
+    if not account:
+        return JsonResponse({'draft': None})
+    mode = (request.GET.get('compose_mode') or 'new').strip()
+    conv_id = (request.GET.get('conversation_id') or '').strip() or None
+    source_id = (request.GET.get('source_email_message_id') or '').strip() or None
+    slot_key = (request.GET.get('slot_key') or '').strip() or _email_draft_slot_key(mode, conv_id, source_id)
+    draft = EmailDraft.objects.filter(
+        user=request.user, email_account=account, slot_key=slot_key
+    ).first()
+    return JsonResponse({'draft': _email_draft_to_dict(draft) if draft else None})
+
+
+@login_required
+def email_draft_detail(request, pk):
+    account = _get_user_email_account(request.user)
+    draft = get_object_or_404(
+        EmailDraft, pk=pk, user=request.user, email_account=account
+    )
+    if request.method == 'POST' and (request.POST.get('action') or '') == 'discard':
+        draft.delete()
+        return JsonResponse({'ok': True, 'deleted': True})
+    return JsonResponse({'draft': _email_draft_to_dict(draft)})
 
 
 @login_required

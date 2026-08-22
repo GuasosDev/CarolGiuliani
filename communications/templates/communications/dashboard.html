@@ -56,6 +56,38 @@
                 <div class="list-group list-group-flush">
 
                     {% if current_channel == 'email' %}
+                    {% if current_folder == 'drafts' %}
+                    {% for d in email_drafts %}
+                    <button type="button"
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
+                        data-draft-id="{{ d.id }}"
+                        onclick="if (typeof window.commOpenEmailDraft === 'function') window.commOpenEmailDraft('{{ d.id }}')">
+                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <small class="text-secondary text-truncate">
+                                {% if d.compose_mode == 'reply' %}Responder
+                                {% elif d.compose_mode == 'reply-all' %}Responder a todos
+                                {% elif d.compose_mode == 'forward' %}Reenviar
+                                {% else %}Redactar{% endif %}
+                            </small>
+                            <span class="comm-email-subject text-truncate small fw-normal text-secondary flex-grow-1" style="min-width:0;">
+                                {{ d.subject|default:"(Sin asunto)"|truncatechars:56 }}
+                            </span>
+                            <small class="text-nowrap flex-shrink-0 text-secondary">{{ d.updated_at|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-truncate text-secondary" style="min-width:0;" title="{{ d.to_addresses }}">
+                                Para: {{ d.to_addresses|default:"(sin destinatario)"|truncatechars:48 }}
+                            </small>
+                            <i class="fas fa-file-alt text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                        </div>
+                    </button>
+                    {% empty %}
+                    <div class="text-center p-5 text-muted">
+                        <i class="fas fa-file-alt fa-3x mb-3 text-secondary opacity-50"></i>
+                        <p>No hay borradores.</p>
+                    </div>
+                    {% endfor %}
+                    {% else %}
                     {% for em in email_rows %}
                     <button type="button"
                         class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
@@ -117,6 +149,7 @@
                         <p>No hay emails en esta vista.</p>
                     </div>
                     {% endfor %}
+                    {% endif %}
 
                     {% elif current_status == 'inbox' %}
                     {% for group in grouped_conversations %}
@@ -265,8 +298,39 @@
 </div>
 
 {% if current_channel == 'email' %}
-
-    {% if email_rows.paginator.num_pages > 1 %}
+{% if current_folder == 'drafts' %}
+    {% with page_obj=email_drafts %}
+    {% if page_obj and page_obj.paginator.num_pages > 1 %}
+    <div class="border-top p-2 bg-white">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">Anterior</a>
+                </li>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                            {% if page_obj.number == num %}
+                            <span class="page-link">{{ num }}</span>
+                            {% else %}
+                            <a class="page-link" href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">{{ num }}</a>
+                            {% endif %}
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">Siguiente</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+    {% endwith %}
+{% elif email_rows.paginator.num_pages > 1 %}
     <div class="border-top p-2 bg-white">
         <nav>
             <ul class="pagination pagination-sm justify-content-center mb-0">

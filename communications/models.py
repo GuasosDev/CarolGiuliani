@@ -727,6 +727,57 @@ class EmailQueue(models.Model):
         return f"{self.subject} - {self.get_status_display()}"
 
 
+class EmailDraft(models.Model):
+    """Borrador local de correo (no se sincroniza con Gmail)."""
+    COMPOSE_MODE_CHOICES = [
+        ('new', 'Redactar'),
+        ('reply', 'Responder'),
+        ('reply-all', 'Responder a todos'),
+        ('forward', 'Reenviar'),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='email_drafts'
+    )
+    email_account = models.ForeignKey(
+        EmailAccount, on_delete=models.CASCADE, related_name='email_drafts'
+    )
+    compose_mode = models.CharField(
+        max_length=20, choices=COMPOSE_MODE_CHOICES, default='new'
+    )
+    slot_key = models.CharField(max_length=80, verbose_name="Clave de borrador")
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='email_drafts'
+    )
+    source_email_message = models.ForeignKey(
+        EmailMessage, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='email_drafts'
+    )
+    to_addresses = models.TextField(blank=True)
+    cc_addresses = models.TextField(blank=True)
+    bcc_addresses = models.TextField(blank=True)
+    subject = models.CharField(max_length=500, blank=True)
+    html_body = models.TextField(blank=True)
+    include_signature = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Borrador de Email"
+        verbose_name_plural = "Borradores de Email"
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'email_account', 'slot_key'],
+                name='uniq_email_draft_user_account_slot',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} {self.compose_mode} {self.subject or '(sin asunto)'}"
+
+
 class InternalChatMessage(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_chat_messages')
     content = models.TextField()
