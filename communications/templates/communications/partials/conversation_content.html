@@ -407,7 +407,7 @@
                         <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
                             id="emailForm" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1 comm-email-compose-form"
                             style="min-height: 0;"
-                            data-reply-to="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
+                            data-reply-to="{{ reply_to_address|default:'' }}"
                             data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
                             data-reply-cc="{{ reply_cc_joined|default:'' }}"
                             data-conversation-id="{{ conversation.id }}"
@@ -687,7 +687,7 @@
                 {% if email_account %}
                 <form method="post" action="/communications/api/email-accounts/{{ email_account.id }}/send_email/"
                     id="emailForm" enctype="multipart/form-data"
-                    data-reply-to="{% if conversation.contact.client %}{{ conversation.contact.client.email|default:'' }}{% endif %}"
+                    data-reply-to="{{ reply_to_address|default:'' }}"
                     data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
                     data-reply-cc="{{ reply_cc_joined|default:'' }}"
                     data-conversation-id="{{ conversation.id }}">
@@ -806,7 +806,7 @@
 {% if email_account %}
 <script src="{% static 'communications/js/email_recipient_suggest.js' %}"></script>
 {% endif %}
-<script src="{% static 'communications/js/conversation_content.js' %}?v=pdf-preview-2"></script>
+<script src="{% static 'communications/js/conversation_content.js' %}?v=reply-all-1"></script>
 
 <!-- Modal de vista previa de adjuntos -->
 <div class="modal fade" id="attachmentPreviewModal" tabindex="-1" aria-labelledby="attachmentPreviewModalLabel" aria-hidden="true">

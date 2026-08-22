@@ -115,6 +115,78 @@ def _email_forward_preview_html(email_msg):
     return _email_message_body_html(email_msg)
 
 
+def _normalize_email_addr_list(raw):
+    """Normaliza to/cc JSON o string a lista de direcciones limpias."""
+    from email.utils import parseaddr
+
+    if not raw:
+        return []
+    if isinstance(raw, str):
+        items = [p.strip() for p in raw.replace(';', ',').split(',') if p.strip()]
+    else:
+        items = []
+        for x in raw:
+            if not x:
+                continue
+            s = str(x).strip()
+            if s:
+                items.append(s)
+    out = []
+    for item in items:
+        _, addr = parseaddr(item)
+        addr = (addr or item).strip()
+        if addr:
+            out.append(addr)
+    return out
+
+
+def _reply_all_recipients(email_msg, my_email=None):
+    """
+    Para / Cc de Responder a todos.
+    - Entrante: Para = De; Cc = (Para + Cc originales) sin yo ni el remitente.
+    - Saliente: Para = destinatarios originales; Cc = Cc originales (sin yo).
+    """
+    my = (my_email or '').strip().lower()
+    from_addr = (getattr(email_msg, 'from_address', None) or '').strip()
+    tos = _normalize_email_addr_list(getattr(email_msg, 'to_addresses', None))
+    ccs = _normalize_email_addr_list(getattr(email_msg, 'cc_addresses', None))
+
+    direction = None
+    msg = getattr(email_msg, 'message', None)
+    if msg is not None:
+        direction = getattr(msg, 'direction', None)
+
+    def dedupe(addrs, exclude_norm):
+        seen = set(exclude_norm or [])
+        result = []
+        for a in addrs:
+            n = (a or '').strip().lower()
+            if not n or n in seen:
+                continue
+            seen.add(n)
+            result.append(a.strip())
+        return result
+
+    if direction == 'outbound':
+        to_list = dedupe(tos, {my} if my else set())
+        if not to_list and tos:
+            to_list = [tos[0]]
+        exclude_cc = {a.strip().lower() for a in to_list}
+        if my:
+            exclude_cc.add(my)
+        cc_list = dedupe(ccs, exclude_cc)
+        return ', '.join(to_list), ', '.join(cc_list)
+
+    reply_to = from_addr
+    exclude = set()
+    if my:
+        exclude.add(my)
+    if from_addr:
+        exclude.add(from_addr.lower())
+    cc_list = dedupe(tos + ccs, exclude)
+    return reply_to, ', '.join(cc_list)
+
+
 def _email_reply_quote_html(email_msg):
     """Cita HTML editable del mensaje original para Responder / Responder a todos."""
     from django.utils.html import escape
@@ -1106,6 +1178,7 @@ def conversation_detail(request, pk):
         ).order_by('shortcut', 'title')
 
         reply_cc_joined = ''
+        reply_to_address = ''
         forward_email_message_id = None
         forward_preview_html = ''
         reply_quote_html = ''
@@ -1115,13 +1188,22 @@ def conversation_detail(request, pk):
                     message__conversation=conversation,
                     message__direction='inbound',
                 )
+                .select_related('message')
                 .order_by('-message__created_at')
                 .first()
             )
-            if last_inbound and last_inbound.cc_addresses:
-                reply_cc_joined = ', '.join(
-                    str(x).strip() for x in last_inbound.cc_addresses if x
+            my_addr = (
+                email_account.email_address
+                if email_account and getattr(email_account, 'email_address', None)
+                else ''
+            )
+            if last_inbound:
+                reply_to_address, reply_cc_joined = _reply_all_recipients(
+                    last_inbound, my_addr
                 )
+            if not reply_to_address:
+                client = getattr(getattr(conversation, 'contact', None), 'client', None)
+                reply_to_address = (getattr(client, 'email', None) or '').strip()
             last_any = (
                 EmailMessage.objects.filter(message__conversation=conversation)
                 .order_by('-message__created_at')
@@ -1183,6 +1265,7 @@ def conversation_detail(request, pk):
             'transfer_users': transfer_users,
             'company_settings': company_settings,
             'reply_cc_joined': reply_cc_joined,
+            'reply_to_address': reply_to_address,
             'forward_email_message_id': forward_email_message_id,
             'forward_preview_html': forward_preview_html,
             'reply_quote_html': reply_quote_html,
@@ -1280,9 +1363,15 @@ def email_message_detail(request, pk):
         models.Q(created_by=request.user) | models.Q(is_global=True)
     ).order_by('shortcut', 'title')
 
-    reply_cc_joined = ''
-    if email_message.cc_addresses:
-        reply_cc_joined = ', '.join(str(x).strip() for x in email_message.cc_addresses if x)
+    my_addr = (
+        email_account.email_address
+        if email_account and getattr(email_account, 'email_address', None)
+        else ''
+    )
+    reply_to_address, reply_cc_joined = _reply_all_recipients(email_message, my_addr)
+    if not reply_to_address:
+        client = getattr(getattr(conversation, 'contact', None), 'client', None)
+        reply_to_address = (getattr(client, 'email', None) or '').strip()
 
     forward_preview_html = _email_forward_preview_html(email_message)
     reply_quote_html = _email_reply_quote_html(email_message)
@@ -1313,6 +1402,7 @@ def email_message_detail(request, pk):
         'transfer_users': transfer_users,
         'company_settings': company_settings,
         'reply_cc_joined': reply_cc_joined,
+        'reply_to_address': reply_to_address,
         'forward_email_message_id': email_message.id,
         'forward_preview_html': forward_preview_html,
         'reply_quote_html': reply_quote_html,
@@ -1713,6 +1803,7 @@ def email_compose_modal(request):
         'client': None,
         'conversation': None,
         'reply_cc_joined': '',
+        'reply_to_address': '',
         'return_url': return_url,
         'quick_replies': QuickReply.objects.filter(channel='email').order_by('shortcut', 'title'),
         'user_email_signature': EmailSignature.get_default_for(request.user),
@@ -2154,6 +2245,7 @@ def client_email_compose_modal(request, client_id):
         'email_account': email_account,
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
         'reply_cc_joined': '',
+        'reply_to_address': '',
         'return_url': return_url,
         'user_email_signature': EmailSignature.get_default_for(request.user),
     })

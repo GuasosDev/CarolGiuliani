@@ -443,7 +443,18 @@
             }
             var srcInAll = modalEl.querySelector('#emailSourceEmailMessageIdInput');
             if (srcInAll) srcInAll.value = '';
-            if (ccIn) ccIn.value = replyCc;
+            if (ccIn) {
+                ccIn.value = replyCc;
+                var ccRowAll = ccIn.closest('[data-comm-email-row="cc"]');
+                var ccToggleAll = form && form.querySelector('[data-comm-email-toggle="cc"]');
+                if (replyCc) {
+                    if (ccRowAll) ccRowAll.classList.remove('d-none');
+                    if (ccToggleAll) ccToggleAll.classList.add('d-none');
+                } else {
+                    if (ccRowAll) ccRowAll.classList.add('d-none');
+                    if (ccToggleAll) ccToggleAll.classList.remove('d-none');
+                }
+            }
             if (bccIn) bccIn.value = '';
             setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-reply-all', 'Responder a todos');
@@ -457,7 +468,13 @@
             }
             var srcInReply = modalEl.querySelector('#emailSourceEmailMessageIdInput');
             if (srcInReply) srcInReply.value = '';
-            if (ccIn) ccIn.value = '';
+            if (ccIn) {
+                ccIn.value = '';
+                var ccRowReply = ccIn.closest('[data-comm-email-row="cc"]');
+                var ccToggleReply = form && form.querySelector('[data-comm-email-toggle="cc"]');
+                if (ccRowReply) ccRowReply.classList.add('d-none');
+                if (ccToggleReply) ccToggleReply.classList.remove('d-none');
+            }
             if (bccIn) bccIn.value = '';
             setForwardPreviewVisible(modalEl, false);
             setTitle('fas fa-reply', 'Responder');
