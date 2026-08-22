@@ -537,6 +537,10 @@
                 window.commEmailDraftMarkSending(form);
             }
             var fd = new FormData(form);
+            ['to_addresses', 'cc_addresses', 'bcc_addresses'].forEach(function (name) {
+                var el = form.querySelector('[name="' + name + '"]');
+                if (el) fd.set(name, el.value || '');
+            });
             var filesToSend = (typeof window.commGetGlobalAttachFiles === 'function')
                 ? window.commGetGlobalAttachFiles()
                 : (window.__commGlobalAttachFiles || []);

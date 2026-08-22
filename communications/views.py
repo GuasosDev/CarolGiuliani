@@ -151,6 +151,12 @@ def _reply_all_recipients(email_msg, my_email=None):
     tos = _normalize_email_addr_list(getattr(email_msg, 'to_addresses', None))
     ccs = _normalize_email_addr_list(getattr(email_msg, 'cc_addresses', None))
     bccs = _normalize_email_addr_list(getattr(email_msg, 'bcc_addresses', None))
+    if not bccs:
+        meta = getattr(getattr(email_msg, 'message', None), 'metadata', None) or {}
+        if isinstance(meta, dict):
+            bccs = _normalize_email_addr_list(meta.get('bcc_addresses'))
+    if not bccs:
+        bccs = _find_sibling_outbound_bcc(email_msg)
 
     direction = None
     msg = getattr(email_msg, 'message', None)
@@ -191,6 +197,54 @@ def _reply_all_recipients(email_msg, my_email=None):
     return reply_to, ', '.join(cc_list), ''
 
 
+def _find_sibling_outbound_bcc(email_msg):
+    """
+    Recupera Cco del saliente hermano.
+    La copia IMAP/entrante (p.ej. mail a uno mismo) suele traer Para/Cc pero no Bcc.
+    """
+    if not email_msg:
+        return []
+    from .utils.email_threading import clean_message_id
+
+    mid = clean_message_id(getattr(email_msg, 'email_message_id', None) or '')
+    msg = getattr(email_msg, 'message', None)
+    conv_id = getattr(msg, 'conversation_id', None) if msg else None
+    own_pk = getattr(email_msg, 'pk', None)
+
+    qs = (
+        EmailMessage.objects.filter(message__direction='outbound')
+        .exclude(pk=own_pk)
+        .select_related('message')
+        .order_by('-message__created_at')
+    )
+
+    candidates = []
+    if mid:
+        mid_q = (
+            models.Q(email_message_id=mid)
+            | models.Q(email_message_id=f'<{mid}>')
+            | models.Q(email_message_id__icontains=mid)
+        )
+        candidates = list(qs.filter(mid_q)[:8])
+    if not candidates and conv_id:
+        subj = (getattr(email_msg, 'subject', None) or '').strip()
+        conv_qs = qs.filter(message__conversation_id=conv_id)
+        if subj:
+            conv_qs = conv_qs.filter(subject=subj)
+        candidates = list(conv_qs[:8])
+
+    for sib in candidates:
+        bccs = _normalize_email_addr_list(getattr(sib, 'bcc_addresses', None))
+        if bccs:
+            return bccs
+        meta = getattr(getattr(sib, 'message', None), 'metadata', None) or {}
+        if isinstance(meta, dict):
+            bccs = _normalize_email_addr_list(meta.get('bcc_addresses'))
+            if bccs:
+                return bccs
+    return []
+
+
 def _email_header_recipients(email_msg):
     """Para/Cc/Cco del mail abierto (para la barra de lectura)."""
     if not email_msg:
@@ -198,6 +252,12 @@ def _email_header_recipients(email_msg):
     to_list = _normalize_email_addr_list(getattr(email_msg, 'to_addresses', None))
     cc_list = _normalize_email_addr_list(getattr(email_msg, 'cc_addresses', None))
     bcc_list = _normalize_email_addr_list(getattr(email_msg, 'bcc_addresses', None))
+    if not bcc_list:
+        meta = getattr(getattr(email_msg, 'message', None), 'metadata', None) or {}
+        if isinstance(meta, dict):
+            bcc_list = _normalize_email_addr_list(meta.get('bcc_addresses'))
+    if not bcc_list:
+        bcc_list = _find_sibling_outbound_bcc(email_msg)
     return ', '.join(to_list), ', '.join(cc_list), ', '.join(bcc_list)
 
 
@@ -1257,9 +1317,16 @@ def conversation_detail(request, pk):
             quote_src = last_inbound or last_any
             if quote_src:
                 reply_quote_html = _email_reply_quote_html(quote_src)
-            header_src = last_any or last_inbound
+            # Preferir el EmailMessage del último mensaje mostrado; si es copia
+            # entrante sin Cco, _email_header_recipients busca el saliente.
+            header_src = None
+            if latest_message is not None:
+                header_src = getattr(latest_message, 'email_data', None)
+            header_src = header_src or last_any or last_inbound
             if header_src:
                 email_view_to, email_view_cc, email_view_bcc = _email_header_recipients(header_src)
+            if not reply_bcc_joined and email_view_bcc:
+                reply_bcc_joined = email_view_bcc
 
         wa_freeform_blocked = False
         wa_freeform_block_reason = ''
@@ -1422,6 +1489,8 @@ def email_message_detail(request, pk):
         client = getattr(getattr(conversation, 'contact', None), 'client', None)
         reply_to_address = (getattr(client, 'email', None) or '').strip()
     email_view_to, email_view_cc, email_view_bcc = _email_header_recipients(email_message)
+    if not reply_bcc_joined and email_view_bcc:
+        reply_bcc_joined = email_view_bcc
 
     forward_preview_html = _email_forward_preview_html(email_message)
     reply_quote_html = _email_reply_quote_html(email_message)

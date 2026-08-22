@@ -906,6 +906,13 @@
         }
 
         var formData = new FormData(form);
+        if (channel === 'email') {
+            // Asegurar Para/Cc/Cco aunque el input esté en fila oculta (d-none)
+            ['to_addresses', 'cc_addresses', 'bcc_addresses'].forEach(function (name) {
+                var el = form.querySelector('[name="' + name + '"]');
+                if (el) formData.set(name, el.value || '');
+            });
+        }
         var btn = form.querySelector('button[type="submit"]');
         var originalText = btn.innerHTML;
 

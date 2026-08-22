@@ -404,13 +404,28 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
         conversation_id = request.data.get('conversation_id')
         attachments = request.FILES.getlist('attachments')
 
-        cc_addresses = request.data.get('cc_addresses', [])
-        if isinstance(cc_addresses, str):
-            cc_addresses = [addr.strip() for addr in cc_addresses.split(',') if addr.strip()]
+        def _parse_addr_field(key):
+            raw = request.data.get(key, '')
+            if hasattr(request.data, 'getlist'):
+                parts = [p for p in request.data.getlist(key) if p not in (None, '')]
+                if len(parts) > 1:
+                    raw = ', '.join(str(p) for p in parts)
+                elif parts:
+                    raw = parts[0]
+            if raw in (None, '', [], ()):
+                return []
+            if isinstance(raw, (list, tuple)):
+                items = raw
+            else:
+                items = str(raw).replace(';', ',').split(',')
+            return [addr.strip() for addr in items if addr and str(addr).strip()]
 
-        bcc_addresses = request.data.get('bcc_addresses', [])
-        if isinstance(bcc_addresses, str):
-            bcc_addresses = [addr.strip() for addr in bcc_addresses.split(',') if addr.strip()]
+        # Re-parse To with the same helper (coma / getlist)
+        parsed_to = _parse_addr_field('to_addresses')
+        if parsed_to:
+            to_addresses = parsed_to
+        cc_addresses = _parse_addr_field('cc_addresses')
+        bcc_addresses = _parse_addr_field('bcc_addresses')
 
         conversation = None
         if conversation_id not in (None, '', []):
@@ -531,7 +546,12 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     content=content,
                     sender=request.user,
                     sender_name=account.name,
-                    metadata={'status': 'queued'}
+                    metadata={
+                        'status': 'queued',
+                        'to_addresses': to_addresses,
+                        'cc_addresses': cc_addresses,
+                        'bcc_addresses': bcc_addresses,
+                    },
                 )
 
                 email_msg = EmailMessage.objects.create(
@@ -542,8 +562,8 @@ class EmailAccountViewSet(viewsets.ModelViewSet):
                     plain_body=body,
                     email_message_id=f"pending-{msg.id}",
                     to_addresses=to_addresses,
-                    cc_addresses=cc_addresses,
-                    bcc_addresses=bcc_addresses,
+                    cc_addresses=cc_addresses or [],
+                    bcc_addresses=bcc_addresses or [],
                     from_address=account.email_address
                 )
 
