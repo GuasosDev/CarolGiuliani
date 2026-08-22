@@ -430,7 +430,7 @@
                                     <div class="position-relative">
                                         <input type="text" name="cc_addresses" id="emailCcInput"
                                             class="form-control form-control-sm"
-                                            placeholder="Con copia (opcional)"
+                                            placeholder="Buscar contacto o grupo; varios correos por coma"
                                             value=""
                                             autocomplete="off"
                                             spellcheck="false">
@@ -441,7 +441,7 @@
                                     <div class="position-relative">
                                         <input type="text" name="bcc_addresses" id="emailBccInput"
                                             class="form-control form-control-sm"
-                                            placeholder="Copia oculta (opcional)"
+                                            placeholder="Buscar contacto o grupo; varios correos por coma"
                                             value=""
                                             autocomplete="off"
                                             spellcheck="false">
@@ -703,7 +703,7 @@
                         <div class="position-relative mb-2">
                             <input type="text" name="cc_addresses" id="emailCcInput"
                                 class="form-control form-control-sm"
-                                placeholder="Con copia (opcional)"
+                                placeholder="Buscar contacto o grupo; varios correos por coma"
                                 value=""
                                 autocomplete="off"
                                 spellcheck="false">
@@ -712,7 +712,7 @@
                         <div class="position-relative mb-2">
                             <input type="text" name="bcc_addresses" id="emailBccInput"
                                 class="form-control form-control-sm"
-                                placeholder="Copia oculta (opcional)"
+                                placeholder="Buscar contacto o grupo; varios correos por coma"
                                 value=""
                                 autocomplete="off"
                                 spellcheck="false">
@@ -796,7 +796,7 @@
      data-send-template-url="{% if whatsapp_account %}/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_template/{% endif %}"></div>
 
 {% if email_account %}
-<script src="{% static 'communications/js/email_recipient_suggest.js' %}"></script>
+<script src="{% static 'communications/js/email_recipient_suggest.js' %}?v=cc-bcc-suggest-1"></script>
 {% endif %}
 <script src="{% static 'communications/js/conversation_content.js' %}?v=reply-all-1"></script>
 

@@ -146,6 +146,8 @@
 
     function bindField(inp) {
         if (!inp || inp.dataset.commRecipientSuggest) return;
+        // Redactar global ya usa el buscador por API (communications_base.js)
+        if (inp.dataset.commAutoBound || /Global$/i.test(inp.id || '')) return;
         inp.dataset.commRecipientSuggest = '1';
         inp.addEventListener('input', onInput);
         inp.addEventListener('focus', function (e) { activeInput = e.target; });
@@ -159,21 +161,28 @@
 
     function initRecipientSuggest() {
         catalog = parseCatalog();
-        if (!catalog.length) return;
-        var modal = document.querySelector('#conversation-detail-panel #emailComposeModal')
-            || document.querySelector('body > #emailComposeModal')
-            || document.getElementById('emailComposeModal');
-        if (modal) {
-            bindField(modal.querySelector('#emailToInput'));
-            bindField(modal.querySelector('#emailCcInput'));
-            bindField(modal.querySelector('#emailBccInput'));
-        }
-        var inlineForm = document.getElementById('emailFormInline');
-        if (inlineForm) {
-            bindField(inlineForm.querySelector('#emailToInputInline'));
-            bindField(inlineForm.querySelector('#emailCcInputInline'));
-            bindField(inlineForm.querySelector('#emailBccInputInline'));
-        }
+        var roots = [
+            document.querySelector('#conversation-detail-panel #emailComposeModal'),
+            document.querySelector('body > #emailComposeModal'),
+            document.getElementById('emailComposeModal'),
+            document.getElementById('emailFormInline')
+        ].filter(Boolean);
+
+        roots.forEach(function (root) {
+            [
+                '#emailToInput',
+                '#emailCcInput',
+                '#emailBccInput',
+                '#emailToInputInline',
+                '#emailCcInputInline',
+                '#emailBccInputInline'
+            ].forEach(function (sel) {
+                bindField(root.querySelector(sel));
+            });
+            root.querySelectorAll(
+                'input[name="to_addresses"], input[name="cc_addresses"], input[name="bcc_addresses"]'
+            ).forEach(bindField);
+        });
     }
 
     if (document.readyState === 'loading') {
@@ -183,8 +192,16 @@
     }
 
     document.body.addEventListener('htmx:afterSwap', initRecipientSuggest);
+    document.addEventListener('shown.bs.modal', function (event) {
+        if (!event.target) return;
+        if (event.target.id === 'emailComposeModal' || event.target.id === 'emailComposeModalGlobal') {
+            initRecipientSuggest();
+        }
+    });
     document.addEventListener('hidden.bs.modal', function (event) {
-        if (event.target && event.target.id === 'emailComposeModal') hidePanel();
+        if (event.target && (event.target.id === 'emailComposeModal' || event.target.id === 'emailComposeModalGlobal')) {
+            hidePanel();
+        }
     });
 })();
 

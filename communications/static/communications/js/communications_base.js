@@ -396,9 +396,7 @@
         bindGlobalAttachDnD(modalEl);
     }
 
-    function initAutocomplete() {
-        var input = document.getElementById('emailToInputGlobal');
-        var suggest = document.getElementById('emailToSuggestGlobal');
+    function bindEmailFieldAutocomplete(input, suggest) {
         if (!input || !suggest || input.dataset.commAutoBound) return;
         input.dataset.commAutoBound = '1';
         var composeEl = getComposeModalEl() || modalEl;
@@ -448,6 +446,7 @@
         }
         function schedule() {
             var q = getCurrentToken();
+            if (!q) { hide(); lastQuery = ''; return; }
             if (q === lastQuery && !suggest.classList.contains('d-none')) return;
             lastQuery = q;
             if (timer) clearTimeout(timer);
@@ -484,6 +483,19 @@
         document.addEventListener('click', function (evt) {
             if (evt.target === input || suggest.contains(evt.target)) return;
             hide();
+        });
+    }
+
+    function initAutocomplete() {
+        [
+            ['emailToInputGlobal', 'emailToSuggestGlobal'],
+            ['emailCcInputGlobal', 'emailCcSuggestGlobal'],
+            ['emailBccInputGlobal', 'emailBccSuggestGlobal']
+        ].forEach(function (pair) {
+            bindEmailFieldAutocomplete(
+                document.getElementById(pair[0]),
+                document.getElementById(pair[1])
+            );
         });
     }
 

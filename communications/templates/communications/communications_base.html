@@ -231,10 +231,11 @@
                             <div class="position-relative">
                                 <input type="text" name="cc_addresses" id="emailCcInputGlobal"
                                     class="form-control form-control-sm"
-                                    placeholder="Con copia (opcional)"
+                                    placeholder="Buscar contacto; varios correos separados por coma"
                                     value=""
                                     autocomplete="off"
                                     spellcheck="false">
+                                <div id="emailCcSuggestGlobal" class="comm-email-suggest d-none"></div>
                             </div>
                         </div>
                         <div class="comm-email-field-row mb-1" data-comm-email-row="bcc">
@@ -242,10 +243,11 @@
                             <div class="position-relative">
                                 <input type="text" name="bcc_addresses" id="emailBccInputGlobal"
                                     class="form-control form-control-sm"
-                                    placeholder="Copia oculta (opcional)"
+                                    placeholder="Buscar contacto; varios correos separados por coma"
                                     value=""
                                     autocomplete="off"
                                     spellcheck="false">
+                                <div id="emailBccSuggestGlobal" class="comm-email-suggest d-none"></div>
                             </div>
                         </div>
                         <label class="form-label small text-muted mb-0" for="emailSubjectInputGlobal">Asunto</label>
@@ -359,7 +361,7 @@
     <script src="{% static 'communications/js/email_rich_text_toolbar.js' %}"></script>
     <script src="{% static 'communications/js/email_compose_ui.js' %}"></script>
 <script src="{% static 'communications/js/email_global_attach.js' %}?v=pdf-preview-2"></script>
-<script src="{% static 'communications/js/communications_base.js' %}?v=send-fast-1"></script>
+<script src="{% static 'communications/js/communications_base.js' %}?v=cc-bcc-suggest-1"></script>
 
 {% block comm_js %}{% endblock %}
 {% endblock %}
