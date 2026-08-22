@@ -142,14 +142,15 @@ def _normalize_email_addr_list(raw):
 
 def _reply_all_recipients(email_msg, my_email=None):
     """
-    Para / Cc de Responder a todos.
+    Para / Cc / Cco de Responder a todos.
     - Entrante: Para = De; Cc = (Para + Cc originales) sin yo ni el remitente.
-    - Saliente: Para = destinatarios originales; Cc = Cc originales (sin yo).
+    - Saliente: Para/Cc/Cco originales (sin yo).
     """
     my = (my_email or '').strip().lower()
     from_addr = (getattr(email_msg, 'from_address', None) or '').strip()
     tos = _normalize_email_addr_list(getattr(email_msg, 'to_addresses', None))
     ccs = _normalize_email_addr_list(getattr(email_msg, 'cc_addresses', None))
+    bccs = _normalize_email_addr_list(getattr(email_msg, 'bcc_addresses', None))
 
     direction = None
     msg = getattr(email_msg, 'message', None)
@@ -171,11 +172,14 @@ def _reply_all_recipients(email_msg, my_email=None):
         to_list = dedupe(tos, {my} if my else set())
         if not to_list and tos:
             to_list = [tos[0]]
-        exclude_cc = {a.strip().lower() for a in to_list}
+        exclude_rest = {a.strip().lower() for a in to_list}
         if my:
-            exclude_cc.add(my)
-        cc_list = dedupe(ccs, exclude_cc)
-        return ', '.join(to_list), ', '.join(cc_list)
+            exclude_rest.add(my)
+        cc_list = dedupe(ccs, exclude_rest)
+        exclude_bcc = set(exclude_rest)
+        exclude_bcc.update(a.strip().lower() for a in cc_list)
+        bcc_list = dedupe(bccs, exclude_bcc)
+        return ', '.join(to_list), ', '.join(cc_list), ', '.join(bcc_list)
 
     reply_to = from_addr
     exclude = set()
@@ -184,16 +188,17 @@ def _reply_all_recipients(email_msg, my_email=None):
     if from_addr:
         exclude.add(from_addr.lower())
     cc_list = dedupe(tos + ccs, exclude)
-    return reply_to, ', '.join(cc_list)
+    return reply_to, ', '.join(cc_list), ''
 
 
 def _email_header_recipients(email_msg):
-    """Para/Cc del mail abierto (para la barra de lectura)."""
+    """Para/Cc/Cco del mail abierto (para la barra de lectura)."""
     if not email_msg:
-        return '', ''
+        return '', '', ''
     to_list = _normalize_email_addr_list(getattr(email_msg, 'to_addresses', None))
     cc_list = _normalize_email_addr_list(getattr(email_msg, 'cc_addresses', None))
-    return ', '.join(to_list), ', '.join(cc_list)
+    bcc_list = _normalize_email_addr_list(getattr(email_msg, 'bcc_addresses', None))
+    return ', '.join(to_list), ', '.join(cc_list), ', '.join(bcc_list)
 
 
 def _email_reply_quote_html(email_msg):
@@ -1209,9 +1214,11 @@ def conversation_detail(request, pk):
         ).order_by('shortcut', 'title')
 
         reply_cc_joined = ''
+        reply_bcc_joined = ''
         reply_to_address = ''
         email_view_to = ''
         email_view_cc = ''
+        email_view_bcc = ''
         forward_email_message_id = None
         forward_preview_html = ''
         reply_quote_html = ''
@@ -1225,24 +1232,25 @@ def conversation_detail(request, pk):
                 .order_by('-message__created_at')
                 .first()
             )
-            my_addr = (
-                email_account.email_address
-                if email_account and getattr(email_account, 'email_address', None)
-                else ''
-            )
-            if last_inbound:
-                reply_to_address, reply_cc_joined = _reply_all_recipients(
-                    last_inbound, my_addr
-                )
-            if not reply_to_address:
-                client = getattr(getattr(conversation, 'contact', None), 'client', None)
-                reply_to_address = (getattr(client, 'email', None) or '').strip()
             last_any = (
                 EmailMessage.objects.filter(message__conversation=conversation)
                 .select_related('message')
                 .order_by('-message__created_at')
                 .first()
             )
+            my_addr = (
+                email_account.email_address
+                if email_account and getattr(email_account, 'email_address', None)
+                else ''
+            )
+            reply_src = last_any or last_inbound
+            if reply_src:
+                reply_to_address, reply_cc_joined, reply_bcc_joined = _reply_all_recipients(
+                    reply_src, my_addr
+                )
+            if not reply_to_address:
+                client = getattr(getattr(conversation, 'contact', None), 'client', None)
+                reply_to_address = (getattr(client, 'email', None) or '').strip()
             if last_any:
                 forward_email_message_id = last_any.id
                 forward_preview_html = _email_forward_preview_html(last_any)
@@ -1251,7 +1259,7 @@ def conversation_detail(request, pk):
                 reply_quote_html = _email_reply_quote_html(quote_src)
             header_src = last_any or last_inbound
             if header_src:
-                email_view_to, email_view_cc = _email_header_recipients(header_src)
+                email_view_to, email_view_cc, email_view_bcc = _email_header_recipients(header_src)
 
         wa_freeform_blocked = False
         wa_freeform_block_reason = ''
@@ -1302,9 +1310,11 @@ def conversation_detail(request, pk):
             'transfer_users': transfer_users,
             'company_settings': company_settings,
             'reply_cc_joined': reply_cc_joined,
+            'reply_bcc_joined': reply_bcc_joined,
             'reply_to_address': reply_to_address,
             'email_view_to': email_view_to,
             'email_view_cc': email_view_cc,
+            'email_view_bcc': email_view_bcc,
             'forward_email_message_id': forward_email_message_id,
             'forward_preview_html': forward_preview_html,
             'reply_quote_html': reply_quote_html,
@@ -1407,11 +1417,11 @@ def email_message_detail(request, pk):
         if email_account and getattr(email_account, 'email_address', None)
         else ''
     )
-    reply_to_address, reply_cc_joined = _reply_all_recipients(email_message, my_addr)
+    reply_to_address, reply_cc_joined, reply_bcc_joined = _reply_all_recipients(email_message, my_addr)
     if not reply_to_address:
         client = getattr(getattr(conversation, 'contact', None), 'client', None)
         reply_to_address = (getattr(client, 'email', None) or '').strip()
-    email_view_to, email_view_cc = _email_header_recipients(email_message)
+    email_view_to, email_view_cc, email_view_bcc = _email_header_recipients(email_message)
 
     forward_preview_html = _email_forward_preview_html(email_message)
     reply_quote_html = _email_reply_quote_html(email_message)
@@ -1442,9 +1452,11 @@ def email_message_detail(request, pk):
         'transfer_users': transfer_users,
         'company_settings': company_settings,
         'reply_cc_joined': reply_cc_joined,
+        'reply_bcc_joined': reply_bcc_joined,
         'reply_to_address': reply_to_address,
         'email_view_to': email_view_to,
         'email_view_cc': email_view_cc,
+        'email_view_bcc': email_view_bcc,
         'forward_email_message_id': email_message.id,
         'forward_preview_html': forward_preview_html,
         'reply_quote_html': reply_quote_html,
@@ -1995,6 +2007,7 @@ def email_compose_modal(request):
         'client': None,
         'conversation': None,
         'reply_cc_joined': '',
+        'reply_bcc_joined': '',
         'reply_to_address': '',
         'return_url': return_url,
         'quick_replies': QuickReply.objects.filter(channel='email').order_by('shortcut', 'title'),
@@ -2437,6 +2450,7 @@ def client_email_compose_modal(request, client_id):
         'email_account': email_account,
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
         'reply_cc_joined': '',
+        'reply_bcc_joined': '',
         'reply_to_address': '',
         'return_url': return_url,
         'user_email_signature': EmailSignature.get_default_for(request.user),

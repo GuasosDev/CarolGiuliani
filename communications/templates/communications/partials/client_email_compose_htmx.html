@@ -12,6 +12,7 @@
         data-reply-to="{% if client %}{{ client.email|default:'' }}{% endif %}"
         data-reply-subject="{% if conversation %}{{ conversation.subject|default:''|decode_email_subject }}{% endif %}"
         data-reply-cc="{{ reply_cc_joined|default:'' }}"
+        data-reply-bcc="{{ reply_bcc_joined|default:'' }}"
         data-conversation-id="{% if conversation %}{{ conversation.id }}{% endif %}"
         data-return-url="{{ return_url }}"
         data-contacts-endpoint="{% url 'communications:contacts_email_search' %}">

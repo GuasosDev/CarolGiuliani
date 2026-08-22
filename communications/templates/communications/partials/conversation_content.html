@@ -10,14 +10,17 @@
             <div class="email-read-toolbar px-0 py-0 w-100 d-flex align-items-center justify-content-between gap-2">
                 <div class="email-read-toolbar-meta text-muted text-truncate flex-grow-1" style="min-width:0;line-height:1.35;">
                     <span class="fw-semibold text-dark">{{ conversation.get_display_name|decode_email_subject }}</span><span class="mx-1 opacity-50">·</span><span class="text-truncate">{% if conversation.contact.client %}{{ conversation.contact.client.email|default:"" }}{% endif %}</span><span class="mx-1 opacity-50">·</span><span class="text-nowrap"><i class="fas fa-phone me-1 opacity-50" style="font-size:0.65rem;"></i>{{ conversation.contact.get_display_phone|default:"—" }}</span>
-                    {% if email_view_to or email_view_cc %}
+                    {% if email_view_to or email_view_cc or email_view_bcc %}
                     <div class="small text-muted text-truncate"
-                         title="Para: {{ email_view_to }}{% if email_view_cc %} | Cc: {{ email_view_cc }}{% endif %}">
+                         title="Para: {{ email_view_to }}{% if email_view_cc %} | Cc: {{ email_view_cc }}{% endif %}{% if email_view_bcc %} | Cco: {{ email_view_bcc }}{% endif %}">
                         {% if email_view_to %}
                         Para: {{ email_view_to }}
                         {% endif %}
                         {% if email_view_cc %}
                         {% if email_view_to %}<span class="mx-1 opacity-50">·</span>{% endif %}Cc: {{ email_view_cc }}
+                        {% endif %}
+                        {% if email_view_bcc %}
+                        {% if email_view_to or email_view_cc %}<span class="mx-1 opacity-50">·</span>{% endif %}Cco: {{ email_view_bcc }}
                         {% endif %}
                     </div>
                     {% endif %}
@@ -402,6 +405,7 @@
                             data-reply-to="{{ reply_to_address|default:'' }}"
                             data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
                             data-reply-cc="{{ reply_cc_joined|default:'' }}"
+                            data-reply-bcc="{{ reply_bcc_joined|default:'' }}"
                             data-conversation-id="{{ conversation.id }}"
                             data-forward-email-message-id="{{ forward_email_message_id|default:'' }}">
                             {% csrf_token %}
@@ -682,6 +686,7 @@
                     data-reply-to="{{ reply_to_address|default:'' }}"
                     data-reply-subject="{{ conversation.subject|default:''|decode_email_subject }}"
                     data-reply-cc="{{ reply_cc_joined|default:'' }}"
+                    data-reply-bcc="{{ reply_bcc_joined|default:'' }}"
                     data-conversation-id="{{ conversation.id }}">
                     {% csrf_token %}
                     <input type="file" id="imageInputEmail" name="attachments" multiple hidden>
@@ -798,7 +803,7 @@
 {% if email_account %}
 <script src="{% static 'communications/js/email_recipient_suggest.js' %}?v=cc-bcc-suggest-1"></script>
 {% endif %}
-<script src="{% static 'communications/js/conversation_content.js' %}?v=draft-send-1"></script>
+<script src="{% static 'communications/js/conversation_content.js' %}?v=reply-bcc-1"></script>
 
 <!-- Modal de vista previa de adjuntos -->
 <div class="modal fade" id="attachmentPreviewModal" tabindex="-1" aria-labelledby="attachmentPreviewModalLabel" aria-hidden="true">
