@@ -3,7 +3,7 @@ Email handler for IMAP/SMTP operations
 Handles email synchronization, sending, and threading
 """
 import mimetypes
-from email.utils import formataddr, parseaddr, make_msgid
+from email.utils import formataddr, parseaddr, getaddresses, make_msgid
 import uuid
 import imaplib
 import smtplib
@@ -16,7 +16,7 @@ from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email import encoders
 import re
-from email.utils import parseaddr, formataddr,make_msgid
+from email.utils import parseaddr, formataddr, getaddresses, make_msgid
 import logging
 import traceback
 from django.utils import timezone
@@ -364,22 +364,19 @@ class EmailHandler:
                 f"SENDER_NAME={sender_name}"
             )
 
+            # getaddresses: un header "a@x.com, b@y.com" trae TODOS.
+            # parseaddr sobre esa misma cadena falla / deja vacío (bug vs Ferozo).
             to_addresses = [
-                parseaddr(addr)[1]
-                for addr in email_message.get_all('To', [])
-                if parseaddr(addr)[1]
+                addr for _, addr in getaddresses(email_message.get_all('To', []) or [])
+                if addr
             ]
-
             cc_addresses = [
-                parseaddr(addr)[1]
-                for addr in email_message.get_all('Cc', [])
-                if parseaddr(addr)[1]
+                addr for _, addr in getaddresses(email_message.get_all('Cc', []) or [])
+                if addr
             ]
-
             bcc_addresses = [
-                parseaddr(addr)[1]
-                for addr in email_message.get_all('Bcc', [])
-                if parseaddr(addr)[1]
+                addr for _, addr in getaddresses(email_message.get_all('Bcc', []) or [])
+                if addr
             ]
 
             subject_header = email_message.get('Subject', '') or '(No Subject)'
