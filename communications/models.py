@@ -160,18 +160,42 @@ class Conversation(models.Model):
         self.closed_at = timezone.now()
         self.save()
 
-    def assign_to(self, user):
-        """Assign conversation to a user"""
+    def assign_to(self, user, *, allow_reassign=False, assigned_by=None):
+        """
+        Asigna la conversación a un usuario.
+        Si ya está asignada a otra persona, NO la mueve salvo allow_reassign=True
+        (solo para derivación manual vía reassign_conversation).
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        user_id = getattr(user, 'id', user)
+        if self.pk:
+            current_id = (
+                type(self).objects.filter(pk=self.pk)
+                .values_list('assigned_to_id', flat=True)
+                .first()
+            )
+            if current_id and current_id != user_id and not allow_reassign:
+                logger.warning(
+                    "Refusing to steal conversation %s from user %s to %s "
+                    "(solo derivación manual)",
+                    self.pk,
+                    current_id,
+                    user_id,
+                )
+                return False
+
         self.assigned_to = user
         self.status = 'normal'
         self.save()
-        
-        # Create assignment record
+
         ConversationAssignment.objects.create(
             conversation=self,
             agent=user,
-            assigned_by=user  # Can be modified to track who assigned
+            assigned_by=assigned_by or user,
         )
+        return True
 
 
 class Message(models.Model):

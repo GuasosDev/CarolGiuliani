@@ -725,6 +725,45 @@ class EmailHandler:
                 return email_msg.message.conversation
         return None
 
+    def _conversation_belongs_to_mailbox(self, account, conversation):
+        """
+        Un mail de esta casilla no se pega a un hilo de otra secretaria.
+        Derivar a mano sigue existiendo: solo afecta el hilo ya transferido.
+        """
+        if not conversation:
+            return False
+        if conversation.email_account_id and conversation.email_account_id != account.id:
+            return False
+        owner_id = getattr(account, 'user_id', None)
+        if conversation.assigned_to_id and owner_id and conversation.assigned_to_id != owner_id:
+            logger.info(
+                "Skip conversation %s for mailbox %s: assigned_to=%s mailbox_owner=%s",
+                conversation.id,
+                account.email_address,
+                conversation.assigned_to_id,
+                owner_id,
+            )
+            return False
+        return True
+
+    def _assign_to_mailbox_owner_if_needed(self, account, conversation):
+        if not conversation or conversation.assigned_to_id:
+            return conversation
+        from .assignment_system import assign_conversation_to_agent
+        owner = getattr(account, 'user', None)
+        assign_conversation_to_agent(
+            conversation,
+            email_account=account,
+            agent=owner,
+        )
+        return conversation
+
+    def _usable_mailbox_conversation(self, account, conversation):
+        if not self._conversation_belongs_to_mailbox(account, conversation):
+            return None
+        self._assign_to_mailbox_owner_if_needed(account, conversation)
+        return conversation
+
     def _find_open_conversation_by_contact_and_subject(self,account, contact, subject):
         """Mismo contacto + mismo asunto normalizado en conversación abierta."""
         norm = normalize_email_subject(subject)
@@ -747,11 +786,15 @@ class EmailHandler:
                 assigned_to__isnull=True,
             )
 
+        mailbox_owner_q = Q(assigned_to__isnull=True)
+        if account_owner:
+            mailbox_owner_q |= Q(assigned_to=account_owner)
+
         open_convos = Conversation.objects.filter(
             contact=contact,
             channel='email',
             status__in=_OPEN_CONVERSATION_STATUSES,
-        ).filter(owner_q).order_by('-last_message_at')
+        ).filter(owner_q).filter(mailbox_owner_q).order_by('-last_message_at')
 
         for conv in open_convos:
             if subjects_match(conv.subject, subject):
@@ -772,31 +815,42 @@ class EmailHandler:
             conv = em.message.conversation
             if conv.id in seen:
                 continue
+            seen.add(conv.id)
+            if not self._conversation_belongs_to_mailbox(account, conv):
+                continue
             if subjects_match(em.subject, subject):
-                seen.add(conv.id)
                 return conv
         return None
 
     def get_or_create_conversation(self, account, contact, subject, in_reply_to, references=None):
         # 1) Hilo RFC: In-Reply-To
         if in_reply_to:
-            conv = self._conversation_from_message_id(account,in_reply_to)
+            conv = self._usable_mailbox_conversation(
+                account,
+                self._conversation_from_message_id(account, in_reply_to),
+            )
             if conv:
                 return conv
 
         # 2) Hilo RFC: References (cualquier id de la cadena)
         if references:
             for ref in references.split():
-                conv = self._conversation_from_message_id(account, ref)
+                conv = self._usable_mailbox_conversation(
+                    account,
+                    self._conversation_from_message_id(account, ref),
+                )
                 if conv:
                     return conv
 
         # 3) Mismo contacto + mismo asunto (normalizado), conversación abierta
-        conv = self._find_open_conversation_by_contact_and_subject( account,contact, subject)
+        conv = self._usable_mailbox_conversation(
+            account,
+            self._find_open_conversation_by_contact_and_subject(account, contact, subject),
+        )
         if conv:
             return conv
 
-        # 4) Nuevo hilo / conversación
+        # 4) Nuevo hilo / conversación — siempre de la dueña de la casilla
         display_subject = decode_mime_header(subject or '') or '(Sin asunto)'
         conversation = Conversation.objects.create(
             email_account=account,
@@ -805,10 +859,15 @@ class EmailHandler:
             status='normal',
             priority='normal',
             subject=display_subject[:255],
+            user=getattr(account, 'user', None),
         )
 
         from .assignment_system import assign_conversation_to_agent
-        assign_conversation_to_agent(conversation)
+        assign_conversation_to_agent(
+            conversation,
+            email_account=account,
+            agent=getattr(account, 'user', None),
+        )
 
         return conversation
 
