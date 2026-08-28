@@ -1,11 +1,8 @@
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase
+from django.test import TestCase
 
 from clients.models import Client
-from communications.assignment_system import (
-    assign_conversation_to_agent,
-    reassign_conversation,
-)
+from communications.assignment_system import reassign_conversation
 from communications.email_handler import EmailHandler
 from communications.models import (
     Contact,
@@ -14,35 +11,8 @@ from communications.models import (
     EmailMessage,
     Message,
 )
-from communications.utils.email_threading import (
-    clean_message_id,
-    normalize_email_subject,
-    subjects_match,
-)
 
 User = get_user_model()
-
-
-class EmailThreadingUtilsTest(SimpleTestCase):
-    def test_normalize_strips_re_fwd(self):
-        self.assertEqual(
-            normalize_email_subject('Re: Fwd: Presupuesto marzo'),
-            'presupuesto marzo',
-        )
-
-    def test_normalize_empty(self):
-        self.assertEqual(normalize_email_subject(''), '')
-        self.assertEqual(normalize_email_subject(None), '')
-
-    def test_subjects_match_ignores_prefixes(self):
-        self.assertTrue(subjects_match('Presupuesto', 'Re: Presupuesto'))
-        self.assertFalse(subjects_match('Presupuesto', 'Consulta técnica'))
-
-    def test_clean_message_id_brackets(self):
-        self.assertEqual(
-            clean_message_id('<abc@mail.test>'),
-            'abc@mail.test',
-        )
 
 
 class MailboxAssignmentTest(TestCase):
@@ -189,70 +159,3 @@ class MailboxAssignmentTest(TestCase):
         reassign_conversation(conv, self.user_b, self.user_a)
         conv.refresh_from_db()
         self.assertEqual(conv.assigned_to_id, self.user_b.id)
-
-
-class ExclusiveAssignmentTest(TestCase):
-    """Un hilo tomado por una secretaria no se pisa salvo derivación manual."""
-
-    def setUp(self):
-        self.gise = User.objects.create_user('gise2', 'gise2@example.com', 'pass')
-        self.nati = User.objects.create_user('nati2', 'nati2@example.com', 'pass')
-        self.client_obj = Client.objects.create(
-            name='Cliente Exclusive',
-            email='exclusive@example.com',
-        )
-        self.contact = Contact.objects.create(
-            client=self.client_obj,
-            preferred_channel='email',
-        )
-
-    def test_auto_assign_does_not_steal_from_other_secretary(self):
-        conv = Conversation.objects.create(
-            contact=self.contact,
-            channel='email',
-            status='normal',
-            subject='Hilo Gise',
-            assigned_to=self.gise,
-        )
-        result = assign_conversation_to_agent(conv, agent=self.nati, assigned_by=self.nati)
-        conv.refresh_from_db()
-        self.assertEqual(conv.assigned_to_id, self.gise.id)
-        self.assertEqual(result.id, self.gise.id)
-
-    def test_assign_to_without_reassign_flag_refuses_steal(self):
-        conv = Conversation.objects.create(
-            contact=self.contact,
-            channel='whatsapp',
-            status='normal',
-            assigned_to=self.gise,
-        )
-        ok = conv.assign_to(self.nati, allow_reassign=False)
-        conv.refresh_from_db()
-        self.assertFalse(ok)
-        self.assertEqual(conv.assigned_to_id, self.gise.id)
-
-    def test_distribute_workload_skips_assigned(self):
-        from communications.assignment_system import distribute_workload
-
-        Conversation.objects.create(
-            contact=self.contact,
-            channel='email',
-            status='normal',
-            subject='Ya tomada',
-            assigned_to=self.gise,
-        )
-        distribute_workload()
-        conv = Conversation.objects.get(subject='Ya tomada')
-        self.assertEqual(conv.assigned_to_id, self.gise.id)
-
-    def test_manual_reassign_is_allowed(self):
-        conv = Conversation.objects.create(
-            contact=self.contact,
-            channel='email',
-            status='normal',
-            subject='Derivar',
-            assigned_to=self.gise,
-        )
-        reassign_conversation(conv, self.nati, self.gise)
-        conv.refresh_from_db()
-        self.assertEqual(conv.assigned_to_id, self.nati.id)

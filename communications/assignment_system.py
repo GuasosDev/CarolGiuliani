@@ -5,6 +5,7 @@ Asigna conversaciones de forma EXCLUSIVA al usuario dueño de la cuenta de email
 
 import logging
 from django.contrib.auth.models import User
+from django.db import transaction
 from .models import Conversation, ConversationAssignment
 
 logger = logging.getLogger(__name__)
@@ -25,11 +26,29 @@ def assign_conversation_to_agent(conversation, email_account=None, agent=None, a
     Asigna la conversación exclusivamente al dueño del email.
     Si ya tiene agente asignado, NO se reasigna.
     """
+    if conversation is None or not getattr(conversation, 'pk', None):
+        return None
+
+    conversation = (
+        Conversation.objects.select_for_update()
+        .select_related('assigned_to', 'email_account')
+        .get(pk=conversation.pk)
+    )
+
     if conversation.assigned_to_id:
-        logger.info(
-            f"Conversation {conversation.id} already assigned to "
-            f"{conversation.assigned_to.username}; skipping auto-assign"
-        )
+        if agent is not None and conversation.assigned_to_id != getattr(agent, 'id', agent):
+            logger.warning(
+                "Conversation %s already assigned to %s; refusing auto-assign to %s",
+                conversation.id,
+                conversation.assigned_to.username,
+                getattr(agent, 'username', agent),
+            )
+        else:
+            logger.info(
+                "Conversation %s already assigned to %s; skipping auto-assign",
+                conversation.id,
+                conversation.assigned_to.username,
+            )
         return conversation.assigned_to
 
     if email_account is None:
@@ -57,20 +76,21 @@ def assign_conversation_to_agent(conversation, email_account=None, agent=None, a
     if assigned_by:
         assignment = ConversationAssignment.objects.filter(
             conversation=conversation,
-            is_active=True
+            is_active=True,
         ).first()
-        if assignment:
+        if assignment and assignment.assigned_by_id != assigned_by.id:
             assignment.assigned_by = assigned_by
             assignment.save(update_fields=['assigned_by'])
 
     return agent
 
 
+@transaction.atomic
 def reassign_conversation(conversation, new_agent, assigned_by):
     """Reassign a conversation to a different agent (solo transferencia manual)."""
     current_assignments = ConversationAssignment.objects.filter(
         conversation=conversation,
-        is_active=True
+        is_active=True,
     )
 
     from django.utils import timezone
@@ -83,9 +103,9 @@ def reassign_conversation(conversation, new_agent, assigned_by):
 
     new_assignment = ConversationAssignment.objects.filter(
         conversation=conversation,
-        is_active=True
+        is_active=True,
     ).first()
-    if new_assignment:
+    if new_assignment and assigned_by and new_assignment.assigned_by_id != assigned_by.id:
         new_assignment.assigned_by = assigned_by
         new_assignment.save()
 
@@ -116,7 +136,6 @@ def distribute_workload():
     Asigna conversaciones SIN agente a su dueño exclusivo de email.
     """
     unassigned = get_unassigned_conversations()
-
     assigned_count = 0
     for conversation in unassigned:
         agent = assign_conversation_to_agent(conversation)
