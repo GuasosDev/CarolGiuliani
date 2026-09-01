@@ -21,6 +21,7 @@ def get_available_agents(email_account):
     return User.objects.none()
 
 
+@transaction.atomic
 def assign_conversation_to_agent(conversation, email_account=None, agent=None, assigned_by=None):
     """
     Asigna la conversación exclusivamente al dueño del email.
