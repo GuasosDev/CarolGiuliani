@@ -26,7 +26,8 @@
 
     function detailUrl(id) {
         var tpl = cfg('draftDetailTemplate');
-        return String(tpl || '').replace('999999', String(id));
+        if (!tpl) return '';
+        return String(tpl).replace('999999', String(id));
     }
 
     function formBodyEl(form) {
@@ -162,6 +163,23 @@
         }
     }
 
+    function updateDeleteButtonVisibility(form) {
+        if (!form) return;
+        var modal = form.closest('.modal');
+        if (!modal) {
+            modal = document.getElementById('emailComposeModalGlobal');
+        }
+        if (!modal) return;
+        var deleteBtn = modal.querySelector('.comm-draft-delete-btn');
+        if (!deleteBtn) return;
+        var hasDraftId = !!(form.dataset.draftId && String(form.dataset.draftId).trim());
+        if (hasDraftId) {
+            deleteBtn.classList.remove('d-none');
+        } else {
+            deleteBtn.classList.add('d-none');
+        }
+    }
+
     function saveDraft(form, opts) {
         opts = opts || {};
         if (!form || !saveUrl()) return Promise.resolve();
@@ -184,6 +202,7 @@
               if (data && data.deleted) form.dataset.draftId = '';
               form.dataset.commDraftDirty = '0';
               syncDraftsCount(data);
+              updateDeleteButtonVisibility(form);
               return data;
           }).catch(function () { return null; });
     }
@@ -193,11 +212,12 @@
         form.dataset.commDraftSending = '1';
         form.dataset.commDraftDirty = '0';
         var id = form.dataset.draftId;
+        var url = id ? detailUrl(id) : '';
         var p;
-        if (id && detailUrl(id)) {
+        if (id && url) {
             var fd = new FormData();
             fd.append('action', 'discard');
-            p = fetch(detailUrl(id), {
+            p = fetch(url, {
                 method: 'POST',
                 body: fd,
                 credentials: 'same-origin',
@@ -259,6 +279,7 @@
                 saveDraft(f, { keepalive: true });
             });
         }
+        updateDeleteButtonVisibility(form);
     }
 
     function prepareOpen(form, mode, modalEl) {
@@ -270,12 +291,14 @@
         if ((mode || 'new') === 'new') {
             form.dataset.slotKey = newComposeSlot();
             form.dataset.draftId = '';
+            updateDeleteButtonVisibility(form);
             return Promise.resolve(null);
         }
         form.dataset.slotKey = slotKey(form, mode, convIdOf(form), sourceIdOf(form));
         return restoreCurrent(form).then(function (draft) {
             if (draft) applyDraft(form, draft, modalEl);
             form.dataset.commDraftDirty = '0';
+            updateDeleteButtonVisibility(form);
             return draft;
         });
     }
@@ -284,6 +307,23 @@
     window.commEmailDraftPrepare = prepareOpen;
     window.commEmailDraftSave = saveDraft;
     window.commEmailDraftDiscard = discardDraft;
+    
+    window.commEmailDraftDiscardAndClose = function (form) {
+        if (!form) return;
+        discardDraft(form).then(function () {
+            var modal = form.closest('.modal');
+            if (!modal) {
+                modal = document.getElementById('emailComposeModalGlobal');
+            }
+            if (modal && typeof bootstrap !== 'undefined') {
+                var inst = bootstrap.Modal.getInstance(modal);
+                if (inst) inst.hide();
+            }
+        }).catch(function () {
+            alert('Error al eliminar el borrador.');
+        });
+    };
+    
     window.commEmailDraftMarkSending = function (form) {
         if (!form) return;
         form.dataset.commDraftSending = '1';
@@ -292,7 +332,12 @@
 
     window.commOpenEmailDraft = function (id) {
         if (!id) return;
-        fetch(detailUrl(id), {
+        var url = detailUrl(id);
+        if (!url) {
+            alert('No se pudo determinar la URL del borrador.');
+            return;
+        }
+        fetch(url, {
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         }).then(function (r) { return r.json(); })
@@ -307,13 +352,17 @@
               }
               if (typeof window.commMailOpenComposeGlobal === 'function') {
                   window.__commSkipDraftRestore = true;
-                  window.commMailOpenComposeGlobal();
+                  window.commMailOpenComposeGlobal(); // <--- CORREGIDO AQUÍ
                   window.__commSkipDraftRestore = false;
               }
               form.dataset.composeMode = draft.compose_mode || 'new';
               applyDraft(form, draft, modal);
               form.dataset.commDraftDirty = '0';
               bindForm(form, modal);
+              var deleteBtn = modal.querySelector('.comm-draft-delete-btn');
+              if (deleteBtn && form.dataset.draftId && String(form.dataset.draftId).trim()) {
+                  deleteBtn.classList.remove('d-none');
+              }
           }).catch(function () {
               alert('No se pudo abrir el borrador.');
           });

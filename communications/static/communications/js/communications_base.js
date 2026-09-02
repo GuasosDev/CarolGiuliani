@@ -457,11 +457,17 @@
             show();
         }
         function fetchItems(q) {
+            // Si endpoint no está definido, está vacío o es un SVG/Data URI, cancelar el fetch
+            if (!endpoint || endpoint.startsWith('data:') || endpoint.includes('svg+xml')) {
+                console.warn('Endpoint inválido para fetchItems:', endpoint);
+                return Promise.resolve([]);
+            }
+
             return fetch(endpoint + '?q=' + encodeURIComponent(q || ''), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             }).then(function (r) { return r.json(); })
-              .then(function (data) { return (data && data.results) ? data.results : []; })
-              .catch(function () { return []; });
+            .then(function (data) { return (data && data.results) ? data.results : []; })
+            .catch(function () { return []; });
         }
         function schedule() {
             var q = getCurrentToken();
@@ -530,9 +536,7 @@
             if (bodyIn) bodyIn.value = bodyDiv ? (bodyDiv.innerHTML || '') : '';
             var btn = document.getElementById('emailSendBtnGlobal');
             if (btn) btn.disabled = true;
-            if (typeof window.commEmailDraftSave === 'function') {
-                window.commEmailDraftSave(form, { force: true, keepalive: true });
-            }
+            
             if (typeof window.commEmailDraftMarkSending === 'function') {
                 window.commEmailDraftMarkSending(form);
             }

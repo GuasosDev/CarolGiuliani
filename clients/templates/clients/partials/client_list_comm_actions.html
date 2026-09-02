@@ -21,7 +21,7 @@
     hx-swap="innerHTML"
     hx-on:click="try { sessionStorage.setItem('clientListScrollY', String(window.scrollY || window.pageYOffset || 0)); } catch (e) {}"
     {% if use_secondary_modal %}onclick="openModalSecondary()"{% else %}onclick="openModal()"{% endif %}
-    title="Mail: redactar correo a este contacto sin salir del listado"
+    title="Mail:  correo a este contacto sin salir del listado"
     aria-label="Mail: abrir ventana para redactar correo al contacto">
     <i class="fas fa-envelope text-primary" aria-hidden="true"></i>
 </button>

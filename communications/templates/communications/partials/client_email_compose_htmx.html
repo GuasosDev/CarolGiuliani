@@ -135,6 +135,9 @@
                 {% include "communications/partials/email_include_signature.html" with checkbox_id="includeSignatureClient" preview_id="emailSignaturePreviewClient" %}
             </div>
             <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-danger btn-sm comm-draft-delete-btn d-none" title="Eliminar este borrador" onclick="window.commEmailDraftDiscardAndClose(document.getElementById('emailForm')); return false;">
+                    <i class="fas fa-trash me-1"></i>Eliminar
+                </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="try { sessionStorage.removeItem('clientListScrollY'); } catch (e) {} closeModal()"
                     title="Cerrar sin enviar y volver al listado de contactos"
                     aria-label="Cancelar: cerrar sin enviar el correo">
