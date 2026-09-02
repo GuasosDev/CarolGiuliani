@@ -1728,8 +1728,17 @@
         var idsEl = document.getElementById('forwardMessageIds');
         var csrfEl = document.querySelector('input[name="csrfmiddlewaretoken"]');
         if (!recipientEl || !idsEl) return;
+        
+        // Parsear el valor para extraer tipo e ID
+        // Formato: "user_123" o "contact_456"
+        var recipientValue = recipientEl.value;
+        var parts = recipientValue.split('_');
+        var recipientType = parts[0];  // 'user' o 'contact'
+        var recipientId = parts.slice(1).join('_');  // ID (puede tener más de una parte)
+        
         var formData = new FormData();
-        formData.append('recipient_id', recipientEl.value);
+        formData.append('recipient_id', recipientId);
+        formData.append('recipient_type', recipientType);
         formData.append('message_ids', idsEl.value);
         formData.append('csrfmiddlewaretoken', csrfEl ? csrfEl.value : '');
         fetch('/communications/conversation/' + conversationId + '/forward-messages-send/', {

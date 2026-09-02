@@ -5,10 +5,12 @@ Django views for communications web interface
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, FileResponse
+from django.core.files.base import ContentFile
 import tempfile
 import zipfile
 import threading
 import os
+import mimetypes
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 from django.urls import reverse_lazy, reverse
@@ -1045,13 +1047,23 @@ def forward_messages_modal(request, conversation_id):
     ids = [int(x) for x in raw_ids.split(',') if x.strip().isdigit()]
     messages = Message.objects.filter(conversation=conversation, id__in=ids).order_by('created_at')
 
+    # Usuarios internos
     users = User.objects.filter(is_active=True).exclude(pk=request.user.pk).order_by('first_name', 'username')
+    
+    # Contactos externos (Clients con email)
+    contacts = Contact.objects.filter(
+        client__isnull=False,
+        client__email__isnull=False
+    ).exclude(
+        client__email__exact=''
+    ).select_related('client').order_by('client__name')
 
     return render(request, 'communications/partials/forward_messages_modal.html', {
         'conversation': conversation,
         'message_ids': ','.join(str(m.id) for m in messages),
         'messages_count': messages.count(),
         'users': users,
+        'contacts': contacts,
     })
 
 
@@ -1061,10 +1073,22 @@ def forward_messages_send(request, conversation_id):
     conversation = get_object_or_404(Conversation, pk=conversation_id)
 
     recipient_id = request.POST.get('recipient_id')
-    try:
-        recipient = User.objects.get(pk=recipient_id, is_active=True)
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'Usuario inválido'}, status=400)
+    recipient_type = request.POST.get('recipient_type', 'user')  # 'user' o 'contact'
+    
+    # Validar destinatario
+    recipient_user = None
+    recipient_contact = None
+    
+    if recipient_type == 'contact':
+        try:
+            recipient_contact = Contact.objects.select_related('client').get(pk=recipient_id)
+        except Contact.DoesNotExist:
+            return JsonResponse({'error': 'Contacto inválido'}, status=400)
+    else:
+        try:
+            recipient_user = User.objects.get(pk=recipient_id, is_active=True)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'Usuario inválido'}, status=400)
 
     raw_ids = (request.POST.get('message_ids') or '').strip()
     ids = [int(x) for x in raw_ids.split(',') if x.strip().isdigit()]
@@ -1075,41 +1099,86 @@ def forward_messages_send(request, conversation_id):
     if not selected:
         return JsonResponse({'error': 'No hay mensajes para reenviar'}, status=400)
 
-    InternalChatMessage.objects.create(
-        author=request.user,
-        content=f"Para @{recipient.username}\nReenviado de {conversation.get_display_name()} (#{conversation.id})"
-    )
-
-    for m in selected:
-        who = "Cliente" if m.direction == 'inbound' else (m.sender.username if m.sender else "Sistema")
-        ts = m.created_at.strftime("%d/%m %H:%M")
-        msg = InternalChatMessage(
+    if recipient_type == 'contact' and recipient_contact:
+        # Reenviar a contacto externo: crear conversación de email
+        new_conversation = Conversation.objects.create(
+            channel='email',
+            contact=recipient_contact,
+            status='normal',
+            email_account=_get_user_email_account(request.user),
+            assigned_to=request.user,
+            subject=f"Reenvío de {conversation.get_display_name()}"
+        )
+        
+        # Copiar mensajes a la nueva conversación
+        for m in selected:
+            who = "Cliente" if m.direction == 'inbound' else (m.sender.username if m.sender else "Sistema")
+            ts = m.created_at.strftime("%d/%m %H:%M")
+            content = f"[{ts}] {who}: {m.content}".strip()
+            
+            new_msg = Message(
+                conversation=new_conversation,
+                direction='inbound',  # Marcar como reenvío recibido
+                content=content,
+                sender_name=f"Reenvío de {conversation.get_display_name()}"
+            )
+            
+            if m.file:
+                try:
+                    m.file.open('rb')
+                    data = m.file.read()
+                    m.file.close()
+                    original_name = os.path.basename(getattr(m.file, 'name', '') or 'adjunto')
+                    new_msg.file.save(original_name, ContentFile(data), save=False)
+                except Exception:
+                    try:
+                        m.file.close()
+                    except Exception:
+                        pass
+            
+            new_msg.save()
+        
+        return JsonResponse({
+            'status': 'sent',
+            'message': f'Mensajes reenviados a {recipient_contact.client.name}'
+        })
+    else:
+        # Reenviar a usuario interno: crear InternalChatMessage
+        InternalChatMessage.objects.create(
             author=request.user,
-            content=f"[{ts}] {who}: {m.content}".strip()
+            content=f"Para @{recipient_user.username}\nReenviado de {conversation.get_display_name()} (#{conversation.id})"
         )
 
-        if m.file:
-            try:
-                m.file.open('rb')
-                data = m.file.read()
-                m.file.close()
+        for m in selected:
+            who = "Cliente" if m.direction == 'inbound' else (m.sender.username if m.sender else "Sistema")
+            ts = m.created_at.strftime("%d/%m %H:%M")
+            msg = InternalChatMessage(
+                author=request.user,
+                content=f"[{ts}] {who}: {m.content}".strip()
+            )
 
-                original_name = os.path.basename(getattr(m.file, 'name', '') or 'adjunto')
-                mime_type = (m.metadata or {}).get('media_mime_type') or mimetypes.guess_type(original_name)[0] or ''
-                normalized_mime = (mime_type or '').split(';')[0].strip().lower()
-
-                msg.original_filename = original_name
-                msg.mime_type = normalized_mime or mime_type
-                msg.file.save(original_name, ContentFile(data), save=False)
-            except Exception:
+            if m.file:
                 try:
+                    m.file.open('rb')
+                    data = m.file.read()
                     m.file.close()
+
+                    original_name = os.path.basename(getattr(m.file, 'name', '') or 'adjunto')
+                    mime_type = (m.metadata or {}).get('media_mime_type') or mimetypes.guess_type(original_name)[0] or ''
+                    normalized_mime = (mime_type or '').split(';')[0].strip().lower()
+
+                    msg.original_filename = original_name
+                    msg.mime_type = normalized_mime or mime_type
+                    msg.file.save(original_name, ContentFile(data), save=False)
                 except Exception:
-                    pass
+                    try:
+                        m.file.close()
+                    except Exception:
+                        pass
 
-        msg.save()
+            msg.save()
 
-    return JsonResponse({'status': 'sent'})
+        return JsonResponse({'status': 'sent'})
 
 
 @login_required

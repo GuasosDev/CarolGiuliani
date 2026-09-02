@@ -7,9 +7,23 @@
     <div class="mb-3">
         <label class="form-label">Enviar a</label>
         <select class="form-select" id="forwardRecipient">
-            {% for u in users %}
-            <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
-            {% endfor %}
+            <!-- Usuarios internos -->
+            {% if users %}
+            <optgroup label="👤 Usuarios del sistema">
+                {% for u in users %}
+                <option value="user_{{ u.id }}" data-type="user">{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endif %}
+            
+            <!-- Contactos externos -->
+            {% if contacts %}
+            <optgroup label="👥 Contactos externos">
+                {% for c in contacts %}
+                <option value="contact_{{ c.id }}" data-type="contact">{{ c.client.name }} ({{ c.client.email }})</option>
+                {% endfor %}
+            </optgroup>
+            {% endif %}
         </select>
     </div>
     <input type="hidden" id="forwardMessageIds" value="{{ message_ids }}">
