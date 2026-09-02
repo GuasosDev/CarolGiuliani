@@ -360,7 +360,7 @@
         </div>
 
         {% if conversation.channel == 'email' %}
-        <div class="modal fade" id="emailComposeModal" tabindex="-1" aria-labelledby="emailComposeModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal fade" id="emailComposeModal" tabindex="-1" aria-labelledby="emailComposeModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" data-contacts-endpoint="{% url 'communications:contacts_email_search' %}">
             <div class="modal-dialog comm-compose-email-modal">
                 <div class="modal-content d-flex flex-column">
                     <div class="modal-header border-bottom flex-shrink-0 py-2">
@@ -438,6 +438,7 @@
                                             value=""
                                             autocomplete="off"
                                             spellcheck="false">
+                                        <div id="emailCcSuggest" class="comm-email-suggest d-none"></div>
                                     </div>
                                 </div>
                                 <div class="comm-email-field-row mb-1" data-comm-email-row="bcc">
@@ -449,6 +450,7 @@
                                             value=""
                                             autocomplete="off"
                                             spellcheck="false">
+                                        <div id="emailBccSuggest" class="comm-email-suggest d-none"></div>
                                     </div>
                                 </div>
                                 <label class="form-label small text-muted mb-0" for="emailSubjectInput">Asunto</label>
@@ -804,7 +806,7 @@
      data-send-template-url="{% if whatsapp_account %}/communications/api/whatsapp-accounts/{{ whatsapp_account.id }}/send_template/{% endif %}"></div>
 
 {% if email_account %}
-<script src="{% static 'communications/js/email_recipient_suggest.js' %}?v=cc-bcc-suggest-1"></script>
+<script src="{% static 'communications/js/email_recipient_suggest.js' %}?v=api-suggest-1"></script>
 {% endif %}
 <script src="{% static 'communications/js/conversation_content.js' %}?v=reply-bcc-2"></script>
 

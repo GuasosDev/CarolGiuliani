@@ -12,7 +12,8 @@
      data-mark-read-template="{% url 'communications:mark_conversation_read' 999999 %}"
      data-draft-save-url="{% url 'communications:email_draft_save' %}"
      data-draft-current-url="{% url 'communications:email_draft_current' %}"
-     data-draft-detail-template="{% url 'communications:email_draft_detail' 999999 %}"></div>
+     data-draft-detail-template="{% url 'communications:email_draft_detail' 999999 %}"
+     data-contacts-search-url="{% url 'communications:contacts_email_search' %}"></div>
 <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
     {% if current_channel == 'email' %}
     {% include "communications/partials/email_toolbar.html" %}

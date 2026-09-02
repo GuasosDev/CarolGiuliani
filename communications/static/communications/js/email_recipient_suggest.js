@@ -9,10 +9,21 @@
         }
     }
 
+    function contactsSearchUrl() {
+        var cfg = document.getElementById('comm-mail-config');
+        if (cfg && cfg.dataset.contactsSearchUrl) return cfg.dataset.contactsSearchUrl;
+        var modal = document.getElementById('emailComposeModal');
+        if (modal && modal.dataset.contactsEndpoint) return modal.dataset.contactsEndpoint;
+        var form = document.querySelector('form[data-contacts-endpoint]');
+        if (form && form.dataset.contactsEndpoint) return form.dataset.contactsEndpoint;
+        return '/communications/contacts/email-search/';
+    }
+
     var panel = null;
     var activeInput = null;
     var debTimer = null;
     var catalog = parseCatalog();
+    var fetchSeq = 0;
 
     function ensurePanel() {
         if (panel) return panel;
@@ -36,7 +47,7 @@
         var pos = typeof input.selectionStart === 'number' ? input.selectionStart : v.length;
         var before = v.slice(0, pos);
         var i = before.lastIndexOf(',');
-        return ((i === -1 ? before : before.slice(i + 1)).trim().toLowerCase());
+        return ((i === -1 ? before : before.slice(i + 1)).trim());
     }
 
     function replaceActiveToken(input, insertText) {
@@ -48,35 +59,56 @@
         var after = v.slice(pos);
         var lastComma = before.lastIndexOf(',');
         var start = lastComma + 1;
-        var newBefore = v.slice(0, start) + insertText;
-        input.value = newBefore + after;
+        var prefix = v.slice(0, start);
+        var needsSpace = prefix.length > 0 && !/\s$/.test(prefix);
+        var newBefore = prefix + (needsSpace ? ' ' : '') + insertText + ', ';
+        input.value = newBefore + after.replace(/^\s*,?\s*/, '');
         var np = newBefore.length;
         try { input.setSelectionRange(np, np); } catch (e) {}
     }
 
-    function filterMatches(q) {
+    function filterGroupMatches(q) {
         if (!q || q.length < 1) return [];
+        var ql = q.toLowerCase();
         var out = [];
-        for (var i = 0; i < catalog.length && out.length < 14; i++) {
+        for (var i = 0; i < catalog.length && out.length < 8; i++) {
             var it = catalog[i];
-            if (it.t === 'c') {
-                var le = (it.l || '').toLowerCase();
-                var ee = (it.e || '').toLowerCase();
-                if (le.indexOf(q) !== -1 || ee.indexOf(q) !== -1) out.push(it);
-            } else if (it.t === 'g') {
-                var lg = (it.l || '').toLowerCase();
-                if (lg.indexOf(q) !== -1) out.push(it);
-                else if (it.emails) {
-                    for (var j = 0; j < it.emails.length; j++) {
-                        if ((it.emails[j] || '').toLowerCase().indexOf(q) !== -1) {
-                            out.push(it);
-                            break;
-                        }
+            if (it.t !== 'g') continue;
+            var lg = (it.l || '').toLowerCase();
+            if (lg.indexOf(ql) !== -1) {
+                out.push(it);
+                continue;
+            }
+            if (it.emails) {
+                for (var j = 0; j < it.emails.length; j++) {
+                    if ((it.emails[j] || '').toLowerCase().indexOf(ql) !== -1) {
+                        out.push(it);
+                        break;
                     }
                 }
             }
         }
         return out;
+    }
+
+    function fetchContacts(q) {
+        var endpoint = contactsSearchUrl();
+        if (!endpoint || endpoint.startsWith('data:')) return Promise.resolve([]);
+        return fetch(endpoint + '?q=' + encodeURIComponent(q || ''), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+              var rows = (data && data.results) ? data.results : [];
+              return rows.filter(function (it) { return it && it.email; }).map(function (it) {
+                  return {
+                      t: 'c',
+                      id: it.id,
+                      l: (it.name || it.email || '').trim(),
+                      e: String(it.email || '').trim()
+                  };
+              });
+          }).catch(function () { return []; });
     }
 
     function positionPanel(input) {
@@ -87,6 +119,7 @@
         el.style.top = (r.bottom + 4) + 'px';
         el.style.left = r.left + 'px';
         el.style.width = Math.max(r.width, 300) + 'px';
+        el.style.zIndex = '11000';
     }
 
     function applyPick(it) {
@@ -98,6 +131,9 @@
         }
         hidePanel();
         activeInput.focus();
+        try {
+            activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+        } catch (e) {}
     }
 
     function renderSuggest(matches) {
@@ -136,12 +172,26 @@
         debTimer = setTimeout(function () {
             catalog = parseCatalog();
             var t = tokenAtCursor(activeInput);
-            if (t.length < 1) {
+            if (!t || t.length < 1) {
                 hidePanel();
                 return;
             }
-            renderSuggest(filterMatches(t));
-        }, 180);
+            var seq = ++fetchSeq;
+            var groups = filterGroupMatches(t);
+            fetchContacts(t).then(function (contacts) {
+                if (seq !== fetchSeq || !activeInput) return;
+                var seen = Object.create(null);
+                var merged = [];
+                contacts.forEach(function (it) {
+                    var key = (it.e || '').toLowerCase();
+                    if (!key || seen[key]) return;
+                    seen[key] = true;
+                    merged.push(it);
+                });
+                groups.forEach(function (it) { merged.push(it); });
+                renderSuggest(merged.slice(0, 20));
+            });
+        }, 200);
     }
 
     function bindField(inp) {
@@ -150,7 +200,10 @@
         if (inp.dataset.commAutoBound || /Global$/i.test(inp.id || '')) return;
         inp.dataset.commRecipientSuggest = '1';
         inp.addEventListener('input', onInput);
-        inp.addEventListener('focus', function (e) { activeInput = e.target; });
+        inp.addEventListener('focus', function (e) {
+            activeInput = e.target;
+            onInput(e);
+        });
         inp.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') hidePanel();
         });
@@ -204,5 +257,3 @@
         }
     });
 })();
-
-
