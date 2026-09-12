@@ -1249,11 +1249,36 @@ document.addEventListener('DOMContentLoaded', function () {
     /*
      * El markup vive dentro de .comm-main-panel (overflow),
      * así que hay que moverlo a body: si no, el backdrop
-     * queda por encima y el modal se ve "en segundo plano".
+     * queda por encima y el modal se ve "grisado".
      */
     function ensureModalOnBody() {
         if (modalElement.parentElement !== document.body) {
             document.body.appendChild(modalElement);
+        }
+    }
+
+    function clearStaleBackdrops() {
+        document.querySelectorAll('.modal-backdrop').forEach(function (b) {
+            try { b.remove(); } catch (e) {}
+        });
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+
+    function bumpModalStack() {
+        ensureModalOnBody();
+        // Dejar el modal como último hijo de body (por encima del backdrop en el DOM)
+        document.body.appendChild(modalElement);
+        modalElement.style.zIndex = '1080';
+        var dialog = modalElement.querySelector('.modal-dialog');
+        var content = modalElement.querySelector('.modal-content');
+        if (dialog) dialog.style.zIndex = '1081';
+        if (content) {
+            content.style.zIndex = '1082';
+            content.style.opacity = '1';
+            content.style.filter = 'none';
+            content.style.background = '#fff';
         }
     }
 
@@ -1265,6 +1290,19 @@ document.addEventListener('DOMContentLoaded', function () {
             keyboard: true
         });
 
+    modalElement.addEventListener('shown.bs.modal', function () {
+        bumpModalStack();
+        // Si quedaron backdrops duplicados, dejar solo uno detrás del modal
+        var backs = document.querySelectorAll('.modal-backdrop');
+        if (backs.length > 1) {
+            for (var i = 0; i < backs.length - 1; i++) {
+                try { backs[i].remove(); } catch (e) {}
+            }
+        }
+        backs = document.querySelectorAll('.modal-backdrop');
+        backs.forEach(function (b) { b.style.zIndex = '1070'; });
+    });
+
 
     /*
      * Abrir modal.
@@ -1272,7 +1310,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     newConversationButton.addEventListener('click', function () {
 
-        ensureModalOnBody();
+        clearStaleBackdrops();
+        bumpModalStack();
 
         searchInput.value = '';
 
@@ -1292,9 +1331,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         setTimeout(function () {
 
+            bumpModalStack();
             searchInput.focus();
 
-        }, 300);
+        }, 50);
 
     });
 

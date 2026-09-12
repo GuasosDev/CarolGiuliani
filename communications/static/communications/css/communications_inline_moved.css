@@ -513,9 +513,9 @@ body.dark-mode .comm-mail-search .form-control {
 #emailComposeModal,
 #emailComposeModalGlobal,
 #whatsappTemplateModal,
-  #newWhatsappConversationModal,
+#newWhatsappConversationModal,
 #conversationModal {
-    z-index: 1060 !important;
+    z-index: 1080 !important;
 }
 /* Vista previa de adjuntos: por encima de Redactar / Responder / Reenviar */
 #attachmentPreviewModal,
@@ -523,21 +523,23 @@ body.dark-mode .comm-mail-search .form-control {
     z-index: 1100 !important;
 }
 .modal-backdrop {
-    z-index: 1055 !important;
+    /* Siempre por debajo de los modales de comunicaciones */
+    z-index: 1070 !important;
 }
 .modal-backdrop.modal-backdrop-upload-preview {
     z-index: 1095 !important;
 }
 .modal-backdrop.show {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* Sin blur: el blur hace que el modal se vea “grisado” si el stacking falla */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 #emailComposeModal .modal-dialog,
 #emailComposeModalGlobal .modal-dialog,
 #whatsappTemplateModal .modal-dialog,
-  #newWhatsappConversationModal .modal-dialog,
+#newWhatsappConversationModal .modal-dialog,
 #conversationModal .modal-dialog {
-    z-index: 1065 !important;
+    z-index: 1081 !important;
     position: relative;
 }
 #attachmentPreviewModal .modal-dialog,
@@ -548,11 +550,13 @@ body.dark-mode .comm-mail-search .form-control {
 #emailComposeModal .modal-content,
 #emailComposeModalGlobal .modal-content,
 #whatsappTemplateModal .modal-content,
-  #newWhatsappConversationModal .modal-content,
+#newWhatsappConversationModal .modal-content,
 #conversationModal .modal-content {
-    z-index: 1070 !important;
+    z-index: 1082 !important;
     position: relative;
     background: #fff !important;
+    opacity: 1 !important;
+    filter: none !important;
 }
 #attachmentPreviewModal .modal-content,
 #uploadPreviewModal .modal-content {
