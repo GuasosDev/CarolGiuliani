@@ -1,32 +1,32 @@
-<div class="p-3">
-    <h5 class="mb-3 fw-semibold">Transferir conversación</h5>
+<div class="comm-apple-modal comm-transfer-modal">
+<div class="modal-header">
+    <div class="comm-apple-heading">
+        <p class="comm-apple-kicker">Conversación</p>
+        <h3 class="modal-title">Transferir conversación</h3>
+    </div>
+    <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
+</div>
 
-    <form 
-        hx-post="{% url 'communications:transfer_conversation' conversation.id %}"
-        hx-target="#modal-body"
-        hx-swap="innerHTML"
-        class="d-flex flex-column gap-3">
-
-        {% csrf_token %}
-
-        
-
-        <div>
-            <label class="form-label small text-muted">Seleccionar usuario</label>
-            <select name="user_id" class="form-select">
+<form
+    hx-post="{% url 'communications:transfer_conversation' conversation.id %}"
+    hx-target="#modal-body"
+    hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-body">
+        <section class="comm-apple-section">
+            <label class="form-label" for="transfer-user-id">Seleccionar usuario</label>
+            <select name="user_id" id="transfer-user-id" class="form-select form-select-sm comm-apple-field">
                 {% for user in users %}
                     <option value="{{ user.id }}">
                         {{ user.get_full_name|default:user.username }}
                     </option>
                 {% endfor %}
             </select>
-        </div>
-
-        <div class="d-flex justify-content-end">
-            <button type="submit" class="btn btn-success px-4">
-                Confirmar
-            </button>
-        </div>
-
-    </form>
+        </section>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm comm-apple-btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-sm comm-apple-btn-primary">Confirmar</button>
+    </div>
+</form>
 </div>

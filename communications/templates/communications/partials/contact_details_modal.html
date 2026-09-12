@@ -1,18 +1,19 @@
-<div class="modal-header border-bottom">
-    <div class="d-flex align-items-center">
-        <div class="omni-avatar bg-warning me-3"
-            style="width: 60px; height: 60px; font-size: 1.5rem; box-shadow: 0 5px 15px rgba(255,184,34,0.3);">
+<div class="comm-apple-modal comm-contact-details-modal">
+<div class="modal-header">
+    <div class="d-flex align-items-center gap-3">
+        <div class="comm-contact-avatar">
             {{ conversation.get_display_name|make_list|first|upper }}
         </div>
-        <div>
-            <h5 class="modal-title fw-bold text-dark mb-0">{{ conversation.get_display_name }}</h5>
-            <div class="text-muted small">Cliente • <span class="omni-badge status-active">ACTIVO</span></div>
+        <div class="comm-apple-heading">
+            <p class="comm-apple-kicker">Ficha de contacto</p>
+            <h3 class="modal-title">{{ conversation.get_display_name }}</h3>
+            <div class="comm-contact-status">Cliente · <span>Activo</span></div>
         </div>
     </div>
-    <div class="d-flex align-items-center">
+    <div class="d-flex align-items-center gap-2">
         {% if not conversation.contact.client and conversation.channel == 'whatsapp' %}
         <button type="button"
-            class="btn btn-sm btn-outline-success me-2"
+            class="btn btn-sm comm-apple-btn-ghost"
             hx-get="{% url 'communications:quick_create_client_modal' conversation.id %}"
             hx-target="#modal-secondary-body"
             hx-on:htmx:after-request="openModalSecondary()"
@@ -24,194 +25,146 @@
     </div>
 </div>
 
-<div class="modal-body p-0">
-    <div class="row g-0">
-        <!-- Client Data Column -->
-        <div class="col-md-6 border-end p-4">
-            <h6 class="details-title mb-3 text-uppercase fw-bold small text-muted">Datos del Cliente</h6>
+<div class="modal-body">
+    <div class="row g-2">
+        <div class="col-md-6">
+            <section class="comm-apple-section h-100">
+                <h4 class="comm-apple-section-title">Datos del cliente</h4>
 
-            {% if conversation.contact.client %}
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fas fa-building text-primary mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">Razón Social / Empresa</small>
-                    <div class="fw-bold">{{ conversation.contact.client.business_name|default:conversation.contact.client.name|default:"Sin Empresa" }}</div>
+                {% if conversation.contact.client %}
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">Empresa</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.client.business_name|default:conversation.contact.client.name|default:"Sin empresa" }}</span>
                 </div>
-            </div>
-
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fas fa-envelope text-primary mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">Email</small>
-                    <div class="fw-bold">{{ conversation.contact.client.email|default:"Sin email" }}</div>
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">Email</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.client.email|default:"Sin email" }}</span>
                 </div>
-            </div>
-
-            {% if conversation.contact.client.phone %}
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fas fa-phone text-primary mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">Teléfono</small>
-                    <div class="fw-bold">{{ conversation.contact.client.phone }}</div>
+                {% if conversation.contact.client.phone %}
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">Teléfono</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.client.phone }}</span>
                 </div>
-            </div>
-            {% endif %}
-
-            {% if conversation.contact.whatsapp_number %}
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fab fa-whatsapp text-success mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">WhatsApp</small>
-                    <div class="fw-bold">{{ conversation.contact.whatsapp_number }}</div>
+                {% endif %}
+                {% if conversation.contact.whatsapp_number %}
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">WhatsApp</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.whatsapp_number }}</span>
                 </div>
-            </div>
-            {% endif %}
-
-            {% if conversation.contact.client.cuit %}
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fas fa-id-card text-primary mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">CUIT</small>
-                    <div class="fw-bold">{{ conversation.contact.client.cuit }}</div>
+                {% endif %}
+                {% if conversation.contact.client.cuit %}
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">CUIT</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.client.cuit }}</span>
                 </div>
-            </div>
-            {% endif %}
-
-            {% if conversation.contact.client.address %}
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fas fa-map-marker-alt text-primary mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">Dirección Física</small>
-                    <div class="fw-bold">{{ conversation.contact.client.address }}</div>
+                {% endif %}
+                {% if conversation.contact.client.job_title %}
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">Cargo</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.client.job_title }}</span>
                 </div>
-            </div>
-            {% endif %}
-
-            {% if conversation.contact.client.fiscal_address %}
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fas fa-file-invoice-dollar text-primary mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">Dirección Fiscal</small>
-                    <div class="fw-bold">{{ conversation.contact.client.fiscal_address }}</div>
+                {% endif %}
+                {% if conversation.contact.client.address %}
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">Dirección</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.client.address }}</span>
                 </div>
-            </div>
-            {% endif %}
-
-            {% if conversation.contact.client.job_title %}
-            <div class="detail-item mb-3 d-flex align-items-start">
-                <i class="fas fa-briefcase text-primary mt-1 me-3" style="width: 20px;"></i>
-                <div>
-                    <small class="text-muted d-block">Cargo</small>
-                    <div class="fw-bold">{{ conversation.contact.client.job_title }}</div>
+                {% endif %}
+                {% if conversation.contact.client.fiscal_address %}
+                <div class="comm-contact-detail">
+                    <span class="comm-contact-detail-label">Dir. fiscal</span>
+                    <span class="comm-contact-detail-value">{{ conversation.contact.client.fiscal_address }}</span>
                 </div>
-            </div>
-            {% endif %}
-
-            {% if conversation.contact.client.additional_info %}
-            <div class="mt-4 p-3 bg-light rounded small border">
-                <strong class="d-block mb-2 text-muted text-uppercase" style="font-size: 0.7rem;">Información Adicional</strong>
-                {{ conversation.contact.client.additional_info|linebreaksbr }}
-            </div>
-            {% endif %}
-            
-            {% else %}
-            <div class="text-center py-5">
-                <i class="fas fa-user-slash fa-3x text-muted mb-3 opacity-25"></i>
-                <p class="text-muted">Sin datos de cliente vinculados.</p>
-            </div>
-            {% endif %}
-
-            <div class="detail-item mt-3 d-flex align-items-center">
-                <i class="far fa-clock text-muted me-3" style="width: 20px;"></i>
-                <div class="small text-muted">Hora Local: {% now "H:i A" %}</div>
-            </div>
+                {% endif %}
+                {% if conversation.contact.client.additional_info %}
+                <div class="comm-contact-extra">
+                    <span class="comm-contact-detail-label">Información adicional</span>
+                    <div class="comm-contact-detail-value">{{ conversation.contact.client.additional_info|linebreaksbr }}</div>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="comm-contact-empty">
+                    <i class="fas fa-user-slash"></i>
+                    <p>Sin datos de cliente vinculados.</p>
+                </div>
+                {% endif %}
+                <div class="comm-contact-local-time">Hora local: {% now "H:i" %}</div>
+            </section>
         </div>
 
-        <!-- Notes and Tags Column -->
-        <div class="col-md-6 p-4 bg-light">
-            <!-- Tags Section -->
-            <div class="mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="details-title mb-0 text-uppercase fw-bold small text-muted">Etiquetas</h6>
+        <div class="col-md-6">
+            <section class="comm-apple-section mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h4 class="comm-apple-section-title mb-0">Etiquetas</h4>
                     {% if conversation.contact.client %}
-                    <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                    <button class="btn btn-sm comm-apple-btn-ghost py-0 px-2"
                         hx-get="{% url 'client_tag_list_for_client' conversation.contact.client.pk %}"
-                        hx-target="#modal-secondary-body" onclick="openModalSecondary()" style="font-size: 0.7rem; font-weight: 700;">
+                        hx-target="#modal-secondary-body" onclick="openModalSecondary()" style="font-size: 0.7rem;">
                         <i class="fas fa-plus me-1"></i>Añadir
                     </button>
                     {% endif %}
                 </div>
-
-                <div class="tag-list bg-white p-3 rounded border" id="modal-tags-container">
+                <div class="comm-contact-tags" id="modal-tags-container">
                     {% if conversation.contact.client %}
                     {% for tag in conversation.contact.client.tags.all %}
-                    <span class="badge rounded-pill me-1 mb-1 border"
-                        style="background-color: {{ tag.color }}20; color: {{ tag.color }}; border-color: {{ tag.color }} !important; font-weight: 500; padding: 6px 12px;">
+                    <span class="comm-contact-tag"
+                        style="background-color: {{ tag.color }}18; color: {{ tag.color }}; border-color: {{ tag.color }}33;">
                         {{ tag.name }}
                     </span>
                     {% empty %}
-                    <div class="text-center py-3">
-                        <small class="text-muted fst-italic">Sin etiquetas asignadas</small>
-                    </div>
+                    <span class="comm-contact-muted">Sin etiquetas asignadas</span>
                     {% endfor %}
                     {% else %}
-                    <small class="text-muted">Asocie un cliente para gestionar etiquetas</small>
+                    <span class="comm-contact-muted">Asocie un cliente para gestionar etiquetas</span>
                     {% endif %}
                 </div>
-            </div>
+            </section>
 
-            <!-- Internal Notes Section (Client) -->
             {% if conversation.contact.client %}
-            <div class="mb-4">
-                <h6 class="details-title mb-2 text-uppercase fw-bold small text-muted">Notas del Cliente (Permanentes)</h6>
+            <section class="comm-apple-section mb-2">
+                <h4 class="comm-apple-section-title">Notas del cliente</h4>
                 <form hx-post="{% url 'client_update_note' conversation.contact.client.pk %}"
                     hx-trigger="change delay:500ms, blur" hx-swap="none">
                     {% csrf_token %}
                     <textarea name="internal_notes"
-                        class="form-control form-control-sm bg-white border shadow-none" rows="3"
-                        placeholder="Escribe una nota sobre el cliente..."
-                        style="font-size: 0.85rem; resize: none;">{{ conversation.contact.client.internal_notes|default:"" }}</textarea>
-                    <div class="text-end mt-1">
-                        <small class="text-muted" style="font-size: 0.7rem;">
-                            <i class="fas fa-save me-1"></i>Guardado automático
-                        </small>
-                    </div>
+                        class="form-control form-control-sm comm-apple-field" rows="2"
+                        placeholder="Nota permanente sobre el cliente..."
+                        style="resize: none;">{{ conversation.contact.client.internal_notes|default:"" }}</textarea>
+                    <div class="comm-contact-autosave">Guardado automático</div>
                 </form>
-            </div>
+            </section>
             {% endif %}
 
-            <!-- Conversation Notes Section -->
-            <div>
-                <h6 class="details-title text-uppercase fw-bold small text-muted">Notas de esta Conversación ({{ notes.count }})</h6>
-                <div class="mb-3 bg-white border rounded p-2" style="max-height: 200px; overflow-y: auto;" id="modalNotesContainer">
+            <section class="comm-apple-section">
+                <h4 class="comm-apple-section-title">Notas de esta conversación ({{ notes.count }})</h4>
+                <div class="comm-contact-notes" id="modalNotesContainer">
                     {% for n in notes %}
-                    <div class="bg-warning-subtle p-2 rounded mb-2 border border-warning">
+                    <div class="comm-contact-note">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="small fw-bold text-dark"><i class="fas fa-user-circle me-1"></i> {{ n.author.username }}</span>
-                            <span class="text-muted" style="font-size: 0.65rem;">{{ n.created_at|date:"d/m H:i" }}</span>
+                            <span class="fw-semibold">{{ n.author.username }}</span>
+                            <span class="comm-contact-muted">{{ n.created_at|date:"d/m H:i" }}</span>
                         </div>
-                        <div class="small text-dark">{{ n.content }}</div>
+                        <div>{{ n.content }}</div>
                     </div>
                     {% empty %}
-                    <div class="text-muted small text-center my-3">Sin notas en esta conversación.</div>
+                    <div class="comm-contact-muted text-center py-2">Sin notas en esta conversación.</div>
                     {% endfor %}
                 </div>
-
-                <form hx-post="{% url 'communications:add_conversation_note' conversation.id %}" hx-target="#modalNotesContainer" hx-on::after-request="this.reset()">
+                <form class="mt-2" hx-post="{% url 'communications:add_conversation_note' conversation.id %}" hx-target="#modalNotesContainer" hx-on::after-request="this.reset()">
                     {% csrf_token %}
-                    <div class="input-group input-group-sm shadow-sm rounded">
-                        <input type="text" class="form-control border" name="content" placeholder="Nueva nota de seguimiento..." style="background: #fff;">
-                        <button type="submit" class="btn btn-warning text-white"><i class="fas fa-plus"></i></button>
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control comm-apple-field" name="content" placeholder="Nueva nota de seguimiento...">
+                        <button type="submit" class="btn comm-apple-btn-primary"><i class="fas fa-plus"></i></button>
                     </div>
                 </form>
-            </div>
+            </section>
         </div>
     </div>
 </div>
 
 <div class="modal-footer flex-column align-items-stretch gap-2">
     {% if conversation.contact.client %}
-    <div class="d-flex flex-wrap align-items-stretch gap-1 justify-content-center comm-client-actions-toolbar w-100 pb-2 border-bottom">
+    <div class="d-flex flex-wrap align-items-stretch gap-1 justify-content-center comm-client-actions-toolbar w-100">
         {% include "clients/partials/client_list_comm_actions.html" with client_obj=conversation.contact.client use_secondary_modal=False %}
         <button type="button" class="btn btn-sm btn-outline-secondary comm-client-action-tile"
             hx-get="{% url 'client_update' conversation.contact.client.pk %}"
@@ -232,10 +185,7 @@
     </div>
     {% endif %}
     <div class="text-end w-100">
-        <button type="button" class="btn btn-secondary" onclick="closeModal()"
-            title="Cerrar la ficha de contacto"
-            aria-label="Cerrar: volver a la conversación">
-            Cerrar
-        </button>
+        <button type="button" class="btn btn-sm comm-apple-btn-ghost" onclick="closeModal()">Cerrar</button>
     </div>
+</div>
 </div>

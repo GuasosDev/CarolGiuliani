@@ -1,64 +1,54 @@
 {% load static %}
-<div class="modal-header border-0 pb-0 pt-3 px-4">
-    <div class="d-flex align-items-center w-100 py-1 px-3 rounded-pill shadow-sm" style="background-color: #128C7E;">
-        <h6 class="modal-title fw-bold mb-0 text-white flex-grow-1" style="font-size: 0.8rem; letter-spacing: 0.5px;">
-            <i class="fas fa-file-import me-2"></i> IMPORTAR CONTACTOS
-        </h6>
-        <button type="button" class="btn-close btn-close-white p-0" style="font-size: 0.6rem; opacity: 0.8;" onclick="closeModal()" aria-label="Close"></button>
+<div class="comm-apple-modal comm-import-contacts-modal">
+<div class="modal-header">
+    <div class="comm-apple-heading">
+        <p class="comm-apple-kicker">Contactos</p>
+        <h3 class="modal-title">Importar contactos</h3>
     </div>
+    <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
 </div>
 
-<div class="modal-body p-0">
-    <!-- Paso 1: Subida -->
-    <div id="uploadStep" class="p-4">
-        <div class="upload-area comm-import-upload-area border-2 border-dashed comm-import-border-dashed rounded-4 p-5 text-center bg-light comm-import-cursor-pointer mb-3" id="dropZone" style="border-color: #dee2e6;">
-            <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-muted"></i>
-            <h5 class="text-dark fw-bold">Arrastra tu archivo CSV aquí</h5>
-            <p class="text-muted small">O haz clic para seleccionar desde tu computadora</p>
-            <input type="file" id="csv_file_input" class="d-none" accept=".csv">
-        </div>
-        
-        <div class="alert alert-light border shadow-sm rounded-3 mb-0">
-            <div class="d-flex small text-muted">
-                <i class="fas fa-info-circle mt-1 me-2 text-primary"></i>
-                <div>
-                    <strong>Recomendación:</strong> El sistema detectará automáticamente el separador y si el archivo tiene encabezados (Nombre, Email, Teléfono, Empresa).
-                </div>
+<div class="modal-body">
+    <div id="uploadStep">
+        <section class="comm-apple-section">
+            <div class="comm-import-dropzone" id="dropZone">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h5>Arrastrá tu archivo CSV</h5>
+                <p>O hacé clic para seleccionarlo desde tu computadora</p>
+                <input type="file" id="csv_file_input" class="d-none" accept=".csv">
             </div>
-        </div>
+            <div class="comm-import-hint">
+                El sistema detecta automáticamente el separador y si hay encabezados (Nombre, Email, Teléfono, Empresa).
+            </div>
+        </section>
     </div>
 
-    <!-- Paso 2: Vista Previa -->
     <div id="previewStep" class="d-none">
-        <div class="bg-white px-4 py-2 border-bottom d-flex justify-content-between align-items-center">
-            <span class="small fw-bold text-muted text-uppercase" style="letter-spacing: 0.5px;">Vista Previa de Importación</span>
-            <span class="badge bg-light text-dark border fw-normal" id="rowCountBadge">0 filas</span>
-        </div>
-        
-        <div class="table-responsive" style="max-height: 350px;">
-            <table class="table table-hover table-sm mb-0 table-bordered border-light" id="previewTable">
-                <thead class="table-light sticky-top">
-                    <tr id="tableHeader" class="small text-muted"></tr>
-                </thead>
-                <tbody id="tableBody" class="small"></tbody>
-            </table>
-        </div>
+        <section class="comm-apple-section mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h4 class="comm-apple-section-title mb-0">Vista previa</h4>
+                <span class="comm-import-badge" id="rowCountBadge">0 filas</span>
+            </div>
+            <div class="comm-import-table-wrap table-responsive">
+                <table class="table table-hover table-sm mb-0" id="previewTable">
+                    <thead>
+                        <tr id="tableHeader"></tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </section>
 
-        <div class="p-3 bg-white border-top">
-            <form method="post" action="{% url 'communications:import_contacts_csv' %}" enctype="multipart/form-data" id="finalForm">
-                {% csrf_token %}
-                <input type="file" name="csv_file" id="actual_file" class="d-none">
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 flex-grow-1" onclick="resetUpload()">
-                        Cambiar
-                    </button>
-                    <button type="submit" class="btn btn-success rounded-pill px-4 flex-grow-1 fw-bold">
-                        Importar Ahora
-                    </button>
-                </div>
-            </form>
-        </div>
+        <form method="post" action="{% url 'communications:import_contacts_csv' %}" enctype="multipart/form-data" id="finalForm">
+            {% csrf_token %}
+            <input type="file" name="csv_file" id="actual_file" class="d-none">
+            <div class="d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-sm comm-apple-btn-ghost" onclick="resetUpload()">Cambiar</button>
+                <button type="submit" class="btn btn-sm comm-apple-btn-primary">Importar ahora</button>
+            </div>
+        </form>
     </div>
+</div>
 </div>
 
 <script src="{% static 'communications/js/import_contacts.js' %}"></script>
