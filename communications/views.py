@@ -437,6 +437,13 @@ def dashboard(request):
     channel_filter = request.GET.get('channel')
     user_filter = request.GET.get('user')
     search_q = (request.GET.get('q') or '').strip()
+    search_scope = (request.GET.get('search_scope') or '').strip().lower()
+
+    # Si se hizo una búsqueda con scope concreto (no "all"), sobrescribimos folder_filter para filtrar solo en ese ámbito.
+    if search_q and search_scope and search_scope != 'all':
+        if search_scope in ('inbox', 'sent', 'drafts', 'trash'):
+            folder_filter = search_scope
+
     email_rows = None
     email_drafts = None
     
@@ -760,6 +767,7 @@ def dashboard(request):
         'available_users': available_users,
         'clients': clients,
         'search_q': search_q,
+        'search_scope': search_scope,
         'user_email_signature': EmailSignature.get_default_for(request.user),
         **counts 
     }
