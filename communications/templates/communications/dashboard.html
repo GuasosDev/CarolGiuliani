@@ -1247,15 +1247,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /*
-     * Instancia Bootstrap del modal.
-     *
-     * El modal ya está correctamente ubicado fuera
-     * del dashboard, por lo que NO necesitamos moverlo
-     * dinámicamente al body.
+     * El markup vive dentro de .comm-main-panel (overflow),
+     * así que hay que moverlo a body: si no, el backdrop
+     * queda por encima y el modal se ve "en segundo plano".
      */
+    function ensureModalOnBody() {
+        if (modalElement.parentElement !== document.body) {
+            document.body.appendChild(modalElement);
+        }
+    }
+
+    ensureModalOnBody();
 
     const whatsappModal =
-        new bootstrap.Modal(modalElement, {
+        bootstrap.Modal.getOrCreateInstance(modalElement, {
             backdrop: true,
             keyboard: true
         });
@@ -1266,6 +1271,8 @@ document.addEventListener('DOMContentLoaded', function () {
      */
 
     newConversationButton.addEventListener('click', function () {
+
+        ensureModalOnBody();
 
         searchInput.value = '';
 
