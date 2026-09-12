@@ -115,9 +115,14 @@ href="{% url 'communications:dashboard' %}?channel=email&folder=sent">
     </div>
     <form method="get" action="{% url 'communications:dashboard' %}" class="comm-mail-search ms-md-auto mt-1 mt-md-0">
         <input type="hidden" name="channel" value="email">
+        {% if current_folder %}<input type="hidden" name="folder" value="{{ current_folder }}">{% endif %}
         {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
-        <select class="form-select form-select-sm py-0" name="search_scope" style="width: auto; max-width: 6.5rem; height: 28px;" disabled aria-disabled="true" title="Próximamente">
-            <option>Todos</option>
+        <select class="form-select form-select-sm py-0" name="search_scope" id="commMailSearchScope" style="width: auto; max-width: 7.5rem; height: 28px;" title="Restringir búsqueda a carpeta">
+            <option value="all"{% if search_scope == "all" or not search_scope %} selected{% endif %}>Todos</option>
+            <option value="inbox"{% if search_scope == "inbox" or current_folder == "inbox" %} selected{% endif %}>Recibidos</option>
+            <option value="sent"{% if search_scope == "sent" or current_folder == "sent" %} selected{% endif %}>Enviados</option>
+            <option value="drafts"{% if search_scope == "drafts" or current_folder == "drafts" %} selected{% endif %}>Borradores</option>
+            <option value="trash"{% if search_scope == "trash" or current_folder == "trash" or current_status == "closed" %} selected{% endif %}>Papelera</option>
         </select>
         <input type="search" name="q" value="{{ search_q|default:'' }}" class="form-control form-control-sm py-0" placeholder="Buscar…" style="width: 10rem; max-width: 26vw; height: 28px;">
         <button type="submit" class="btn btn-toolbar-mail" title="Buscar"><span class="comm-mail-tb-ico"><i class="fas fa-search"></i></span></button>
