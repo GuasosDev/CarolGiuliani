@@ -11,7 +11,7 @@
         { id: 'doble', label: 'Doble golpe' },
         { id: 'timbre', label: 'Timbre oficina' },
         { id: 'alarma', label: 'Alarma rápida' },
-        { id: 'sirena', label: 'Sirena estridente ★' }
+        { id: 'campana', label: 'Campana' }
     ];
 
     var state = {
@@ -45,9 +45,9 @@
     function normalizeSoundId(id) {
         id = String(id || '').trim();
         // Compat con ids viejos del selector anterior
-        if (id === 'suave' || id === 'campana' || id === 'pop') id = 'ping';
+        if (id === 'suave' || id === 'pop') id = 'ping';
         if (id === 'alerta') id = 'alarma';
-        if (id === 'estridente') id = 'sirena';
+        if (id === 'estridente' || id === 'sirena') id = 'campana';
         for (var i = 0; i < SOUND_OPTIONS.length; i++) {
             if (SOUND_OPTIONS[i].id === id) return id;
         }
@@ -149,15 +149,15 @@
             }
             return;
         }
-        if (soundId === 'sirena') {
-            // Sirena up/down + beeps: el más “molesto” a propósito
-            sweep(ctx, 900, 2200, t, 0.28, v, 'square');
-            sweep(ctx, 900, 2200, t, 0.28, v * 0.55, 'sawtooth');
-            sweep(ctx, 2200, 900, t + 0.28, 0.28, v, 'square');
-            sweep(ctx, 2200, 900, t + 0.28, 0.28, v * 0.55, 'sawtooth');
-            punch(ctx, 2000, t + 0.58, 0.07, v);
-            punch(ctx, 2400, t + 0.68, 0.07, v);
-            punch(ctx, 2000, t + 0.78, 0.10, v);
+        if (soundId === 'campana') {
+            // Campana: fundamental + armónicos con decay largo
+            tone(ctx, 830, t, 0.55, v * 0.95, 'sine');
+            tone(ctx, 1660, t, 0.40, v * 0.55, 'sine');
+            tone(ctx, 2490, t, 0.28, v * 0.35, 'sine');
+            tone(ctx, 830, t + 0.02, 0.50, v * 0.45, 'triangle');
+            // Segundo tañido más suave
+            tone(ctx, 830, t + 0.35, 0.45, v * 0.55, 'sine');
+            tone(ctx, 1660, t + 0.35, 0.32, v * 0.28, 'sine');
             return;
         }
         // ping: un corte claro, no melódico
