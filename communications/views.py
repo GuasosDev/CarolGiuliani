@@ -883,6 +883,41 @@ def open_client_whatsapp(request, client_id, channel='whatsapp'):
     url = reverse('communications:dashboard')
     return redirect(f'{url}?channel={channel}&conversation={conversation.pk}')
 
+@login_required
+def search_clients_for_whatsapp(request):
+    """
+    Busca clientes para iniciar una nueva conversación de WhatsApp.
+    """
+
+    query = request.GET.get('q', '').strip()
+
+    # Evitamos devolver toda la base si todavía no escribió nada.
+    if len(query) < 2:
+        return JsonResponse({
+            'results': []
+        })
+
+    clients = (
+        Client.objects
+        .filter(name__icontains=query)
+        .order_by('name')[:20]
+    )
+
+    results = []
+
+    for client in clients:
+        results.append({
+            'id': client.pk,
+            'name': client.name,
+            'url': reverse(
+                'communications:open_client_whatsapp',
+                args=[client.pk, 'whatsapp']
+            ),
+        })
+
+    return JsonResponse({
+        'results': results
+    })
 
 @login_required
 def contact_details_modal(request, conversation_id):

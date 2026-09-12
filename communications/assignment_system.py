@@ -100,7 +100,10 @@ def reassign_conversation(conversation, new_agent, assigned_by):
         assignment.unassigned_at = timezone.now()
         assignment.save()
 
-    conversation.assign_to(new_agent)
+    success = conversation.assign_to(new_agent, allow_reassign=True, assigned_by=assigned_by)
+    if not success:
+        logger.warning(f"assign_to rechazo la reasignacion de conversation {conversation.id} a {new_agent.username}")
+        return None
 
     new_assignment = ConversationAssignment.objects.filter(
         conversation=conversation,

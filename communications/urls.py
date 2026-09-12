@@ -4,7 +4,7 @@ Main URL configuration for communications app
 
 from django.urls import path, include
 from . import views
-from .views import ContactCreateView, open_client_whatsapp, WelcomeMenuListView, WelcomeMenuCreateView, WelcomeMenuUpdateView, WelcomeMenuDeleteView, transfer_conversation, transfer_conversation_modal, open_client_email, client_email_compose_modal
+from .views import *
 
 app_name = 'communications'
 
@@ -18,6 +18,11 @@ urlpatterns = [
     # Web interface URLs
     path('', views.dashboard, name='dashboard'),
     path('client/<int:client_id>/whatsapp/<str:channel>/', open_client_whatsapp, name='open_client_whatsapp'),
+    path(
+    'search-clients-whatsapp/',
+    search_clients_for_whatsapp,
+    name='search_clients_for_whatsapp'
+    ),
     path('client/<int:client_id>/whatsapp/', open_client_whatsapp, {'channel': 'whatsapp'}, name='open_client_whatsapp_legacy'),
     path('conversation/<int:pk>/', views.conversation_detail, name='conversation_detail'),
     path('conversation/<int:conversation_id>/download-attachments/', views.download_attachments, name='download_attachments'),

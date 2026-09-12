@@ -7,8 +7,6 @@
         hx-swap="innerHTML"
         class="d-flex flex-column gap-3">
 
-        {% csrf_token %}
-
         
 
         <div>

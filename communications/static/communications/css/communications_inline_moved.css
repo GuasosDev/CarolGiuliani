@@ -513,6 +513,7 @@ body.dark-mode .comm-mail-search .form-control {
 #emailComposeModal,
 #emailComposeModalGlobal,
 #whatsappTemplateModal,
+  #newWhatsappConversationModal,
 #conversationModal {
     z-index: 1060 !important;
 }
@@ -534,6 +535,7 @@ body.dark-mode .comm-mail-search .form-control {
 #emailComposeModal .modal-dialog,
 #emailComposeModalGlobal .modal-dialog,
 #whatsappTemplateModal .modal-dialog,
+  #newWhatsappConversationModal .modal-dialog,
 #conversationModal .modal-dialog {
     z-index: 1065 !important;
     position: relative;
@@ -546,6 +548,7 @@ body.dark-mode .comm-mail-search .form-control {
 #emailComposeModal .modal-content,
 #emailComposeModalGlobal .modal-content,
 #whatsappTemplateModal .modal-content,
+  #newWhatsappConversationModal .modal-content,
 #conversationModal .modal-content {
     z-index: 1070 !important;
     position: relative;

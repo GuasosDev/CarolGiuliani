@@ -1,523 +1,1581 @@
+
 {% extends "communications/communications_base.html" %}
 {% load comm_mail %}
 {% load static %}
+
 {% block comm_content %}
 
 <div class="comm-main-toolbar-wrap">
+
+    <!-- Nueva conversación WhatsApp -->
+
     {% if current_channel == 'email' %}
+
         {% include "communications/partials/email_toolbar.html" %}
+
     {% else %}
+
         <div class="comm-wa-toolbar flex-grow-1">
+
             <a href="?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}"
-                class="filter-btn {% if current_status == 'all' or not current_status %}active{% endif %}" title="Todos">
-                    <div class="icon-circle" style="background-color: #0d2142;">
-                        <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
-                    </div>
-                    <span class="filter-count">{{ current_filter_total }}</span>
+               class="filter-btn {% if current_status == 'all' or not current_status %}active{% endif %}"
+               title="Todos">
+
+                <div class="icon-circle" style="background-color: #0d2142;">
+                    <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
+                </div>
+
+                <span class="filter-count">{{ current_filter_total }}</span>
+
             </a>
 
+
             <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}"
-           class="filter-btn {% if current_status == 'normal' %}active{% endif %}" title="Activos">
-            <div class="icon-circle" style="background-color: #198754;">
-                <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
-            </div>
-            <span class="filter-count">{{ normal_count }}</span>
-        </a>
+               class="filter-btn {% if current_status == 'normal' %}active{% endif %}"
+               title="Activos">
 
-        <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}"
-           class="filter-btn {% if current_status == 'pending' %}active{% endif %}" title="Pendientes">
-            <div class="icon-circle" style="background-color: #ffc107;">
-                <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
-            </div>
-            <span class="filter-count">{{ pending_count }}</span>
-        </a>
+                <div class="icon-circle" style="background-color: #198754;">
+                    <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
+                </div>
 
-        <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}"
-           class="filter-btn {% if current_status == 'closed' %}active{% endif %}" title="Cerrados">
-            <div class="icon-circle" style="background-color: #dc3545;">
-                <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
-            </div>
-            <span class="filter-count">{{ closed_count }}</span>
-        </a>
+                <span class="filter-count">{{ normal_count }}</span>
+
+            </a>
+
+
+            <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+               class="filter-btn {% if current_status == 'pending' %}active{% endif %}"
+               title="Pendientes">
+
+                <div class="icon-circle" style="background-color: #ffc107;">
+                    <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
+                </div>
+
+                <span class="filter-count">{{ pending_count }}</span>
+
+            </a>
+
+
+            <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}"
+               class="filter-btn {% if current_status == 'closed' %}active{% endif %}"
+               title="Cerrados">
+
+                <div class="icon-circle" style="background-color: #dc3545;">
+                    <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
+                </div>
+
+                <span class="filter-count">{{ closed_count }}</span>
+
+            </a>
+
+
+            <button
+                type="button"
+                class="btn btn-success btn-sm d-flex align-items-center gap-2 ms-auto"
+                id="btnNewWhatsappConversation"
+                title="Nueva conversación de WhatsApp">
+
+                <i class="fab fa-whatsapp"></i>
+                <span>Nueva conversación</span>
+
+            </button>
+
         </div>
+
     {% endif %}
+
 </div>
 
-<div class="comm-dashboard-shell d-flex h-100 flex-grow-1 overflow-hidden{% if current_channel == 'email' %} comm-mail-dashboard-row{% endif %}" data-comm-dashboard data-current-channel="{{ current_channel|default:'all' }}">
-    <!-- Main Content Area: 2 Columns (Status column removed) -->
 
-    <!-- Column 1: Conversation List (3 cols) -->
-    <div class="comm-dashboard-panel comm-list-panel bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0{% if current_channel == 'email' %} comm-mail-shell{% endif %}" id="conversation-list-panel">
-            <!-- Scrollable List -->
-            <div class="comm-dashboard-conversations flex-grow-1 overflow-auto" id="dashboard-conversations-container"
-                hx-get="{{ request.get_full_path }}" hx-trigger="every 120s"
-                hx-select="#dashboard-conversations-container" hx-swap="outerHTML">
+<!-- ========================================================= -->
+<!-- DASHBOARD DE COMUNICACIONES -->
+<!-- ========================================================= -->
 
-                <div class="list-group list-group-flush">
+<div
+    class="comm-dashboard-shell d-flex h-100 flex-grow-1 overflow-hidden{% if current_channel == 'email' %} comm-mail-dashboard-row{% endif %}"
+    data-comm-dashboard
+    data-current-channel="{{ current_channel|default:'all' }}"
+>
 
-                    {% if current_channel == 'email' %}
+
+    <!-- ===================================================== -->
+    <!-- COLUMNA 1: LISTA DE CONVERSACIONES -->
+    <!-- ===================================================== -->
+
+    <div
+        class="comm-dashboard-panel comm-list-panel bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0{% if current_channel == 'email' %} comm-mail-shell{% endif %}"
+        id="conversation-list-panel"
+    >
+
+        <!-- Scrollable List -->
+
+        <div
+            class="comm-dashboard-conversations flex-grow-1 overflow-auto"
+            id="dashboard-conversations-container"
+            hx-get="{{ request.get_full_path }}"
+            hx-trigger="every 120s"
+            hx-select="#dashboard-conversations-container"
+            hx-swap="outerHTML"
+        >
+
+            <div class="list-group list-group-flush">
+
+
+                <!-- ================================================= -->
+                <!-- EMAIL -->
+                <!-- ================================================= -->
+
+                {% if current_channel == 'email' %}
+
                     {% if current_folder == 'drafts' %}
-                    {% for d in email_drafts %}
-                    <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
-                        data-draft-id="{{ d.id }}"
-                        onclick="if (typeof window.commOpenEmailDraft === 'function') window.commOpenEmailDraft('{{ d.id }}')">
-                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
-                            <small class="text-secondary text-truncate">
-                                {% if d.compose_mode == 'reply' %}Responder
-                                {% elif d.compose_mode == 'reply-all' %}Responder a todos
-                                {% elif d.compose_mode == 'forward' %}Reenviar
-                                {% else %}Redactar{% endif %}
-                            </small>
-                            <span class="comm-email-subject text-truncate small fw-normal text-secondary flex-grow-1" style="min-width:0;">
-                                {{ d.subject|default:"(Sin asunto)"|truncatechars:56 }}
-                            </span>
-                            <small class="text-nowrap flex-shrink-0 text-secondary">{{ d.updated_at|date:"d/m/Y H:i" }}</small>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-truncate text-secondary" style="min-width:0;" title="{{ d.to_addresses }}">
-                                Para: {{ d.to_addresses|default:"(sin destinatario)"|truncatechars:48 }}
-                            </small>
-                            <i class="fas fa-file-alt text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
-                        </div>
-                    </button>
-                    {% empty %}
-                    <div class="text-center p-5 text-muted">
-                        <i class="fas fa-file-alt fa-3x mb-3 text-secondary opacity-50"></i>
-                        <p>No hay borradores.</p>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    {% for em in email_rows %}
-                    <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
-                        data-id="{{ em.id }}"
-                        data-conversation-id="{% if em.message.conversation %}{{ em.message.conversation.id }}{% endif %}"
-                        data-contact-name="{% if em.message.conversation %}{{ em.message.conversation.get_display_name }}{% else %}Email{% endif %}"
-                        onclick="loadEmailMessage(this, '{{ em.id }}')">
 
-                    <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <!-- "De:" oscuro si no está leído, gris secundario si ya se leyó -->
-                            <small class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}">
-                                De: {{ em.message.sender_name|default:em.from_address|default:"-"|decode_email_subject }}
-                            </small>
-                        </div>
-                        <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
-                            <span class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
-                                {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
-                            </span>
-                        </div>
-                        <!-- MODIFICADO: La fecha ahora también usa text-secondary para evitar el gris claro/blanco -->
-                        <small class="text-nowrap flex-shrink-0 {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}">
-                            {{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}
-                        </small>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        {% with joined=em.recipients_joined recipients=em.recipients %}
-                            {% if recipients|length > 1 %}
-                                <div class="d-flex align-items-center gap-1 w-100">
-                                    <!-- "Para:" (Múltiples) oscuro si no está leído, gris secundario si ya se leyó -->
-                                    <span class="text-truncate recipient-summary {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}" title="Para: {{ joined }}">
-                                        Para: {{ recipients.0|default:em.email_account.email_address|default:"-" }}
-                                    </span>
-                                    <span class="recipient-badge text-primary small flex-shrink-0" title="{{ joined }}">
-                                        +{{ recipients|length|add:"-1" }} más <i class="fas fa-chevron-right"></i>
-                                    </span>
-                                </div>
-                            {% else %}
-                                <!-- "Para:" (Individual) oscuro si no está leído, gris secundario si ya se leyó -->
-                                <small class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}" style="min-width:0;" title="{{ joined }}">
-                                    Para: {{ joined|default:em.email_account.email_address|default:"-"|truncatechars:40 }}
+                        {% for d in email_drafts %}
+
+                        <button
+                            type="button"
+                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
+                            data-draft-id="{{ d.id }}"
+                            onclick="if (typeof window.commOpenEmailDraft === 'function') window.commOpenEmailDraft('{{ d.id }}')"
+                        >
+
+                            <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+
+                                <small class="text-secondary text-truncate">
+
+                                    {% if d.compose_mode == 'reply' %}
+                                        Responder
+                                    {% elif d.compose_mode == 'reply-all' %}
+                                        Responder a todos
+                                    {% elif d.compose_mode == 'forward' %}
+                                        Reenviar
+                                    {% else %}
+                                        Redactar
+                                    {% endif %}
+
                                 </small>
-                            {% endif %}
-                        {% endwith %}
-                        <span class="d-inline-flex align-items-center gap-1 ms-1 flex-shrink-0">
-                            {% if em.has_attachments or em.message.file %}
-                            <i class="fas fa-paperclip text-secondary" style="font-size: 0.75rem;" title="Tiene adjuntos" aria-label="Tiene adjuntos"></i>
-                            {% endif %}
-                            <i class="fas fa-envelope text-secondary opacity-50" style="font-size: 0.75rem;" aria-hidden="true"></i>
-                        </span>
-                    </div>
-                    </button>
+
+                                <span
+                                    class="comm-email-subject text-truncate small fw-normal text-secondary flex-grow-1"
+                                    style="min-width:0;"
+                                >
+                                    {{ d.subject|default:"(Sin asunto)"|truncatechars:56 }}
+                                </span>
+
+                                <small class="text-nowrap flex-shrink-0 text-secondary">
+                                    {{ d.updated_at|date:"d/m/Y H:i" }}
+                                </small>
+
+                            </div>
 
 
+                            <div class="d-flex justify-content-between align-items-center">
 
-                    {% empty %}
-                    <div class="text-center p-5 text-muted">
-                        <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
-                        <p>No hay emails en esta vista.</p>
-                    </div>
-                    {% endfor %}
+                                <small
+                                    class="text-truncate text-secondary"
+                                    style="min-width:0;"
+                                    title="{{ d.to_addresses }}"
+                                >
+                                    Para:
+                                    {{ d.to_addresses|default:"(sin destinatario)"|truncatechars:48 }}
+                                </small>
+
+                                <i
+                                    class="fas fa-file-alt text-secondary opacity-50 ms-1 flex-shrink-0"
+                                    style="font-size: 0.75rem;"
+                                    aria-hidden="true"
+                                ></i>
+
+                            </div>
+
+                        </button>
+
+                        {% empty %}
+
+                        <div class="text-center p-5 text-muted">
+
+                            <i class="fas fa-file-alt fa-3x mb-3 text-secondary opacity-50"></i>
+
+                            <p>No hay borradores.</p>
+
+                        </div>
+
+                        {% endfor %}
+
+
+                    {% else %}
+
+
+                        {% for em in email_rows %}
+
+                        <button
+                            type="button"
+                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
+                            data-id="{{ em.id }}"
+                            data-conversation-id="{% if em.message.conversation %}{{ em.message.conversation.id }}{% endif %}"
+                            data-contact-name="{% if em.message.conversation %}{{ em.message.conversation.get_display_name }}{% else %}Email{% endif %}"
+                            onclick="loadEmailMessage(this, '{{ em.id }}')"
+                        >
+
+                            <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+
+                                <div class="d-flex justify-content-between align-items-center">
+
+                                    <small
+                                        class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
+                                    >
+                                        De:
+                                        {{ em.message.sender_name|default:em.from_address|default:"-"|decode_email_subject }}
+                                    </small>
+
+                                </div>
+
+
+                                <div
+                                    class="d-flex align-items-start text-truncate flex-grow-1 gap-2"
+                                    style="min-width: 0;"
+                                >
+
+                                    <span
+                                        class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}"
+                                    >
+                                        {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
+                                    </span>
+
+                                </div>
+
+
+                                <small
+                                    class="text-nowrap flex-shrink-0 {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
+                                >
+                                    {{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}
+                                </small>
+
+                            </div>
+
+
+                            <div class="d-flex justify-content-between align-items-center">
+
+                                {% with joined=em.recipients_joined recipients=em.recipients %}
+
+                                    {% if recipients|length > 1 %}
+
+                                    <div class="d-flex align-items-center gap-1 w-100">
+
+                                        <span
+                                            class="text-truncate recipient-summary {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
+                                            title="Para: {{ joined }}"
+                                        >
+                                            Para:
+                                            {{ recipients.0|default:em.email_account.email_address|default:"-" }}
+                                        </span>
+
+                                        <span
+                                            class="recipient-badge text-primary small flex-shrink-0"
+                                            title="{{ joined }}"
+                                        >
+                                            +{{ recipients|length|add:"-1" }} más
+                                            <i class="fas fa-chevron-right"></i>
+                                        </span>
+
+                                    </div>
+
+                                    {% else %}
+
+                                    <small
+                                        class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
+                                        style="min-width:0;"
+                                        title="{{ joined }}"
+                                    >
+                                        Para:
+                                        {{ joined|default:em.email_account.email_address|default:"-"|truncatechars:40 }}
+                                    </small>
+
+                                    {% endif %}
+
+                                {% endwith %}
+
+
+                                <span class="d-inline-flex align-items-center gap-1 ms-1 flex-shrink-0">
+
+                                    {% if em.has_attachments or em.message.file %}
+
+                                    <i
+                                        class="fas fa-paperclip text-secondary"
+                                        style="font-size: 0.75rem;"
+                                        title="Tiene adjuntos"
+                                        aria-label="Tiene adjuntos"
+                                    ></i>
+
+                                    {% endif %}
+
+                                    <i
+                                        class="fas fa-envelope text-secondary opacity-50"
+                                        style="font-size: 0.75rem;"
+                                        aria-hidden="true"
+                                    ></i>
+
+                                </span>
+
+                            </div>
+
+                        </button>
+
+                        {% empty %}
+
+                        <div class="text-center p-5 text-muted">
+
+                            <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
+
+                            <p>No hay emails en esta vista.</p>
+
+                        </div>
+
+                        {% endfor %}
+
                     {% endif %}
 
-                    {% elif current_status == 'inbox' %}
+
+                <!-- ================================================= -->
+                <!-- INBOX -->
+                <!-- ================================================= -->
+
+                {% elif current_status == 'inbox' %}
+
+
                     {% for group in grouped_conversations %}
+
                     <div class="list-group-item bg-light fw-bold small text-uppercase text-muted py-1 px-3">
+
                         {{ group.client.name|default:"Desconocido" }}
+
                     </div>
 
-                    {% for conv in group.conversations %}
-                    <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
-                        data-id="{{ conv.id }}" data-contact-name="{{ conv.get_display_name }}" onclick="loadConversation(this, '{{ conv.id }}')">
 
-                        {% if conv.channel == 'email' %}
+                        {% for conv in group.conversations %}
+
+                        <button
+                            type="button"
+                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                            data-id="{{ conv.id }}"
+                            data-contact-name="{{ conv.get_display_name }}"
+                            onclick="loadConversation(this, '{{ conv.id }}')"
+                        >
+
+                            {% if conv.channel == 'email' %}
+
+                            <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+
+                                <div
+                                    class="d-flex align-items-start text-truncate flex-grow-1 gap-2"
+                                    style="min-width: 0;"
+                                >
+
+                                    <span
+                                        class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}"
+                                    >
+                                        {{ conv.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
+                                    </span>
+
+                                </div>
+
+                                <small class="text-muted text-nowrap flex-shrink-0">
+                                    {{ conv.last_message_at|default:conv.updated_at|date:"d/m/Y H:i" }}
+                                </small>
+
+                            </div>
+
+
+                            <div class="d-flex justify-content-between align-items-center">
+
+                                <small class="text-muted text-truncate">
+                                    {{ conv.get_display_name }}
+                                </small>
+
+                                <i
+                                    class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0"
+                                    style="font-size: 0.75rem;"
+                                    aria-hidden="true"
+                                ></i>
+
+                            </div>
+
+
+                            {% else %}
+
+
+                            <div class="d-flex justify-content-between mb-1">
+
+                                <div
+                                    class="d-flex align-items-center text-truncate"
+                                    style="max-width: 70%;"
+                                >
+
+                                    {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}
+
+                                    <span
+                                        class="status-indicator bg-success rounded-circle me-2"
+                                        style="width: 10px; height: 10px;"
+                                    ></span>
+
+                                    {% elif conv.status == 'pending' %}
+
+                                    <span
+                                        class="status-indicator bg-warning rounded-circle me-2"
+                                        style="width: 10px; height: 10px;"
+                                    ></span>
+
+                                    {% elif conv.status == 'closed' %}
+
+                                    <span
+                                        class="status-indicator bg-danger rounded-circle me-2"
+                                        style="width: 10px; height: 10px;"
+                                    ></span>
+
+                                    {% endif %}
+
+
+                                    {% if conv.channel == 'whatsapp' %}
+
+                                    <i class="fab fa-whatsapp text-success me-2"></i>
+
+                                    {% else %}
+
+                                    <i class="fas fa-envelope text-primary me-2"></i>
+
+                                    {% endif %}
+
+
+                                    <span class="fw-bold text-dark text-truncate">
+                                        {{ conv.get_display_name }}
+                                    </span>
+
+                                </div>
+
+
+                                <small class="text-muted">
+                                    {{ conv.updated_at|date:"H:i" }}
+                                </small>
+
+                            </div>
+
+
+                            <div class="d-flex justify-content-between align-items-center">
+
+                                <small
+                                    class="text-muted text-truncate d-block"
+                                    style="max-width: 100%; font-size: 0.75rem;"
+                                >
+
+                                    {% with last_msg=conv.latest_message.0 %}
+
+                                        {% if last_msg %}
+
+                                            {{ last_msg.content|truncatechars:50 }}
+
+                                        {% else %}
+
+                                            <span class="fst-italic text-muted">
+                                                Sin mensajes...
+                                            </span>
+
+                                        {% endif %}
+
+                                    {% endwith %}
+
+                                </small>
+
+                            </div>
+
+                            {% endif %}
+
+                        </button>
+
+                        {% endfor %}
+
+                    {% empty %}
+
+                    <div class="text-center p-4 text-muted">
+                        No hay conversaciones
+                    </div>
+
+                    {% endfor %}
+
+
+                <!-- ================================================= -->
+                <!-- CONVERSACIONES NORMALES -->
+                <!-- ================================================= -->
+
+                {% else %}
+
+
+                    {% for conv in conversations %}
+
+                    <button
+                        type="button"
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if current_channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                        data-id="{{ conv.id }}"
+                        data-contact-name="{{ conv.get_display_name }}"
+                        onclick="loadConversation(this, '{{ conv.id }}')"
+                    >
+
+                        {% if current_channel == 'email' %}
+
                         <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
-                            <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
-                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
+
+                            <div
+                                class="d-flex align-items-start text-truncate flex-grow-1 gap-2"
+                                style="min-width: 0;"
+                            >
+
+                                <span
+                                    class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}"
+                                >
                                     {{ conv.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
                                 </span>
+
                             </div>
-                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.last_message_at|default:conv.updated_at|date:"d/m/Y H:i" }}</small>
+
+                            <small class="text-muted text-nowrap flex-shrink-0">
+                                {{ conv.last_message_at|default:conv.updated_at|date:"d/m/Y H:i" }}
+                            </small>
+
                         </div>
+
+
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted text-truncate">{{ conv.get_display_name }}</small>
-                            <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
+
+                            <small class="text-muted text-truncate">
+                                {{ conv.get_display_name }}
+                            </small>
+
+                            <i
+                                class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0"
+                                style="font-size: 0.75rem;"
+                                aria-hidden="true"
+                            ></i>
+
                         </div>
+
+
                         {% else %}
+
+
                         <div class="d-flex justify-content-between mb-1">
-                            <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
-                                <!-- Status Indicator -->
+
+                            <div
+                                class="d-flex align-items-center text-truncate"
+                                style="max-width: 70%;"
+                            >
+
                                 {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}
-                                <span class="status-indicator bg-success rounded-circle me-2"
-                                    style="width: 10px; height: 10px;"></span>
+
+                                <span
+                                    class="status-indicator bg-success rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"
+                                ></span>
+
                                 {% elif conv.status == 'pending' %}
-                                <span class="status-indicator bg-warning rounded-circle me-2"
-                                    style="width: 10px; height: 10px;"></span>
+
+                                <span
+                                    class="status-indicator bg-warning rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"
+                                ></span>
+
                                 {% elif conv.status == 'closed' %}
-                                <span class="status-indicator bg-danger rounded-circle me-2"
-                                    style="width: 10px; height: 10px;"></span>
+
+                                <span
+                                    class="status-indicator bg-danger rounded-circle me-2"
+                                    style="width: 10px; height: 10px;"
+                                ></span>
+
                                 {% endif %}
 
+
                                 {% if conv.channel == 'whatsapp' %}
+
                                 <i class="fab fa-whatsapp text-success me-2"></i>
+
                                 {% else %}
+
                                 <i class="fas fa-envelope text-primary me-2"></i>
+
                                 {% endif %}
+
 
                                 <span class="fw-bold text-dark text-truncate">
                                     {{ conv.get_display_name }}
                                 </span>
+
                             </div>
+
+
                             <small class="text-muted">
                                 {{ conv.updated_at|date:"H:i" }}
                             </small>
+
                         </div>
+
 
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted text-truncate d-block" style="max-width: 100%; font-size: 0.75rem;">
-                                {% with last_msg=conv.latest_message.0 %}
-                                {% if last_msg %}
-                                {{ last_msg.content|truncatechars:50 }}
-                                {% else %}
-                                <span class="fst-italic text-muted">Sin mensajes...</span>
-                                {% endif %}
-                                {% endwith %}
-                            </small>
-                        </div>
-                        {% endif %}
-                    </button>
-                    {% endfor %}
-                    {% empty %}
-                    <div class="text-center p-4 text-muted">No hay conversaciones</div>
-                    {% endfor %}
 
-                    {% else %}
-                    {% for conv in conversations %}
-                    <button type="button"
-                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if current_channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
-                        data-id="{{ conv.id }}" data-contact-name="{{ conv.get_display_name }}" onclick="loadConversation(this, '{{ conv.id }}')">
+                            <small
+                                class="text-muted text-truncate d-block"
+                                style="max-width: 100%;"
+                            >
 
-                        {% if current_channel == 'email' %}
-                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
-                            <div class="d-flex align-items-start text-truncate flex-grow-1 gap-2" style="min-width: 0;">
-                                <span class="comm-email-subject text-truncate small {% if conv.has_unread_inbound %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}">
-                                    {{ conv.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
-                                </span>
-                            </div>
-                            <small class="text-muted text-nowrap flex-shrink-0">{{ conv.last_message_at|default:conv.updated_at|date:"d/m/Y H:i" }}</small>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted text-truncate">{{ conv.get_display_name }}</small>
-                            <i class="fas fa-envelope text-secondary opacity-50 ms-1 flex-shrink-0" style="font-size: 0.75rem;" aria-hidden="true"></i>
-                        </div>
-                        {% else %}
-                        <div class="d-flex justify-content-between mb-1">
-                            <div class="d-flex align-items-center text-truncate" style="max-width: 70%;">
-                                <!-- Status Indicator -->
-                                {% if conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}
-                                <span class="status-indicator bg-success rounded-circle me-2"
-                                    style="width: 10px; height: 10px;"></span>
-                                {% elif conv.status == 'pending' %}
-                                <span class="status-indicator bg-warning rounded-circle me-2"
-                                    style="width: 10px; height: 10px;"></span>
-                                {% elif conv.status == 'closed' %}
-                                <span class="status-indicator bg-danger rounded-circle me-2"
-                                    style="width: 10px; height: 10px;"></span>
-                                {% endif %}
-
-                                {% if conv.channel == 'whatsapp' %}
-                                <i class="fab fa-whatsapp text-success me-2"></i>
-                                {% else %}
-                                <i class="fas fa-envelope text-primary me-2"></i>
-                                {% endif %}
-
-                                <span class="fw-bold text-dark text-truncate">
-                                    {{ conv.get_display_name }}
-                                </span>
-                            </div>
-                            <small class="text-muted">{{ conv.updated_at|date:"H:i" }}</small>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted text-truncate d-block" style="max-width: 100%;">
                                 {% with last_msg=conv.messages.last %}
-                                {% if last_msg %}
-                                {% if last_msg.email_data.plain_body %}
-                                    {{ last_msg.email_data.plain_body|striptags|truncatechars:50 }}
-                                {% else %}
-                                    {{ last_msg.content|striptags|truncatechars:50 }}
-                                {% endif %}
-                                {% else %}
-                                <span class="fst-italic text-muted">Sin mensajes...</span>
-                                {% endif %}
+
+                                    {% if last_msg %}
+
+                                        {% if last_msg.email_data.plain_body %}
+
+                                            {{ last_msg.email_data.plain_body|striptags|truncatechars:50 }}
+
+                                        {% else %}
+
+                                            {{ last_msg.content|striptags|truncatechars:50 }}
+
+                                        {% endif %}
+
+                                    {% else %}
+
+                                        <span class="fst-italic text-muted">
+                                            Sin mensajes...
+                                        </span>
+
+                                    {% endif %}
+
                                 {% endwith %}
+
                             </small>
+
                         </div>
+
                         {% endif %}
+
                     </button>
+
                     {% empty %}
+
                     <div class="text-center p-5 text-muted">
+
                         <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
+
                         <p>No hay conversaciones en esta vista.</p>
+
                     </div>
+
                     {% endfor %}
-                    {% endif %}
 
-</div>
-
-{% if current_channel == 'email' %}
-{% if current_folder == 'drafts' %}
-    {% with page_obj=email_drafts %}
-    {% if page_obj and page_obj.paginator.num_pages > 1 %}
-    <div class="border-top p-2 bg-white">
-        <nav>
-            <ul class="pagination pagination-sm justify-content-center mb-0">
-                {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">Anterior</a>
-                </li>
                 {% endif %}
-                {% for num in page_obj.paginator.page_range %}
-                    {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
-                        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
-                            {% if page_obj.number == num %}
-                            <span class="page-link">{{ num }}</span>
-                            {% else %}
-                            <a class="page-link" href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">{{ num }}</a>
-                            {% endif %}
-                        </li>
-                    {% endif %}
-                {% endfor %}
-                {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">Siguiente</a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-    </div>
-    {% endif %}
-    {% endwith %}
-{% elif email_rows.paginator.num_pages > 1 %}
-    <div class="border-top p-2 bg-white">
-        <nav>
-            <ul class="pagination pagination-sm justify-content-center mb-0">
-
-                {% if email_rows.has_previous %}
-                <li class="page-item">
-                    <a class="page-link"
-                    href="?page={{ email_rows.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
-                        Anterior
-                    </a>
-                </li>
-                {% endif %}
-
-                {% for num in email_rows.paginator.page_range %}
-                    {% if num >= email_rows.number|add:'-2' and num <= email_rows.number|add:'2' %}
-
-                        {% if email_rows.number == num %}
-                        <li class="page-item active">
-                            <span class="page-link">{{ num }}</span>
-                        </li>
-                        {% else %}
-                        <li class="page-item">
-                            <a class="page-link"
-                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
-                                {{ num }}
-                            </a>
-                        </li>
-                        {% endif %}
-
-                    {% endif %}
-                {% endfor %}
-
-                {% if email_rows.has_next %}
-                <li class="page-item">
-                    <a class="page-link"
-                    href="?page={{ email_rows.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
-                        Siguiente
-                    </a>
-                </li>
-                {% endif %}
-
-            </ul>
-        </nav>
-    </div>
-    {% endif %}
-
-{% else %}
-
-    {% if conversations.paginator.num_pages > 1 %}
-    <div class="border-top p-2 bg-white">
-        <nav>
-            <ul class="pagination pagination-sm justify-content-center mb-0">
-
-                {% if conversations.has_previous %}
-                <li class="page-item">
-                    <a class="page-link"
-                    href="?page={{ conversations.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
-                        Anterior
-                    </a>
-                </li>
-                {% endif %}
-
-                {% for num in conversations.paginator.page_range %}
-                    {% if num >= conversations.number|add:'-2' and num <= conversations.number|add:'2' %}
-
-                        {% if conversations.number == num %}
-                        <li class="page-item active">
-                            <span class="page-link">{{ num }}</span>
-                        </li>
-                        {% else %}
-                        <li class="page-item">
-                            <a class="page-link"
-                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
-                                {{ num }}
-                            </a>
-                        </li>
-                        {% endif %}
-
-                    {% endif %}
-                {% endfor %}
-
-                {% if conversations.has_next %}
-                <li class="page-item">
-                    <a class="page-link"
-                    href="?page={{ conversations.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}">
-                        Siguiente
-                    </a>
-                </li>
-                {% endif %}
-
-            </ul>
-        </nav>
-    </div>
-    {% endif %}
-
-{% endif %}
 
             </div>
+
+
+            <!-- ================================================= -->
+            <!-- PAGINACIÓN -->
+            <!-- ================================================= -->
+
+            {% if current_channel == 'email' %}
+
+                {% if current_folder == 'drafts' %}
+
+                    {% with page_obj=email_drafts %}
+
+                        {% if page_obj and page_obj.paginator.num_pages > 1 %}
+
+                        <div class="border-top p-2 bg-white">
+
+                            <nav>
+
+                                <ul class="pagination pagination-sm justify-content-center mb-0">
+
+                                    {% if page_obj.has_previous %}
+
+                                    <li class="page-item">
+
+                                        <a
+                                            class="page-link"
+                                            href="?page={{ page_obj.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                        >
+                                            Anterior
+                                        </a>
+
+                                    </li>
+
+                                    {% endif %}
+
+
+                                    {% for num in page_obj.paginator.page_range %}
+
+                                        {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+
+                                            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+
+                                                {% if page_obj.number == num %}
+
+                                                <span class="page-link">
+                                                    {{ num }}
+                                                </span>
+
+                                                {% else %}
+
+                                                <a
+                                                    class="page-link"
+                                                    href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                                >
+                                                    {{ num }}
+                                                </a>
+
+                                                {% endif %}
+
+                                            </li>
+
+                                        {% endif %}
+
+                                    {% endfor %}
+
+
+                                    {% if page_obj.has_next %}
+
+                                    <li class="page-item">
+
+                                        <a
+                                            class="page-link"
+                                            href="?page={{ page_obj.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                        >
+                                            Siguiente
+                                        </a>
+
+                                    </li>
+
+                                    {% endif %}
+
+                                </ul>
+
+                            </nav>
+
+                        </div>
+
+                        {% endif %}
+
+                    {% endwith %}
+
+
+                {% elif email_rows.paginator.num_pages > 1 %}
+
+                <div class="border-top p-2 bg-white">
+
+                    <nav>
+
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+
+                            {% if email_rows.has_previous %}
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="?page={{ email_rows.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                >
+                                    Anterior
+                                </a>
+
+                            </li>
+
+                            {% endif %}
+
+
+                            {% for num in email_rows.paginator.page_range %}
+
+                                {% if num >= email_rows.number|add:'-2' and num <= email_rows.number|add:'2' %}
+
+                                    {% if email_rows.number == num %}
+
+                                    <li class="page-item active">
+
+                                        <span class="page-link">
+                                            {{ num }}
+                                        </span>
+
+                                    </li>
+
+                                    {% else %}
+
+                                    <li class="page-item">
+
+                                        <a
+                                            class="page-link"
+                                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                        >
+                                            {{ num }}
+                                        </a>
+
+                                    </li>
+
+                                    {% endif %}
+
+                                {% endif %}
+
+                            {% endfor %}
+
+
+                            {% if email_rows.has_next %}
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="?page={{ email_rows.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_folder %}&folder={{ current_folder }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                >
+                                    Siguiente
+                                </a>
+
+                            </li>
+
+                            {% endif %}
+
+                        </ul>
+
+                    </nav>
+
+                </div>
+
+                {% endif %}
+
+
+            {% else %}
+
+
+                {% if conversations.paginator.num_pages > 1 %}
+
+                <div class="border-top p-2 bg-white">
+
+                    <nav>
+
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+
+                            {% if conversations.has_previous %}
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="?page={{ conversations.previous_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                >
+                                    Anterior
+                                </a>
+
+                            </li>
+
+                            {% endif %}
+
+
+                            {% for num in conversations.paginator.page_range %}
+
+                                {% if num >= conversations.number|add:'-2' and num <= conversations.number|add:'2' %}
+
+                                    {% if conversations.number == num %}
+
+                                    <li class="page-item active">
+
+                                        <span class="page-link">
+                                            {{ num }}
+                                        </span>
+
+                                    </li>
+
+                                    {% else %}
+
+                                    <li class="page-item">
+
+                                        <a
+                                            class="page-link"
+                                            href="?page={{ num }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                        >
+                                            {{ num }}
+                                        </a>
+
+                                    </li>
+
+                                    {% endif %}
+
+                                {% endif %}
+
+                            {% endfor %}
+
+
+                            {% if conversations.has_next %}
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="?page={{ conversations.next_page_number }}{% if current_channel %}&channel={{ current_channel }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                                >
+                                    Siguiente
+                                </a>
+
+                            </li>
+
+                            {% endif %}
+
+                        </ul>
+
+                    </nav>
+
+                </div>
+
+                {% endif %}
+
+            {% endif %}
+
         </div>
 
-    <div id="conversation-splitter" aria-label="Redimensionar panel" class="comm-splitter mx-1 d-none d-md-block"></div>
+    </div>
 
-    <!-- Column 3: Conversation Detail (Rest) -->
+
+    <!-- ===================================================== -->
+    <!-- SPLITTER -->
+    <!-- ===================================================== -->
+
+    <div
+        id="conversation-splitter"
+        aria-label="Redimensionar panel"
+        class="comm-splitter mx-1 d-none d-md-block"
+    ></div>
+
+
+    <!-- ===================================================== -->
+    <!-- COLUMNA 2: DETALLE DE CONVERSACIÓN -->
+    <!-- ===================================================== -->
+
     <div class="comm-detail-panel-wrap">
-        <button type="button" id="conversation-detail-back" class="comm-mobile-detail-back" aria-label="Volver a la lista">
+
+        <button
+            type="button"
+            id="conversation-detail-back"
+            class="comm-mobile-detail-back"
+            aria-label="Volver a la lista"
+        >
             <i class="fas fa-arrow-left"></i>
             <span>Volver</span>
         </button>
-        <div class="comm-dashboard-panel comm-detail-panel bg-white d-flex flex-column h-100 position-relative p-0 border rounded-4 shadow-sm overflow-hidden flex-grow-1{% if current_channel == 'email' %} comm-mail-shell-detail{% endif %}{% if current_channel != 'email' %} comm-detail-panel-default{% endif %}" id="conversation-detail-panel">
+
+
+        <div
+            class="comm-dashboard-panel comm-detail-panel bg-white d-flex flex-column h-100 position-relative p-0 border rounded-4 shadow-sm overflow-hidden flex-grow-1{% if current_channel == 'email' %} comm-mail-shell-detail{% endif %}{% if current_channel != 'email' %} comm-detail-panel-default{% endif %}"
+            id="conversation-detail-panel"
+        >
+
             <!-- Empty State -->
-            <div class="comm-empty-state d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+
+            <div
+                class="comm-empty-state d-flex flex-column align-items-center justify-content-center h-100 text-muted"
+            >
+
                 <div class="bg-white p-4 rounded-circle shadow-sm mb-3">
+
                     <i class="far fa-comments fa-3x text-primary opacity-50"></i>
+
                 </div>
+
                 <h5>Selecciona una conversación</h5>
-                <p class="small">Elige un chat de la lista para ver los detalles aquí.</p>
+
+                <p class="small">
+                    Elige un chat de la lista para ver los detalles aquí.
+                </p>
+
                 <div class="mt-4 text-center">
-                    <p class="small text-muted mb-1">Ejemplo: Conversación con</p>
-                    <div class="fw-bold">Gabriel Scola</div>
+
+                    <p class="small text-muted mb-1">
+                        Ejemplo: Conversación con
+                    </p>
+
+                    <div class="fw-bold">
+                        Gabriel Scola
+                    </div>
+
                 </div>
+
             </div>
+
         </div>
+
     </div>
 
-        <!-- Columna 2: Lista de Conversaciones -->
-        <!--<div class="col-md-4 border-end bg-white d-flex flex-column p-3" style="overflow-y: auto;">
-              <h5 class="p-2 bg-warning text-dark rounded">Inbox General (No asignadas)</h5>
-            <div class="mb-3">
-                {% if unassigned_conversations %}
-                    {% for conversation in unassigned_conversations %}
-                        <div class="mb-2">
-                            <strong>{{ conversation.contact.client.name|default:"Contacto Desconocido" }}</strong><br>
-                            <small class="text-muted">{{ conversation.last_message_preview|truncatewords:10 }}</small>
-                            <small class="badge bg-{% if conversation.channel == 'whatsapp' %}success{% else %}primary{% endif %}"> - {{ conversation.get_channel_display }}</small><br>
-                            <a href="{% url 'communications:conversation_detail' conversation.id %}" class="btn btn-sm btn-outline-dark mt-1">Tomar conversación</a>
-                        </div>
-                        <hr>
-                    {% endfor %}
-                   
-                    <nav aria-label="Paginación de conversaciones">
-                        <ul class="pagination justify-content-center">
-                            {% if unassigned_conversations.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ unassigned_conversations.previous_page_number }}" aria-label="Anterior">
-                                        <span aria-hidden="true">&laquo;</span>
-                                    </a>
-                                </li>
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">&laquo;</span>
-                                </li>
-                            {% endif %}
+</div>
 
-                            {% for num in unassigned_conversations.paginator.page_range %}
-                                {% if num == unassigned_conversations.number %}
-                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                                {% elif num > unassigned_conversations.number|add:-3 and num < unassigned_conversations.number|add:3 %}
-                                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
-                                {% endif %}
-                            {% endfor %}
 
-                            {% if unassigned_conversations.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ unassigned_conversations.next_page_number }}" aria-label="Siguiente">
-                                        <span aria-hidden="true">&raquo;</span>
-                                    </a>
-                                </li>
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">&raquo;</span>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                {% else %}
-                    <p>No hay conversaciones sin asignar</p>
-                {% endif %}
+<!-- ========================================================= -->
+<!-- MODAL NUEVA CONVERSACIÓN WHATSAPP -->
+<!-- ========================================================= -->
+
+<div
+    class="modal fade"
+    id="newWhatsappConversationModal"
+    tabindex="-1"
+    aria-labelledby="newWhatsappConversationModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <!-- HEADER -->
+
+            <div class="modal-header">
+
+                <div>
+
+                    <h5
+                        class="modal-title mb-1"
+                        id="newWhatsappConversationModalLabel"
+                    >
+                        <i class="fab fa-whatsapp text-success me-2"></i>
+                        Nueva conversación
+                    </h5>
+
+                    <small class="text-muted">
+                        Buscá un cliente para iniciar la conversación
+                    </small>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Cerrar"
+                ></button>
+
             </div>
 
-           
-        </div>-->
 
+            <!-- BODY -->
+
+            <div class="modal-body">
+
+                <!-- Buscador -->
+
+                <div class="position-relative">
+
+                    <div class="input-group">
+
+                        <span class="input-group-text bg-white">
+
+                            <i class="fas fa-search text-muted"></i>
+
+                        </span>
+
+
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="whatsappClientSearch"
+                            placeholder="Buscar cliente..."
+                            autocomplete="off"
+                        >
+
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary d-none"
+                            id="clearWhatsappClientSearch"
+                            title="Limpiar búsqueda"
+                        >
+                            <i class="fas fa-times"></i>
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Estado inicial -->
+
+                <div
+                    id="whatsappClientSearchInitial"
+                    class="text-center py-4 text-muted"
+                >
+
+                    <i class="fas fa-users fa-2x mb-2 opacity-50"></i>
+
+                    <div>
+                        Escribí el nombre del cliente
+                    </div>
+
+                    <small>
+                        Ingresá al menos 2 caracteres
+                    </small>
+
+                </div>
+
+
+                <!-- Loading -->
+
+                <div
+                    id="whatsappClientSearchLoading"
+                    class="text-center py-4 d-none"
+                >
+
+                    <div
+                        class="spinner-border text-success mb-2"
+                        role="status"
+                    >
+
+                        <span class="visually-hidden">
+                            Buscando...
+                        </span>
+
+                    </div>
+
+                    <div class="text-muted">
+                        Buscando clientes...
+                    </div>
+
+                </div>
+
+
+                <!-- Resultados -->
+
+                <div
+                    id="whatsappClientSearchResults"
+                    class="list-group mt-3"
+                ></div>
+
+
+                <!-- Sin resultados -->
+
+                <div
+                    id="whatsappClientSearchEmpty"
+                    class="text-center py-4 text-muted d-none"
+                >
+
+                    <i class="fas fa-user-slash fa-2x mb-2 opacity-50"></i>
+
+                    <div>
+                        No se encontraron clientes
+                    </div>
+
+                    <small>
+                        Probá con otro nombre.
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <!-- FOOTER -->
+
+            <div class="modal-footer">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Cancelar
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
 </div>
+
+
+<!-- ========================================================= -->
+<!-- JAVASCRIPT NUEVA CONVERSACIÓN WHATSAPP -->
+<!-- ========================================================= -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const newConversationButton =
+        document.getElementById('btnNewWhatsappConversation');
+
+    const modalElement =
+        document.getElementById('newWhatsappConversationModal');
+
+    const searchInput =
+        document.getElementById('whatsappClientSearch');
+
+    const clearButton =
+        document.getElementById('clearWhatsappClientSearch');
+
+    const resultsContainer =
+        document.getElementById('whatsappClientSearchResults');
+
+    const initialMessage =
+        document.getElementById('whatsappClientSearchInitial');
+
+    const loadingMessage =
+        document.getElementById('whatsappClientSearchLoading');
+
+    const emptyMessage =
+        document.getElementById('whatsappClientSearchEmpty');
+
+
+    /*
+     * Verificación de elementos.
+     */
+
+    if (
+        !newConversationButton ||
+        !modalElement ||
+        !searchInput ||
+        !clearButton ||
+        !resultsContainer ||
+        !initialMessage ||
+        !loadingMessage ||
+        !emptyMessage
+    ) {
+        return;
+    }
+
+
+    /*
+     * URL para buscar clientes.
+     */
+
+    const searchUrl =
+        "{% url 'communications:search_clients_for_whatsapp' %}";
+
+
+    /*
+     * Instancia Bootstrap del modal.
+     *
+     * El modal ya está correctamente ubicado fuera
+     * del dashboard, por lo que NO necesitamos moverlo
+     * dinámicamente al body.
+     */
+
+    const whatsappModal =
+        new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true
+        });
+
+
+    /*
+     * Abrir modal.
+     */
+
+    newConversationButton.addEventListener('click', function () {
+
+        searchInput.value = '';
+
+        resultsContainer.innerHTML = '';
+
+        initialMessage.classList.remove('d-none');
+
+        loadingMessage.classList.add('d-none');
+
+        emptyMessage.classList.add('d-none');
+
+        clearButton.classList.add('d-none');
+
+
+        whatsappModal.show();
+
+
+        setTimeout(function () {
+
+            searchInput.focus();
+
+        }, 300);
+
+    });
+
+
+    /*
+     * Cuando se cierra el modal limpiamos todo.
+     */
+
+    modalElement.addEventListener(
+        'hidden.bs.modal',
+        function () {
+
+            searchInput.value = '';
+
+            resultsContainer.innerHTML = '';
+
+            initialMessage.classList.remove('d-none');
+
+            loadingMessage.classList.add('d-none');
+
+            emptyMessage.classList.add('d-none');
+
+            clearButton.classList.add('d-none');
+
+        }
+    );
+
+
+    /*
+     * Debounce.
+     *
+     * Evita hacer una consulta al servidor
+     * por cada tecla inmediatamente.
+     */
+
+    let searchTimeout = null;
+
+
+    searchInput.addEventListener('input', function () {
+
+        const query =
+            searchInput.value.trim();
+
+
+        clearButton.classList.toggle(
+            'd-none',
+            query.length === 0
+        );
+
+
+        clearTimeout(searchTimeout);
+
+
+        /*
+         * Menos de 2 caracteres.
+         */
+
+        if (query.length < 2) {
+
+            resultsContainer.innerHTML = '';
+
+            initialMessage.classList.remove('d-none');
+
+            loadingMessage.classList.add('d-none');
+
+            emptyMessage.classList.add('d-none');
+
+            return;
+        }
+
+
+        /*
+         * Esperamos 300 ms antes de consultar.
+         */
+
+        searchTimeout = setTimeout(function () {
+
+            searchWhatsappClients(query);
+
+        }, 300);
+
+    });
+
+
+    /*
+     * Limpiar búsqueda.
+     */
+
+    clearButton.addEventListener('click', function () {
+
+        searchInput.value = '';
+
+        resultsContainer.innerHTML = '';
+
+        initialMessage.classList.remove('d-none');
+
+        loadingMessage.classList.add('d-none');
+
+        emptyMessage.classList.add('d-none');
+
+        clearButton.classList.add('d-none');
+
+        searchInput.focus();
+
+    });
+
+
+    /*
+     * Buscar clientes.
+     */
+
+    async function searchWhatsappClients(query) {
+
+        initialMessage.classList.add('d-none');
+
+        emptyMessage.classList.add('d-none');
+
+        loadingMessage.classList.remove('d-none');
+
+        resultsContainer.innerHTML = '';
+
+
+        try {
+
+            const response = await fetch(
+                searchUrl + '?q=' + encodeURIComponent(query),
+                {
+                    method: 'GET',
+
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }
+            );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    'Error HTTP ' + response.status
+                );
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            loadingMessage.classList.add('d-none');
+
+
+            /*
+             * Sin resultados.
+             */
+
+            if (
+                !data.results ||
+                data.results.length === 0
+            ) {
+
+                emptyMessage.classList.remove('d-none');
+
+                return;
+            }
+
+
+            /*
+             * Mostrar resultados.
+             */
+
+            data.results.forEach(function (client) {
+
+                const item =
+                    document.createElement('a');
+
+
+                item.href =
+                    client.url;
+
+
+                item.className =
+                    'list-group-item list-group-item-action';
+
+
+                item.innerHTML = `
+                    <div class="d-flex align-items-center">
+
+                        <div
+                            class="rounded-circle bg-success-subtle
+                                   text-success d-flex
+                                   align-items-center
+                                   justify-content-center
+                                   me-3"
+                            style="
+                                width: 42px;
+                                height: 42px;
+                                flex: 0 0 42px;
+                            "
+                        >
+                            <i class="fas fa-user"></i>
+                        </div>
+
+
+                        <div class="flex-grow-1">
+
+                            <div class="fw-semibold">
+                                ${escapeHtml(client.name)}
+                            </div>
+
+                            <small class="text-muted">
+                                Iniciar conversación por WhatsApp
+                            </small>
+
+                        </div>
+
+
+                        <div class="text-success">
+
+                            <i class="fab fa-whatsapp fa-lg"></i>
+
+                        </div>
+
+                    </div>
+                `;
+
+
+                resultsContainer.appendChild(item);
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                'Error buscando clientes:',
+                error
+            );
+
+
+            loadingMessage.classList.add('d-none');
+
+
+            resultsContainer.innerHTML = `
+                <div class="alert alert-danger mb-0">
+
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+
+                    No se pudo realizar la búsqueda.
+                    Intentá nuevamente.
+
+                </div>
+            `;
+
+        }
+
+    }
+
+
+    /*
+     * Evita insertar directamente HTML proveniente
+     * de la base de datos.
+     */
+
+    function escapeHtml(value) {
+
+        const div =
+            document.createElement('div');
+
+        div.textContent =
+            value ?? '';
+
+        return div.innerHTML;
+
+    }
+
+});
+</script>
+
+
 {% endblock %}
 
+
 {% block comm_js %}
+
 <script src="{% static 'communications/js/dashboard.js' %}"></script>
+
 {# communications_base.js ya se carga en communications_base.html #}
 {# conversation_content.js se carga con el partial de la conversación #}
+
 {% endblock %}

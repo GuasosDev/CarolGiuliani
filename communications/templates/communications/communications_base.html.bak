@@ -19,7 +19,6 @@
     {% include "communications/partials/email_toolbar.html" %}
 
     {% else %}
-    
     <!-- Status Filter Buttons (Exact match to image) -->
     <div class="comm-status-filter-bar d-flex align-items-center gap-2 pe-3 border-end">
         <!-- Todos / Inbox -->
@@ -31,11 +30,6 @@
             <span class="filter-count">{{ current_filter_total }}</span>
         </a>
 
-
-
-
-<!-- Status Filter Buttons (Exact match to image) -->
-<div class="comm-status-filter-bar d-flex align-items-center gap-2 pe-3 border-end">
         <!-- Activos -->
         <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
            class="filter-btn {% if current_status == 'normal' %}active{% endif %}" title="Activos">
@@ -62,12 +56,7 @@
             </div>
             <span class="filter-count">{{ closed_count }}</span>
         </a>
-       
-
-
     </div>
-    
-    
     {% endif %}
 
     {% if current_channel != 'email' %}
@@ -98,7 +87,6 @@
 {% endblock %}
 
 {% block content %}
-
 <div class="modal fade" id="transferModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
