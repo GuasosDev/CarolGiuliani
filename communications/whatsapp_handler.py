@@ -629,10 +629,42 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         return False
 
 
+def _agent_started_whatsapp_outreach_today(contact, start, end):
+    """
+    True si hoy el contacto recibió primero un mensaje nuestro (p. ej. plantilla),
+    no si él escribió primero.
+
+    Así, si el agente contactó al cliente y éste responde, no se le muestra
+    el menú de bienvenida como si hubiera iniciado él el chat.
+    """
+    qs = (
+        Message.objects.filter(
+            conversation__contact=contact,
+            message_type='whatsapp',
+            created_at__gte=start,
+            created_at__lt=end,
+        )
+        .order_by('created_at', 'id')
+    )
+
+    for msg in qs.iterator():
+        meta = msg.metadata or {}
+        # Ignorar el propio menú de bienvenida (también es outbound)
+        if msg.direction == 'outbound' and meta.get('welcome_menu'):
+            continue
+        if msg.direction == 'outbound':
+            return True
+        if msg.direction == 'inbound':
+            return False
+    return False
+
+
 def _handle_welcome_menu(handler, contact, conversation, text, force_show=False):
     """
     Show the welcome menu on the first inbound text of the day, then keep it
     suppressed until the next day (00:00 local time), unless forced.
+
+    No mostrar si hoy la conversación la inició el equipo (plantilla / outbound).
     """
     text_stripped = text.strip().lower()
     if not text_stripped:
@@ -681,6 +713,15 @@ def _handle_welcome_menu(handler, contact, conversation, text, force_show=False)
                 return
     except ContactMenuState.DoesNotExist:
         pass
+
+    # Si hoy iniciamos nosotros (plantilla / mensaje saliente), no tratar la
+    # respuesta del cliente como "primer contacto" con menú de bienvenida.
+    if _agent_started_whatsapp_outreach_today(contact, start, end):
+        logger.info(
+            "Skip welcome menu for contact %s: agent-initiated outreach today",
+            contact.pk,
+        )
+        return
 
     # 2. Show menu for the first inbound text of the day
     active_menu = WelcomeMenu.objects.filter(is_active=True).first()
