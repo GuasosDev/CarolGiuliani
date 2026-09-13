@@ -750,6 +750,10 @@ body.dark-mode .comm-client-form-btn-ghost {
     width: min(94vw, 400px) !important;
     max-width: 400px !important;
 }
+#modal .modal-content:has(.comm-contact-create-modal) {
+    width: min(94vw, 520px) !important;
+    max-width: 520px !important;
+}
 
 .comm-apple-modal {
     color: #1d1d1f;

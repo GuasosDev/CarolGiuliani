@@ -5,7 +5,7 @@
 
 {% block extra_css %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}">
+<link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}?v=apple-modals-5">
 {% endblock %}
 
 {% block content %}
@@ -17,9 +17,13 @@
         </div>
         <div class="col-md-5 text-md-end mt-3 mt-md-0">
             <div class="d-flex gap-2 justify-content-md-end">
-                <a href="{% url 'communications:contact_create' %}" class="btn btn-light fw-bold px-3 border border-secondary-subtle text-dark-emphasis rounded-pill btn-sm">
+                <button type="button"
+                    class="btn btn-light fw-bold px-3 border border-secondary-subtle text-dark-emphasis rounded-pill btn-sm"
+                    hx-get="{% url 'communications:contact_create' %}"
+                    hx-target="#modal-body"
+                    onclick="openModal()">
                     <i class="fas fa-user-plus me-2 text-muted"></i> Nuevo Contacto
-                </a>
+                </button>
                 <a href="{% url 'communications:quick_replies' %}" class="btn btn-light fw-bold px-3 border border-secondary-subtle text-dark-emphasis rounded-pill btn-sm">
                     <i class="fas fa-keyboard me-2 text-muted"></i> Respuestas Rápidas
                 </a>

@@ -1,0 +1,66 @@
+<div class="comm-apple-modal comm-contact-create-modal">
+<div class="modal-header">
+    <div class="comm-apple-heading">
+        <p class="comm-apple-kicker">Comunicaciones</p>
+        <h3 class="modal-title">{{ title }}</h3>
+    </div>
+    <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close"></button>
+</div>
+
+<form hx-post="{{ action_url }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <div class="modal-body">
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger py-2 mb-2">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <section class="comm-apple-section">
+            <div class="mb-2">
+                <label for="{{ form.client.id_for_label }}" class="form-label">{{ form.client.label }}</label>
+                {{ form.client }}
+                {% if form.client.errors %}<div class="text-danger small">{{ form.client.errors }}</div>{% endif %}
+            </div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label for="{{ form.whatsapp_number.id_for_label }}" class="form-label">{{ form.whatsapp_number.label }}</label>
+                    {{ form.whatsapp_number }}
+                    {% if form.whatsapp_number.errors %}<div class="text-danger small">{{ form.whatsapp_number.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.preferred_channel.id_for_label }}" class="form-label">{{ form.preferred_channel.label }}</label>
+                    {{ form.preferred_channel }}
+                    {% if form.preferred_channel.errors %}<div class="text-danger small">{{ form.preferred_channel.errors }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="mt-2">
+                <label for="{{ form.notes.id_for_label }}" class="form-label">{{ form.notes.label }}</label>
+                {{ form.notes }}
+                {% if form.notes.errors %}<div class="text-danger small">{{ form.notes.errors }}</div>{% endif %}
+            </div>
+        </section>
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm comm-apple-btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-sm comm-apple-btn-primary">Guardar</button>
+    </div>
+</form>
+</div>
+
+<script>
+    (function () {
+        var root = document.querySelector('.comm-contact-create-modal');
+        if (!root) return;
+        root.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(function (el) {
+            if (el.type === 'checkbox' || el.type === 'radio' || el.type === 'hidden') return;
+            el.classList.add('form-control', 'form-control-sm', 'comm-apple-field');
+            if (el.tagName === 'SELECT') {
+                el.classList.add('form-select', 'form-select-sm');
+                el.classList.remove('form-control');
+            }
+            if (el.tagName === 'TEXTAREA') {
+                el.setAttribute('rows', '3');
+            }
+        });
+    })();
+</script>

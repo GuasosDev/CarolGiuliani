@@ -1295,8 +1295,14 @@ class ContactCreateView(GenericCreateView):
     model = Contact
     fields = ['client', 'whatsapp_number', 'preferred_channel', 'notes']
     title = "Nuevo Contacto de Comunicación"
+    template_name = 'communications/contact_form.html'
     success_url = reverse_lazy('communications:dashboard')
 
+    def get(self, request, *args, **kwargs):
+        # Este template es un partial para #modal; sin HTMX no tiene layout.
+        if not request.headers.get('HX-Request'):
+            return redirect('communications:agent_dashboard')
+        return super().get(request, *args, **kwargs)
 
 @login_required
 def conversation_detail(request, pk):
