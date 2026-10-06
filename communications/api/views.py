@@ -10,7 +10,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Q, Count
 from ..models import (
-    Contact, Conversation, Message, InternalNote, QuickReply,
+    Contact, ContactMenuState, Conversation, Message, InternalNote, QuickReply,
     WhatsAppAccount, EmailAccount, EmailTemplate, EmailSignature
 )
 from .serializers import (
@@ -60,9 +60,21 @@ class ConversationViewSet(viewsets.ModelViewSet):
         if search:
             queryset = queryset.filter(
                 Q(contact__client__name__icontains=search) |
+                Q(contact__client__email__icontains=search) |
+                Q(contact__client__phone__icontains=search) |
+                Q(contact__whatsapp_number__icontains=search) |
                 Q(subject__icontains=search) |
-                Q(last_message_preview__icontains=search)
-            )
+                Q(last_message_preview__icontains=search) |
+                Q(messages__content__icontains=search) |
+                Q(messages__sender_name__icontains=search) |
+                Q(messages__email_data__subject__icontains=search) |
+                Q(messages__email_data__from_address__icontains=search) |
+                Q(messages__email_data__to_addresses__icontains=search) |
+                Q(messages__email_data__cc_addresses__icontains=search) |
+                Q(messages__email_data__bcc_addresses__icontains=search) |
+                Q(messages__email_data__plain_body__icontains=search) |
+                Q(messages__email_data__html_body__icontains=search)
+            ).distinct()
         
         return queryset.order_by('-updated_at')
     
@@ -246,9 +258,14 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
 
         return Response({'status': 'sent', 'message_ids': message_ids})
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def send_template(self, request, pk=None):
         account = self.get_object()
+        if not account.is_active:
+            return Response(
+                {'error': 'La cuenta de WhatsApp está deshabilitada.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         from core.models import CompanySettings
         cs = CompanySettings.load()
@@ -272,8 +289,11 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         if conversation_id not in (None, '', [], 'null'):
             try:
                 conversation = Conversation.objects.get(id=conversation_id)
-            except Conversation.DoesNotExist:
-                conversation = None
+            except (Conversation.DoesNotExist, ValueError, TypeError):
+                return Response(
+                    {'error': 'No se encontró la conversación.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
         else:
             contact = Contact.objects.filter(whatsapp_number=to_number).first()
             if contact is None:
@@ -299,18 +319,41 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
                 )
 
         if conversation is not None:
+            if conversation.channel != 'whatsapp':
+                return Response(
+                    {'error': 'La conversación seleccionada no es de WhatsApp.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            conversation_number = normalize_phone_number(
+                conversation.contact.get_display_phone()
+            ) if conversation.contact_id else ''
+            if conversation_number != to_number:
+                return Response(
+                    {'error': 'El destinatario no coincide con el contacto de la conversación.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             can_take = (
                 conversation.assigned_to_id is None
                 or conversation.assigned_to_id == request.user.id
                 or request.user.is_superuser
                 or request.user.groups.filter(name='Supervisor').exists()
             )
-            if can_take:
-                assign_conversation_to_agent(conversation, agent=request.user, assigned_by=request.user)
-                if getattr(conversation, 'closed_at', None):
-                    conversation.closed_at = None
-                    conversation.status = 'normal'
-                    conversation.save(update_fields=['closed_at', 'status', 'updated_at'])
+            if not can_take:
+                return Response(
+                    {'error': 'No tienes permiso para enviar a esta conversación.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            assign_conversation_to_agent(
+                conversation,
+                agent=request.user,
+                assigned_by=request.user,
+            )
+            if getattr(conversation, 'closed_at', None):
+                conversation.closed_at = None
+                conversation.status = 'normal'
+                conversation.save(update_fields=['closed_at', 'status', 'updated_at'])
 
         body_params = []
         try:
@@ -344,6 +387,10 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         )
 
         if success:
+            if conversation and conversation.contact_id:
+                ContactMenuState.objects.filter(
+                    contact_id=conversation.contact_id
+                ).delete()
             return Response({'status': 'sent', 'message_id': result})
         return Response({'error': result}, status=status.HTTP_400_BAD_REQUEST)
 

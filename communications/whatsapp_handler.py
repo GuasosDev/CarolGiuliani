@@ -512,7 +512,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             contact=contact,
             channel='whatsapp',
             status__in=['normal', 'open', 'assigned', 'pending']
-        ).first()
+        ).order_by('-last_message_at', '-updated_at', '-pk').first()
         
         if not conversation:
             conversation = Conversation.objects.create(
@@ -614,7 +614,14 @@ def process_incoming_message(whatsapp_account, msg_data, value):
 
         # ── Welcome Menu Logic (only for text messages) ──────────────────────
         if message_type == 'text':
-            _handle_welcome_menu(handler, contact, conversation, content, force_show=was_closed)
+            _handle_welcome_menu(
+                handler,
+                contact,
+                conversation,
+                content,
+                inbound_message=message,
+                force_show=was_closed,
+            )
         # ─────────────────────────────────────────────────────────────────────
 
         # Broadcast via WebSocket
@@ -659,7 +666,36 @@ def _agent_started_whatsapp_outreach_today(contact, start, end):
     return False
 
 
-def _handle_welcome_menu(handler, contact, conversation, text, force_show=False):
+def _has_unanswered_template(conversation, inbound_message):
+    prior_messages = Message.objects.filter(
+        conversation=conversation,
+        message_type='whatsapp',
+        created_at__lt=inbound_message.created_at,
+    )
+    last_inbound = (
+        prior_messages.filter(direction='inbound')
+        .order_by('-created_at', '-id')
+        .first()
+    )
+    template_messages = prior_messages.filter(
+        direction='outbound',
+        metadata__template_name__isnull=False,
+    )
+    if last_inbound:
+        template_messages = template_messages.filter(
+            created_at__gt=last_inbound.created_at
+        )
+    return template_messages.exists()
+
+
+def _handle_welcome_menu(
+    handler,
+    contact,
+    conversation,
+    text,
+    inbound_message,
+    force_show=False,
+):
     """
     Show the welcome menu on the first inbound text of the day, then keep it
     suppressed until the next day (00:00 local time), unless forced.
@@ -714,9 +750,12 @@ def _handle_welcome_menu(handler, contact, conversation, text, force_show=False)
     except ContactMenuState.DoesNotExist:
         pass
 
-    # Si hoy iniciamos nosotros (plantilla / mensaje saliente), no tratar la
-    # respuesta del cliente como "primer contacto" con menú de bienvenida.
-    if _agent_started_whatsapp_outreach_today(contact, start, end):
+    # A template can be answered after midnight; keep its conversation with
+    # the initiating agent and do not restart the welcome flow.
+    if (
+        _has_unanswered_template(conversation, inbound_message)
+        or _agent_started_whatsapp_outreach_today(contact, start, end)
+    ):
         logger.info(
             "Skip welcome menu for contact %s: agent-initiated outreach today",
             contact.pk,

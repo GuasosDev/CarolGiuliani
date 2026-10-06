@@ -1577,6 +1577,20 @@ body .modal-dialog.custom-conversation-modal .modal-body {
 .email-read-body {
     margin-top: 0.25rem !important;
 }
+.email-quoted-history {
+    margin-top: 0.75rem;
+    border-top: 1px solid #dee2e6;
+    padding-top: 0.5rem;
+    color: #6c757d;
+}
+.email-quoted-history > summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    user-select: none;
+}
+.email-quoted-history[open] > summary {
+    margin-bottom: 0.5rem;
+}
 .email-read-body > *:first-child,
 .email-read-pane-header .email-read-subject {
     margin-top: 0 !important;

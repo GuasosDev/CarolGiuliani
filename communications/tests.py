@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
+from rest_framework.permissions import IsAuthenticated
+from unittest.mock import Mock, patch
 
 from clients.models import Client
+from communications.api.views import WhatsAppAccountViewSet
 from communications.assignment_system import (
     assign_conversation_to_agent,
     reassign_conversation,
@@ -19,8 +22,67 @@ from communications.utils.email_threading import (
     normalize_email_subject,
     subjects_match,
 )
+from communications.utils.html_cleaner import email_html_to_text, limpiar_email_html
+from communications.whatsapp_handler import _has_unanswered_template
 
 User = get_user_model()
+
+
+class EmailHtmlRenderingTests(SimpleTestCase):
+    def test_search_preview_shows_plain_email_text_without_quoted_history(self):
+        preview = email_html_to_text(
+            '<div dir="auto">Mensaje reciente</div>'
+            '<div class="gmail_quote gmail_quote_container">'
+            '<blockquote><div>Contenido anterior</div></blockquote>'
+            '</div>'
+        )
+
+        self.assertEqual(preview, 'Mensaje reciente')
+
+    def test_gmail_quoted_history_is_collapsed_but_kept(self):
+        rendered = limpiar_email_html(
+            '<div>Mensaje nuevo</div>'
+            '<div class="gmail_quote gmail_quote_container">'
+            '<div class="gmail_attr">El mensaje anterior</div>'
+            '<blockquote>Contenido citado</blockquote>'
+            '</div>'
+        )
+
+        self.assertIn('Mensaje nuevo', rendered)
+        self.assertIn('<details class="email-quoted-history">', rendered)
+        self.assertIn('<summary>Mostrar mensaje citado</summary>', rendered)
+        self.assertIn('Contenido citado', rendered)
+
+
+class WhatsAppTemplatePermissionTests(SimpleTestCase):
+    def test_sending_templates_requires_authentication_not_staff_status(self):
+        self.assertEqual(
+            WhatsAppAccountViewSet.send_template.kwargs['permission_classes'],
+            [IsAuthenticated],
+        )
+
+    @patch('communications.whatsapp_handler.Message.objects.filter')
+    def test_template_reply_is_recognized_even_after_midnight(self, filter_messages):
+        conversation = object()
+        inbound_message = Mock(created_at=object())
+        prior_messages = Mock()
+        earlier_inbound_messages = Mock()
+        template_messages = Mock()
+
+        filter_messages.return_value = prior_messages
+        prior_messages.filter.side_effect = [
+            earlier_inbound_messages,
+            template_messages,
+        ]
+        earlier_inbound_messages.order_by.return_value.first.return_value = None
+        template_messages.exists.return_value = True
+
+        self.assertTrue(_has_unanswered_template(conversation, inbound_message))
+        filter_messages.assert_called_once_with(
+            conversation=conversation,
+            message_type='whatsapp',
+            created_at__lt=inbound_message.created_at,
+        )
 
 
 class EmailThreadingUtilsTest(SimpleTestCase):

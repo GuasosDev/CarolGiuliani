@@ -488,7 +488,18 @@ def dashboard(request):
                 Q(subject__icontains=search_q)
                 | Q(contact__client__name__icontains=search_q)
                 | Q(contact__client__email__icontains=search_q)
-            )
+                | Q(contact__client__phone__icontains=search_q)
+                | Q(last_message_preview__icontains=search_q)
+                | Q(messages__content__icontains=search_q)
+                | Q(messages__sender_name__icontains=search_q)
+                | Q(messages__email_data__subject__icontains=search_q)
+                | Q(messages__email_data__from_address__icontains=search_q)
+                | Q(messages__email_data__to_addresses__icontains=search_q)
+                | Q(messages__email_data__cc_addresses__icontains=search_q)
+                | Q(messages__email_data__bcc_addresses__icontains=search_q)
+                | Q(messages__email_data__plain_body__icontains=search_q)
+                | Q(messages__email_data__html_body__icontains=search_q)
+            ).distinct()
         if channel_filter == 'email' and status_filter == 'inbox':
             status_filter = 'all'
         # Enviados no debe ocultar hilos cerrados/transferidos: se listan por EmailMessage.
@@ -654,10 +665,19 @@ def dashboard(request):
 
                 if search_q:
                     email_rows_qs = email_rows_qs.filter(
-                        Q(subject__icontains=search_q) |
-                        Q(from_address__icontains=search_q) |
-                        Q(to_addresses__icontains=search_q)
-                    )
+                        Q(subject__icontains=search_q)
+                        | Q(from_address__icontains=search_q)
+                        | Q(to_addresses__icontains=search_q)
+                        | Q(cc_addresses__icontains=search_q)
+                        | Q(bcc_addresses__icontains=search_q)
+                        | Q(plain_body__icontains=search_q)
+                        | Q(html_body__icontains=search_q)
+                        | Q(message__content__icontains=search_q)
+                        | Q(message__sender_name__icontains=search_q)
+                        | Q(message__conversation__contact__client__name__icontains=search_q)
+                        | Q(message__conversation__contact__client__email__icontains=search_q)
+                        | Q(message__conversation__contact__client__phone__icontains=search_q)
+                    ).distinct()
 
                 # ==========================================
                 # ORDER

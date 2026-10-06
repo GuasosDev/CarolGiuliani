@@ -92,7 +92,11 @@
                                 </small>
 
                                 <div>
-                                    {{ message.content|striptags|linebreaks }}
+                                    {% if conversation.channel == 'email' %}
+                                        {{ message.render_content|safe }}
+                                    {% else %}
+                                        {{ message.content|striptags|linebreaks }}
+                                    {% endif %}
                                 </div>
 
                             </div>

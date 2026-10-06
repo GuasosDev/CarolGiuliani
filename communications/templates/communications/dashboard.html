@@ -68,7 +68,7 @@
 
             </a>
 
-
+           {% if current_channel == 'whatsapp' %}
             <button
                 type="button"
                 class="btn btn-success btn-sm d-flex align-items-center gap-2 ms-auto"
@@ -79,7 +79,7 @@
                 <span>Nueva conversación</span>
 
             </button>
-
+            {% endif %}
         </div>
 
     {% endif %}
