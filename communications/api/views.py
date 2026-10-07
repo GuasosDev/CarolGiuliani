@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from datetime import timedelta
+import mimetypes
 from django.db.models import Q, Count
 from ..models import (
     Contact, ContactMenuState, Conversation, Message, InternalNote, QuickReply,
@@ -27,6 +28,44 @@ from django.db import transaction
 from ..models import EmailQueue, EmailMessage, Message, EmailAttachment
 from django.core.files.base import ContentFile
 from ..tasks import send_queued_email, enqueue_send_queued_email
+
+
+WHATSAPP_TEMPLATE_HEADER_TYPES = {'image', 'video', 'document'}
+WHATSAPP_TEMPLATE_HEADER_EXTENSIONS = {
+    'image': {'.jpg', '.jpeg', '.png'},
+    'video': {'.mp4'},
+    'document': {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt'},
+}
+WHATSAPP_TEMPLATE_HEADER_MAX_SIZES = {
+    'image': 5 * 1024 * 1024,
+    'video': 16 * 1024 * 1024,
+    'document': 100 * 1024 * 1024,
+}
+
+
+def _validate_template_header_attachment(uploaded_file, header_type):
+    if header_type not in WHATSAPP_TEMPLATE_HEADER_TYPES:
+        return 'La plantilla no tiene un tipo de encabezado multimedia válido configurado.'
+    if uploaded_file is None:
+        return 'Selecciona un archivo para el encabezado de la plantilla.'
+
+    extension = (uploaded_file.name.rsplit('.', 1)[-1] if '.' in uploaded_file.name else '').lower()
+    extension = f'.{extension}' if extension else ''
+    if extension not in WHATSAPP_TEMPLATE_HEADER_EXTENSIONS[header_type]:
+        accepted = ', '.join(sorted(WHATSAPP_TEMPLATE_HEADER_EXTENSIONS[header_type]))
+        return f'El encabezado {header_type} requiere un archivo con extensión {accepted}.'
+
+    mime_type = (getattr(uploaded_file, 'content_type', '') or '').split(';', 1)[0].strip().lower()
+    expected_mime_type = mimetypes.guess_type(uploaded_file.name)[0]
+    if mime_type and mime_type != 'application/octet-stream' and mime_type != expected_mime_type:
+        return 'El tipo de archivo no coincide con su extensión.'
+
+    max_size = WHATSAPP_TEMPLATE_HEADER_MAX_SIZES[header_type]
+    if uploaded_file.size > max_size:
+        max_size_mb = max_size // (1024 * 1024)
+        return f'El archivo supera el límite de {max_size_mb} MB para encabezados {header_type}.'
+    return None
+
 
 class ConversationViewSet(viewsets.ModelViewSet):
     """API endpoint for conversations"""
@@ -285,6 +324,37 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         if not template_name or not language_code:
             return Response({'error': 'Template y lenguaje son obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        from core.models import CompanySettings
+
+        configured_template = next(
+            (
+                template for template in (cs.whatsapp_templates or [])
+                if isinstance(template, dict)
+                and template.get('name') == template_name
+                and template.get('language') == language_code
+            ),
+            None,
+        )
+        header_type = (configured_template or {}).get('header_type', '')
+        header_attachment = request.FILES.get('header_attachment')
+        if header_type and header_type not in WHATSAPP_TEMPLATE_HEADER_TYPES:
+            return Response(
+                {'error': 'La plantilla tiene un tipo de encabezado multimedia no válido en su configuración.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if header_type:
+            attachment_error = _validate_template_header_attachment(
+                header_attachment,
+                header_type,
+            )
+            if attachment_error:
+                return Response({'error': attachment_error}, status=status.HTTP_400_BAD_REQUEST)
+        elif header_attachment:
+            return Response(
+                {'error': 'La plantilla seleccionada no tiene un encabezado multimedia configurado.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         conversation = None
         if conversation_id not in (None, '', [], 'null'):
             try:
@@ -367,14 +437,36 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
 
         body_params = [str(p) for p in body_params if str(p).strip() != '']
 
-        components = None
+        components = []
+        header_media_id = None
+        if header_attachment:
+            header_attachment.seek(0)
+            upload_success, upload_result = handler.upload_media(header_attachment)
+            if not upload_success:
+                return Response(
+                    {'error': upload_result},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            header_media_id = upload_result
+            components.append({
+                'type': 'header',
+                'parameters': [{
+                    'type': header_type,
+                    header_type: {'id': header_media_id},
+                }],
+            })
+
         if body_params:
-            components = [{
+            components.append({
                 "type": "body",
                 "parameters": [{"type": "text", "text": p} for p in body_params]
-            }]
+            })
+        if not components:
+            components = None
 
         content_for_db = f"📄 Plantilla: {template_name}"
+        if header_attachment:
+            content_for_db += f" ({header_attachment.name})"
 
         success, result = handler.send_template_message(
             to_number=to_number,
@@ -383,7 +475,10 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
             components=components,
             conversation=conversation,
             content_for_db=content_for_db,
-            sender_user=request.user
+            sender_user=request.user,
+            media_type=header_type or None,
+            media_id=header_media_id,
+            uploaded_file=header_attachment,
         )
 
         if success:

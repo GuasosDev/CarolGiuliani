@@ -661,12 +661,25 @@
                                 <select id="waTemplateSelect" class="form-select">
                                     <option value="">Seleccionar…</option>
                                     {% for t in company_settings.whatsapp_templates %}
-                                    <option value="{{ t.name }}" data-language="{{ t.language }}" data-body-params="{{ t.body_params|default:0 }}">
+                                    <option value="{{ t.name }}" data-language="{{ t.language }}" data-body-params="{{ t.body_params|default:0 }}" data-header-type="{{ t.header_type|default:'' }}">
                                         {{ t.label|default:t.name }} ({{ t.language }})
                                     </option>
+                                    {% empty %}
+                                    <option value="" disabled>No hay plantillas configuradas</option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">Se usa para iniciar conversación fuera de la ventana de 24h.</div>
+                                <div class="form-text">
+                                    Se usa para iniciar conversación fuera de la ventana de 24h.
+                                    {% if not company_settings.whatsapp_templates %}
+                                    Agregá las plantillas aprobadas en Configuración &gt; Plantillas WhatsApp.
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div id="waTemplateHeaderAttachment" class="mb-3 d-none">
+                                <label class="form-label fw-bold" for="waTemplateHeaderFile">Archivo del encabezado</label>
+                                <input type="file" id="waTemplateHeaderFile" class="form-control">
+                                <div class="form-text" id="waTemplateHeaderHelp"></div>
+                                <div class="small text-muted mt-1" id="waTemplateHeaderFileName"></div>
                             </div>
                             <div id="waTemplateParams"></div>
                             <div class="alert alert-warning py-2 small d-none" id="waTemplateWarn"></div>
@@ -808,7 +821,7 @@
 {% if email_account %}
 <script src="{% static 'communications/js/email_recipient_suggest.js' %}?v=api-suggest-1"></script>
 {% endif %}
-<script src="{% static 'communications/js/conversation_content.js' %}?v=reply-bcc-2"></script>
+<script src="{% static 'communications/js/conversation_content.js' %}?v=reply-bcc-2-wa-template-header-1"></script>
 
 <!-- Modal de vista previa de adjuntos -->
 <div class="modal fade" id="attachmentPreviewModal" tabindex="-1" aria-labelledby="attachmentPreviewModalLabel" aria-hidden="true">

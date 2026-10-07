@@ -1112,7 +1112,10 @@
             warn.textContent = '';
         }
         if (paramsWrap) paramsWrap.innerHTML = '';
-        if (select) select.value = '';
+        if (select) {
+            select.value = '';
+            select.dispatchEvent(new Event('change'));
+        }
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
     };
 
@@ -1228,9 +1231,43 @@
         select.dataset.bound = '1';
         select.addEventListener('change', function renderParams() {
             var opt = select.options[select.selectedIndex];
+            var headerWrap = document.getElementById('waTemplateHeaderAttachment');
+            var headerInput = document.getElementById('waTemplateHeaderFile');
+            var headerHelp = document.getElementById('waTemplateHeaderHelp');
+            var headerFileName = document.getElementById('waTemplateHeaderFileName');
             var paramsWrap = document.getElementById('waTemplateParams');
             if (!paramsWrap) return;
             paramsWrap.innerHTML = '';
+            var headerType = opt ? (opt.getAttribute('data-header-type') || '') : '';
+            if (headerWrap) headerWrap.classList.toggle('d-none', !headerType);
+            if (headerInput) {
+                headerInput.value = '';
+                headerInput.disabled = !headerType;
+                headerInput.required = Boolean(headerType);
+                headerInput.accept = headerType === 'image'
+                    ? '.jpg,.jpeg,.png,image/jpeg,image/png'
+                    : (headerType === 'video'
+                        ? '.mp4,video/mp4'
+                        : (headerType === 'document'
+                            ? '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt'
+                            : ''));
+                if (!headerInput.dataset.filenameBound) {
+                    headerInput.dataset.filenameBound = '1';
+                    headerInput.addEventListener('change', function () {
+                        var selectedFile = headerInput.files && headerInput.files[0];
+                        if (headerFileName) {
+                            headerFileName.textContent = selectedFile
+                                ? selectedFile.name + ' (' + Math.ceil(selectedFile.size / 1024) + ' KB)'
+                                : '';
+                        }
+                    });
+                }
+            }
+            if (headerHelp) {
+                var headerLimits = { image: 'JPG o PNG, hasta 5 MB.', video: 'MP4, hasta 16 MB.', document: 'PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX o TXT, hasta 100 MB.' };
+                headerHelp.textContent = headerType ? headerLimits[headerType] : '';
+            }
+            if (headerFileName) headerFileName.textContent = '';
             if (!opt || !opt.value) return;
             var count = parseInt(opt.getAttribute('data-body-params') || '0', 10) || 0;
             if (count <= 0) return;
@@ -1304,6 +1341,30 @@
             showWarn('La plantilla no tiene lenguaje configurado.');
             return;
         }
+        var headerType = opt ? (opt.getAttribute('data-header-type') || '') : '';
+        var headerInput = document.getElementById('waTemplateHeaderFile');
+        var headerFile = headerInput && headerInput.files ? headerInput.files[0] : null;
+        if (headerType && !headerFile) {
+            showWarn('Selecciona el archivo del encabezado de la plantilla.');
+            return;
+        }
+        if (headerFile) {
+            var extension = (headerFile.name.split('.').pop() || '').toLowerCase();
+            var validExtensions = {
+                image: ['jpg', 'jpeg', 'png'],
+                video: ['mp4'],
+                document: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt']
+            };
+            var maxBytes = { image: 5, video: 16, document: 100 };
+            if (!headerType || !validExtensions[headerType] || validExtensions[headerType].indexOf(extension) === -1) {
+                showWarn('El archivo no coincide con el tipo de encabezado configurado.');
+                return;
+            }
+            if (headerFile.size > maxBytes[headerType] * 1024 * 1024) {
+                showWarn('El archivo supera el tamaño máximo permitido para este encabezado.');
+                return;
+            }
+        }
         var count = parseInt(opt.getAttribute('data-body-params') || '0', 10) || 0;
         var bodyParams = [];
         for (var i = 0; i < count; i++) {
@@ -1323,6 +1384,7 @@
         formData.append('to_number', toNumber);
         formData.append('template_name', templateName);
         formData.append('language_code', language);
+        if (headerFile) formData.append('header_attachment', headerFile);
         bodyParams.forEach(function (p) { formData.append('body_params', p); });
         if (btn) {
             btn.disabled = true;

@@ -284,7 +284,7 @@ class WhatsAppHandler:
         except requests.exceptions.RequestException as e:
             return False, str(e)
     
-    def send_template_message(self, to_number, template_name, language_code, components=None, conversation=None, content_for_db=None, sender_user=None):
+    def send_template_message(self, to_number, template_name, language_code, components=None, conversation=None, content_for_db=None, sender_user=None, media_type=None, media_id=None, uploaded_file=None):
         """Send a template message"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -323,18 +323,24 @@ class WhatsAppHandler:
                         'to': to_number,
                         'template_name': template_name,
                         'template_language': language_code,
-                        'template_components': components or []
+                        'template_components': components or [],
+                        **({'media_type': media_type, 'media_id': media_id} if media_type else {}),
                     }
                 )
+                if uploaded_file:
+                    uploaded_file.seek(0)
+                    message.file.save(uploaded_file.name, uploaded_file, save=True)
 
                 WhatsAppMessage.objects.create(
                     message=message,
                     whatsapp_account=self.account,
                     whatsapp_message_id=message_id,
-                    wa_message_type='text',
+                    wa_message_type=media_type or 'text',
                     delivery_status='sent',
                     template_name=template_name,
-                    template_language=language_code
+                    template_language=language_code,
+                    media_id=media_id,
+                    media_mime_type=getattr(uploaded_file, 'content_type', None) if uploaded_file else None,
                 )
             
             logger.info(f"WhatsApp template message sent: {message_id}")
