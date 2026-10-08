@@ -35,11 +35,9 @@
                             {{ m.created_at }} • {{ m.get_message_type_display }} • {{ m.get_direction_display }}
                         </div>
                          <div>
-                                    {% if conversation.channel == 'email' %}
+                                    
                                         {{ m.render_content|safe }}
-                                    {% else %}
-                                        {{ m.content|striptags|linebreaks }}
-                                    {% endif %}
+                                   
                                 </div>
                     </div>
                     {% empty %}
