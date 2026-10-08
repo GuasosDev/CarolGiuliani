@@ -1437,6 +1437,13 @@
             var innerHeader = clone.querySelector('.msg-header');
             if (innerHeader) innerHeader.remove();
 
+            clone.querySelectorAll('img').forEach(function (image) {
+                image.src = image.currentSrc || image.src;
+                image.removeAttribute('srcset');
+                image.removeAttribute('sizes');
+                image.loading = 'eager';
+            });
+
             var contentHTML = clone.innerHTML;
             
             var printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -1462,13 +1469,12 @@
                 '<div class="footer">Impreso el ' + new Date().toLocaleString() + '</div>' +
                 '</body></html>';
             
-            printWindow.document.write(printHTML);
-            printWindow.document.close();
-            
             printWindow.onload = function() {
                 printWindow.print();
                 printWindow.close();
             };
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
         };
 
       window.downloadMessage = function (messageId, messageType) {
