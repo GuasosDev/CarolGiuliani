@@ -1444,37 +1444,70 @@
                 image.loading = 'eager';
             });
 
-            var contentHTML = clone.innerHTML;
-            
-            var printWindow = window.open('', '_blank', 'width=800,height=600');
-            if (!printWindow) {
-                alert('Por favor, permite las ventanas emergentes.');
-                return;
-            }
-
-            var printHTML = '<!DOCTYPE html><html><head><title>Mensaje #' + messageId + '</title>' +
-                '<style>' +
-                'body{font-family:Arial,sans-serif;margin:30px;line-height:1.5;color:#333;}' +
-                '.header{font-weight:bold;margin-bottom:20px;padding:12px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;}' +
-                '.content{margin-bottom:25px;font-size:15px;}' +
-                'img{max-width:200px; height:auto; display:block; margin-top:10px; border-radius:4px; border:1px solid #ddd;}' +
-                '.attachment-footer, .email-thread-attachment{margin-top:10px; padding:10px; background:#f9f9f9; border-radius:4px; display:inline-block; border:1px solid #eee;}' +
-                '.footer{font-size:11px;color:#777;margin-top:30px;border-top:1px solid #eee;padding-top:10px;}' +
-                '@media print{body{margin:15px;}}' +
-                '</style>' +
-                '</head><body>' +
+            var printRoot = document.createElement('div');
+            printRoot.className = 'message-print-root';
+            printRoot.innerHTML =
                 '<h2>Mensaje #' + messageId + '</h2>' +
-                '<div class="header">' + headerText + '</div>' +
-                '<div class="content">' + contentHTML + '</div>' + 
-                '<div class="footer">Impreso el ' + new Date().toLocaleString() + '</div>' +
-                '</body></html>';
-            
-            printWindow.onload = function() {
-                printWindow.print();
-                printWindow.close();
-            };
-            printWindow.document.write(printHTML);
-            printWindow.document.close();
+                '<div class="message-print-header">' + headerText + '</div>' +
+                '<div class="message-print-content">' + clone.innerHTML + '</div>' +
+                '<div class="message-print-footer">Impreso el ' + new Date().toLocaleString() + '</div>';
+
+            var printStyle = document.createElement('style');
+            printStyle.className = 'message-print-style';
+            printStyle.textContent =
+                '.message-print-root{display:none;}' +
+                '@media print{' +
+                    'html,body{height:auto!important;overflow:visible!important;}' +
+                    'body.message-print-mode{display:block!important;width:auto!important;}' +
+                    'body.message-print-mode>:not(.message-print-root){display:none!important;}' +
+                    'body.message-print-mode>.message-print-root{display:block!important;position:relative!important;width:auto!important;margin:0!important;padding:15px!important;overflow:visible!important;background:#fff!important;color:#333!important;font:15px/1.5 Arial,sans-serif!important;}' +
+                    '.message-print-root h2{font-size:22px;margin:0 0 16px;}' +
+                    '.message-print-header{font-weight:bold;margin-bottom:20px;padding:12px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;}' +
+                    '.message-print-content{margin-bottom:25px;}' +
+                    '.message-print-root img{display:inline-block!important;visibility:visible!important;opacity:1!important;max-width:100%!important;height:auto!important;}' +
+                    '.message-print-root .attachment-footer,.message-print-root .email-thread-attachment{margin-top:10px;padding:10px;background:#f9f9f9;border-radius:4px;display:inline-block;border:1px solid #eee;}' +
+                    '.message-print-footer{font-size:11px;color:#777;margin-top:30px;border-top:1px solid #eee;padding-top:10px;}' +
+                '}';
+
+            document.head.appendChild(printStyle);
+            document.body.appendChild(printRoot);
+            document.body.classList.add('message-print-mode');
+
+            var printImages = Array.prototype.slice.call(printRoot.querySelectorAll('img'));
+            var imageLoads = printImages.map(function (image) {
+                return new Promise(function (resolve) {
+                    function finishLoading() {
+                        if (typeof image.decode === 'function') {
+                            image.decode().then(function () {
+                                resolve(true);
+                            }, function () {
+                                resolve(false);
+                            });
+                        } else {
+                            resolve(image.naturalWidth > 0);
+                        }
+                    }
+
+                    if (image.complete) {
+                        finishLoading();
+                        return;
+                    }
+
+                    image.addEventListener('load', finishLoading, { once: true });
+                    image.addEventListener('error', function () {
+                        resolve(false);
+                    }, { once: true });
+                });
+            });
+
+            Promise.all(imageLoads).then(function () {
+                window.addEventListener('afterprint', function () {
+                    document.body.classList.remove('message-print-mode');
+                    printRoot.remove();
+                    printStyle.remove();
+                }, { once: true });
+                window.print();
+            });
         };
 
       window.downloadMessage = function (messageId, messageType) {
