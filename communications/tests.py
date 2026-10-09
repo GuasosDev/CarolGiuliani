@@ -16,6 +16,7 @@ from communications.models import (
     EmailAccount,
     EmailMessage,
     Message,
+    WhatsAppAccount,
 )
 from communications.utils.email_threading import (
     clean_message_id,
@@ -366,3 +367,69 @@ class WelcomeMenuAgentOutreachTests(TestCase):
             content='hola',
         )
         self.assertFalse(_has_unanswered_template(self.contact, inbound))
+
+
+class InboundReplyAfterTransferTests(TestCase):
+    @patch('communications.websocket_utils.broadcast_new_message')
+    @patch('communications.whatsapp_handler.WhatsAppHandler.mark_message_as_read', return_value=True)
+    def test_reply_to_template_stays_on_transferred_conversation(self, _mark_read, _broadcast):
+        from communications.whatsapp_handler import process_incoming_message
+
+        nati = User.objects.create_user('nati_transfer', 'nati_transfer@example.com', 'pass')
+        gise = User.objects.create_user('gise_transfer', 'gise_transfer@example.com', 'pass')
+        client = Client.objects.create(
+            name='Cliente transferido',
+            email='cliente-transferido@example.com',
+            phone='1112345678',
+        )
+        owner_contact = Contact.objects.create(
+            client=client,
+            preferred_channel='whatsapp',
+        )
+        shadow_contact = Contact.objects.create(
+            whatsapp_number='5491112345678',
+            preferred_channel='whatsapp',
+        )
+        conversation = Conversation.objects.create(
+            contact=owner_contact,
+            channel='whatsapp',
+            status='normal',
+            assigned_to=nati,
+        )
+        reassign_conversation(conversation, gise, nati)
+        Message.objects.create(
+            conversation=conversation,
+            message_type='whatsapp',
+            direction='outbound',
+            content='📄 Plantilla: inicio_conversacion',
+            sender=gise,
+            metadata={'to': '5491112345678', 'template_name': 'inicio_conversacion'},
+        )
+        account = WhatsAppAccount.objects.create(
+            name='WA',
+            phone_number='5491100000000',
+            phone_number_id='phone-1',
+            business_account_id='biz-1',
+            access_token='token',
+            webhook_verify_token='verify',
+        )
+
+        process_incoming_message(
+            account,
+            {
+                'from': '5491112345678',
+                'id': 'wamid.hola.transfer',
+                'timestamp': '1710000000',
+                'type': 'text',
+                'text': {'body': 'hola'},
+            },
+            {'contacts': [{'profile': {'name': 'Cliente transferido'}}]},
+        )
+
+        inbound = Message.objects.get(direction='inbound', content='hola')
+        conversation.refresh_from_db()
+        self.assertEqual(inbound.conversation_id, conversation.id)
+        self.assertEqual(conversation.assigned_to_id, gise.id)
+        self.assertFalse(
+            Message.objects.filter(conversation__contact=shadow_contact, direction='inbound').exists()
+        )

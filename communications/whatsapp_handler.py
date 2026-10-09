@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 from django.conf import settings
+from django.db.models import F
 from django.utils import timezone
 from .models import (
     WhatsAppAccount, WhatsAppMessage, Message, Conversation,
@@ -513,33 +514,22 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                 preferred_channel='whatsapp'
             )
         
-        # Get or create conversation
-        conversation = Conversation.objects.filter(
-            contact=contact,
-            channel='whatsapp',
-            status__in=['normal', 'open', 'assigned', 'pending']
-        ).order_by('-last_message_at', '-updated_at', '-pk').first()
-        
-        if not conversation:
-            conversation = Conversation.objects.create(
-                contact=contact,
-                channel='whatsapp',
-                status='normal',
-                priority='normal'
-            )
-            
-            # Auto-assign to an agent
-            assign_conversation_to_agent(conversation)
+        # La respuesta tiene que caer en el hilo que acaba de escribirle
+        # a este número (plantilla tras una transferencia), aunque el
+        # webhook matchee primero un Contact duplicado sin cliente.
+        was_closed = False
+        conversation = _find_open_conversation_by_outbound_number(
+            normalized_from or from_number
+        )
+        if conversation is not None and conversation.contact_id:
+            contact = conversation.contact
+        else:
+            preferred_contact = _prefer_contact_with_agent_outreach(contact)
+            if preferred_contact is not None:
+                contact = preferred_contact
+            conversation, was_closed = _find_open_or_reopen_whatsapp_conversation(contact)
 
-        # Si el número matchea varios Contact, preferir el que ya tiene el
-        # hilo abierto / plantilla pendiente (evita menú en un contacto "nuevo").
-        preferred_contact = _prefer_contact_with_agent_outreach(contact)
-        if preferred_contact is not None:
-            contact = preferred_contact
-        
-        # Reutilizar conversación abierta; si está cerrada pero el agente inició
-        # (plantilla), reabrir ese hilo en vez de crear uno nuevo + menú.
-        conversation, was_closed = _find_open_or_reopen_whatsapp_conversation(contact)
+        _sync_contact_whatsapp_number(contact, normalized_from or from_number)
         
         # Create message
         base_metadata = {'from': from_number, 'timestamp': timestamp}
@@ -687,17 +677,80 @@ def _related_whatsapp_contacts(contact):
     return list(contacts.values())
 
 
+def _sync_contact_whatsapp_number(contact, number):
+    normalized = normalize_phone_number(number)
+    if contact is None or not getattr(contact, 'pk', None) or not normalized:
+        return
+    if contact.whatsapp_number:
+        return
+    contact.whatsapp_number = normalized
+    contact.save(update_fields=['whatsapp_number'])
+
+
+def _find_open_conversation_by_outbound_number(number):
+    """
+    Conversación abierta cuyo último mensaje nuestro fue a este teléfono.
+    Cubre el caso en que el Contact del hilo transferido no tiene el
+    mismo whatsapp_number que manda Meta en el webhook.
+    """
+    normalized = normalize_phone_number(number)
+    if not normalized:
+        return None
+    open_statuses = ['normal', 'open', 'assigned', 'pending']
+    outbound = (
+        Message.objects.filter(
+            message_type='whatsapp',
+            direction='outbound',
+            conversation__channel='whatsapp',
+            conversation__status__in=open_statuses,
+            metadata__to=normalized,
+        )
+        .exclude(metadata__welcome_menu=True)
+        .select_related('conversation', 'conversation__contact')
+        .order_by('-created_at', '-id')
+        .first()
+    )
+    if outbound:
+        return outbound.conversation
+
+    suffix = normalized[-10:]
+    from datetime import timedelta
+    recent_outbound = (
+        Message.objects.filter(
+            message_type='whatsapp',
+            direction='outbound',
+            conversation__channel='whatsapp',
+            conversation__status__in=open_statuses,
+            created_at__gte=timezone.now() - timedelta(days=14),
+        )
+        .exclude(metadata__welcome_menu=True)
+        .select_related('conversation', 'conversation__contact')
+        .order_by('-created_at', '-id')[:50]
+    )
+    for msg in recent_outbound:
+        to_digits = ''.join(filter(str.isdigit, str((msg.metadata or {}).get('to') or '')))
+        if to_digits.endswith(suffix):
+            return msg.conversation
+    return None
+
+
 def _prefer_contact_with_agent_outreach(contact):
     related = _related_whatsapp_contacts(contact)
     open_statuses = ['normal', 'open', 'assigned', 'pending']
+    related_ids = [c.pk for c in related]
 
-    for candidate in related:
-        if Conversation.objects.filter(
-            contact=candidate,
+    open_conversation = (
+        Conversation.objects.filter(
+            contact_id__in=related_ids,
             channel='whatsapp',
             status__in=open_statuses,
-        ).exists():
-            return candidate
+        )
+        .select_related('contact')
+        .order_by(F('last_message_at').desc(nulls_last=True), '-updated_at', '-pk')
+        .first()
+    )
+    if open_conversation and open_conversation.contact_id:
+        return open_conversation.contact
 
     for candidate in related:
         last_msg = (
@@ -729,7 +782,7 @@ def _find_open_or_reopen_whatsapp_conversation(contact):
             channel='whatsapp',
             status__in=['normal', 'open', 'assigned', 'pending'],
         )
-        .order_by('-last_message_at', '-updated_at', '-pk')
+        .order_by(F('last_message_at').desc(nulls_last=True), '-updated_at', '-pk')
         .first()
     )
     was_closed = False
