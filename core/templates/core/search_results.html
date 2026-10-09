@@ -73,6 +73,9 @@
                                             {% if item.secondary.href %}
                                                 <a class="btn btn-sm btn-success" href="{{ item.secondary.href }}" onclick="closeModal()">{{ item.secondary.label }}</a>
                                             {% endif %}
+                                            {% if item.tertiary.href %}
+                                                <a class="btn btn-sm btn-outline-primary" href="{{ item.tertiary.href }}" onclick="closeModal()">{{ item.tertiary.label }}</a>
+                                            {% endif %}
                                         </div>
                                     </div>
                                     {% if item.snippet %}

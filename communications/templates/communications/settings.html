@@ -279,8 +279,8 @@
 
                         <div class="mb-2">
                             <label class="form-label fw-bold">Listado de plantillas (JSON)</label>
-                            <textarea id="waTemplatesTextarea" name="whatsapp_templates" class="form-control" rows="7" placeholder='[{"name":"mi_template","language":"es_AR","label":"Saludo","body_params":0}]' data-initial-json="{{ company_settings.whatsapp_templates|default:'[]'|escape }}">{{ company_settings.whatsapp_templates|default:'[]' }}</textarea>
-                            <div class="form-text">Formato: name, language, label (opcional), body_params (cantidad de variables en body).</div>
+                            <textarea id="waTemplatesTextarea" name="whatsapp_templates" class="form-control" rows="7" placeholder='[{"name":"mi_template","language":"es_AR","label":"Saludo","body_params":0,"header_type":"image"}]' data-initial-json="{{ company_settings.whatsapp_templates|default:'[]'|escape }}">{{ company_settings.whatsapp_templates|default:'[]' }}</textarea>
+                            <div class="form-text">Esta lista se carga manualmente; no se sincroniza automáticamente con Meta. Agregá cada plantilla aprobada con su name y language exactos. También admite label, body_params (cantidad de variables en body) y header_type opcional (image, video o document), solo si Meta aprobó ese encabezado multimedia.</div>
                         </div>
 
                         <button type="submit" class="btn btn-success w-100">

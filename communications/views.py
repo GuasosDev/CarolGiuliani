@@ -488,7 +488,18 @@ def dashboard(request):
                 Q(subject__icontains=search_q)
                 | Q(contact__client__name__icontains=search_q)
                 | Q(contact__client__email__icontains=search_q)
-            )
+                | Q(contact__client__phone__icontains=search_q)
+                | Q(last_message_preview__icontains=search_q)
+                | Q(messages__content__icontains=search_q)
+                | Q(messages__sender_name__icontains=search_q)
+                | Q(messages__email_data__subject__icontains=search_q)
+                | Q(messages__email_data__from_address__icontains=search_q)
+                | Q(messages__email_data__to_addresses__icontains=search_q)
+                | Q(messages__email_data__cc_addresses__icontains=search_q)
+                | Q(messages__email_data__bcc_addresses__icontains=search_q)
+                | Q(messages__email_data__plain_body__icontains=search_q)
+                | Q(messages__email_data__html_body__icontains=search_q)
+            ).distinct()
         if channel_filter == 'email' and status_filter == 'inbox':
             status_filter = 'all'
         # Enviados no debe ocultar hilos cerrados/transferidos: se listan por EmailMessage.
@@ -654,10 +665,19 @@ def dashboard(request):
 
                 if search_q:
                     email_rows_qs = email_rows_qs.filter(
-                        Q(subject__icontains=search_q) |
-                        Q(from_address__icontains=search_q) |
-                        Q(to_addresses__icontains=search_q)
-                    )
+                        Q(subject__icontains=search_q)
+                        | Q(from_address__icontains=search_q)
+                        | Q(to_addresses__icontains=search_q)
+                        | Q(cc_addresses__icontains=search_q)
+                        | Q(bcc_addresses__icontains=search_q)
+                        | Q(plain_body__icontains=search_q)
+                        | Q(html_body__icontains=search_q)
+                        | Q(message__content__icontains=search_q)
+                        | Q(message__sender_name__icontains=search_q)
+                        | Q(message__conversation__contact__client__name__icontains=search_q)
+                        | Q(message__conversation__contact__client__email__icontains=search_q)
+                        | Q(message__conversation__contact__client__phone__icontains=search_q)
+                    ).distinct()
 
                 # ==========================================
                 # ORDER
@@ -871,13 +891,30 @@ def open_client_whatsapp(request, client_id, channel='whatsapp'):
         defaults={'preferred_channel': channel}
     )
     
-    conversation = Conversation.objects.filter(
+    active_conversations = Conversation.objects.filter(
         contact=contact,
         channel=channel,
         status__in=['normal', 'pending','open', 'assigned']
+    )
+    conversation = get_agent_conversations(request.user).filter(
+        pk__in=active_conversations.values('pk')
     ).first()
     
     if not conversation:
+        inaccessible_conversation = active_conversations.filter(
+            assigned_to__isnull=False
+        ).exclude(assigned_to=request.user).select_related('assigned_to').first()
+        if inaccessible_conversation:
+            assigned_agent = inaccessible_conversation.assigned_to
+            assigned_agent_name = assigned_agent.get_full_name() or assigned_agent.username
+            messages.warning(
+                request,
+                f'La conversación de {client.name} está asignada a '
+                f'{assigned_agent_name}; contactá a esa persona para solicitar acceso.'
+            )
+            url = reverse('communications:dashboard')
+            return redirect(f'{url}?channel={channel}')
+
         conversation = Conversation.objects.create(
             contact=contact,
             channel=channel,
@@ -2123,28 +2160,58 @@ def update_whatsapp_templates_settings(request):
     if raw:
         try:
             parsed = json.loads(raw)
-            if isinstance(parsed, list):
-                for t in parsed:
-                    if not isinstance(t, dict):
-                        continue
-                    name = (t.get('name') or '').strip()
-                    language = (t.get('language') or t.get('language_code') or '').strip()
-                    label = (t.get('label') or name).strip()
-                    body_params = t.get('body_params', 0)
-                    try:
-                        body_params = int(body_params) if body_params is not None else 0
-                    except Exception:
-                        body_params = 0
-                    if not name or not language:
-                        continue
-                    templates.append({
-                        'name': name,
-                        'language': language,
-                        'label': label,
-                        'body_params': max(0, body_params),
-                    })
-        except Exception:
-            templates = []
+        except json.JSONDecodeError as error:
+            messages.error(
+                request,
+                f'El JSON de plantillas no es válido (línea {error.lineno}, columna {error.colno}). '
+                'No se modificó la configuración guardada.'
+            )
+            return redirect('communications:settings')
+
+        if not isinstance(parsed, list):
+            messages.error(
+                request,
+                'La configuración de plantillas debe ser una lista JSON. No se modificó la configuración guardada.'
+            )
+            return redirect('communications:settings')
+
+        for index, template in enumerate(parsed, start=1):
+            if not isinstance(template, dict):
+                messages.error(
+                    request,
+                    f'La plantilla número {index} debe ser un objeto JSON. No se modificó la configuración guardada.'
+                )
+                return redirect('communications:settings')
+
+            name = str(template.get('name') or '').strip()
+            language = str(template.get('language') or template.get('language_code') or '').strip()
+            label = str(template.get('label') or name).strip()
+            header_type = str(template.get('header_type') or '').strip().lower()
+            if header_type and header_type not in {'image', 'video', 'document'}:
+                messages.error(
+                    request,
+                    f'El tipo de encabezado de la plantilla {name} debe ser image, video o document.'
+                )
+                return redirect('communications:settings')
+            body_params = template.get('body_params', 0)
+            try:
+                body_params = int(body_params) if body_params is not None else 0
+            except (TypeError, ValueError):
+                body_params = 0
+            if not name or not language:
+                messages.error(
+                    request,
+                    f'La plantilla número {index} necesita name y language. '
+                    'No se modificó la configuración guardada.'
+                )
+                return redirect('communications:settings')
+            templates.append({
+                'name': name,
+                'language': language,
+                'label': label,
+                'body_params': max(0, body_params),
+                'header_type': header_type,
+            })
 
     cs.whatsapp_templates = templates
     cs.save(update_fields=['whatsapp_templates_enabled', 'whatsapp_templates'])

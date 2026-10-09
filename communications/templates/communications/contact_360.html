@@ -34,9 +34,11 @@
                         <div class="small text-muted">
                             {{ m.created_at }} • {{ m.get_message_type_display }} • {{ m.get_direction_display }}
                         </div>
-                        <div class="p-2 rounded {% if m.direction == 'outbound' %}bg-primary text-white{% else %}bg-light{% endif %}">
-                            {{ m.content }}
-                        </div>
+                         <div>
+                                    
+                                        {{ m.render_content|safe }}
+                                   
+                                </div>
                     </div>
                     {% empty %}
                     <div class="text-center text-muted">Sin mensajes</div>

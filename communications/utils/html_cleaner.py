@@ -168,7 +168,7 @@ ALLOWED_ATTRIBUTES = {
     'span': ['style'],
     'p': ['style'],
 
-    'details': ['open'],
+    'details': ['open', 'class'],
     'summary': ['style'],
 }
 
@@ -222,6 +222,32 @@ def _strip_embedded_webmail_header(soup):
             return
 
 
+def _collapse_quoted_email_history(soup):
+    quote_classes = {
+        'gmail_quote',
+        'gmail_quote_container',
+        'yahoo_quoted',
+    }
+
+    def is_quote_container(tag):
+        return (
+            getattr(tag, 'name', None) in {'div', 'blockquote'}
+            and quote_classes.intersection(tag.get('class', []))
+        )
+
+    quote_nodes = [
+        node for node in soup.find_all(is_quote_container)
+        if not any(is_quote_container(parent) for parent in node.parents)
+    ]
+
+    for node in quote_nodes:
+        details = soup.new_tag('details', attrs={'class': 'email-quoted-history'})
+        summary = soup.new_tag('summary')
+        summary.string = 'Mostrar mensaje citado'
+        details.append(summary)
+        node.wrap(details)
+
+
 def plain_text_to_email_html(text):
 
     if not text:
@@ -242,6 +268,33 @@ def plain_text_to_email_html(text):
     )
 
 
+def email_html_to_text(html):
+    if not html:
+        return ""
+
+    soup = BeautifulSoup(str(html), "html.parser")
+    quote_classes = {
+        'gmail_quote',
+        'gmail_quote_container',
+        'yahoo_quoted',
+    }
+
+    def is_quote_container(tag):
+        return (
+            getattr(tag, 'name', None) in {'div', 'blockquote'}
+            and quote_classes.intersection(tag.get('class', []))
+        )
+
+    quote_nodes = [
+        node for node in soup.find_all(is_quote_container)
+        if not any(is_quote_container(parent) for parent in node.parents)
+    ]
+    for node in quote_nodes:
+        node.decompose()
+
+    return soup.get_text(" ", strip=True)
+
+
 def limpiar_email_html(html):
 
     if not html:
@@ -250,6 +303,7 @@ def limpiar_email_html(html):
     soup = BeautifulSoup(html, "html.parser")
 
     _strip_embedded_webmail_header(soup)
+    _collapse_quoted_email_history(soup)
      # eliminar css embebido
     for style in soup.find_all("style"):
         style.decompose()

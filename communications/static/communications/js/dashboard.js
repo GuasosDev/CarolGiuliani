@@ -247,6 +247,8 @@
             const el = document.querySelector('.conversation-item[data-id="' + conversationId + '"]');
             if (autoLoad && el) {
                 el.click();
+            } else if (autoLoad) {
+                loadConversation(null, conversationId);
             } else if (el) {
                 el.classList.add('active', 'bg-light');
                 setDetailOpen(true);
@@ -258,6 +260,8 @@
             const el = document.querySelector('.conversation-item[data-id="' + emailMessageId + '"]');
             if (autoLoad && el) {
                 el.click();
+            } else if (autoLoad) {
+                loadEmailMessage(null, emailMessageId);
             } else if (el) {
                 el.classList.add('active', 'bg-light');
                 setDetailOpen(true);
@@ -388,5 +392,4 @@
     window.selectConversation = selectConversation;
     window.selectEmailMessage = selectEmailMessage;
 })();
-
 

@@ -284,7 +284,7 @@ class WhatsAppHandler:
         except requests.exceptions.RequestException as e:
             return False, str(e)
     
-    def send_template_message(self, to_number, template_name, language_code, components=None, conversation=None, content_for_db=None, sender_user=None):
+    def send_template_message(self, to_number, template_name, language_code, components=None, conversation=None, content_for_db=None, sender_user=None, media_type=None, media_id=None, uploaded_file=None):
         """Send a template message"""
         to_number = normalize_phone_number(to_number)
         url = f"{self.api_url}/{self.account.phone_number_id}/messages"
@@ -323,18 +323,24 @@ class WhatsAppHandler:
                         'to': to_number,
                         'template_name': template_name,
                         'template_language': language_code,
-                        'template_components': components or []
+                        'template_components': components or [],
+                        **({'media_type': media_type, 'media_id': media_id} if media_type else {}),
                     }
                 )
+                if uploaded_file:
+                    uploaded_file.seek(0)
+                    message.file.save(uploaded_file.name, uploaded_file, save=True)
 
                 WhatsAppMessage.objects.create(
                     message=message,
                     whatsapp_account=self.account,
                     whatsapp_message_id=message_id,
-                    wa_message_type='text',
+                    wa_message_type=media_type or 'text',
                     delivery_status='sent',
                     template_name=template_name,
-                    template_language=language_code
+                    template_language=language_code,
+                    media_id=media_id,
+                    media_mime_type=getattr(uploaded_file, 'content_type', None) if uploaded_file else None,
                 )
             
             logger.info(f"WhatsApp template message sent: {message_id}")
@@ -506,6 +512,24 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                 client_id=None,
                 preferred_channel='whatsapp'
             )
+        
+        # Get or create conversation
+        conversation = Conversation.objects.filter(
+            contact=contact,
+            channel='whatsapp',
+            status__in=['normal', 'open', 'assigned', 'pending']
+        ).order_by('-last_message_at', '-updated_at', '-pk').first()
+        
+        if not conversation:
+            conversation = Conversation.objects.create(
+                contact=contact,
+                channel='whatsapp',
+                status='normal',
+                priority='normal'
+            )
+            
+            # Auto-assign to an agent
+            assign_conversation_to_agent(conversation)
 
         # Si el número matchea varios Contact, preferir el que ya tiene el
         # hilo abierto / plantilla pendiente (evita menú en un contacto "nuevo").
@@ -774,14 +798,9 @@ def _agent_started_whatsapp_outreach_today(contact, start, end):
     return False
 
 
-def _has_unanswered_template(contact, inbound_message):
-    """
-    True si, después del último inbound del contacto, el equipo envió una
-    plantilla (aunque haya pasado medianoche o el reply caiga en otra conversación).
-    """
-    contact_ids = [c.pk for c in _related_whatsapp_contacts(contact)]
+def _has_unanswered_template(conversation, inbound_message):
     prior_messages = Message.objects.filter(
-        conversation__contact_id__in=contact_ids,
+        conversation=conversation,
         message_type='whatsapp',
         created_at__lt=inbound_message.created_at,
     )
@@ -790,20 +809,15 @@ def _has_unanswered_template(contact, inbound_message):
         .order_by('-created_at', '-id')
         .first()
     )
-    outbound = prior_messages.filter(direction='outbound')
+    template_messages = prior_messages.filter(
+        direction='outbound',
+        metadata__template_name__isnull=False,
+    )
     if last_inbound:
-        outbound = outbound.filter(created_at__gt=last_inbound.created_at)
-
-    for msg in outbound.order_by('-created_at', '-id').iterator():
-        if _message_is_welcome_menu(msg):
-            continue
-        if _message_is_template(msg):
-            return True
-        # Cualquier mensaje saliente de un agente (no automático) también cuenta
-        # como outreach iniciado por el equipo.
-        if msg.sender_id:
-            return True
-    return False
+        template_messages = template_messages.filter(
+            created_at__gt=last_inbound.created_at
+        )
+    return template_messages.exists()
 
 
 def _handle_welcome_menu(
@@ -868,10 +882,10 @@ def _handle_welcome_menu(
     except ContactMenuState.DoesNotExist:
         pass
 
-    # Si el equipo inició (plantilla u outreach), no tratar la respuesta del
-    # cliente como "primer contacto" con menú de bienvenida.
+    # A template can be answered after midnight; keep its conversation with
+    # the initiating agent and do not restart the welcome flow.
     if (
-        _has_unanswered_template(contact, inbound_message)
+        _has_unanswered_template(conversation, inbound_message)
         or _agent_started_whatsapp_outreach_today(contact, start, end)
     ):
         logger.info(

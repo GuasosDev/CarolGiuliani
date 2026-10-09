@@ -187,7 +187,10 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
 
         if len(query) >= 2:
             from clients.models import Client, ClientTag
-            from communications.models import Conversation, Message, InternalNote, QuickReply, Contact
+            from communications.models import Conversation, EmailMessage, Message, InternalNote, QuickReply, Contact
+            from communications.utils.html_cleaner import email_html_to_text
+            from communications.views import _get_user_email_account
+            from django.db.models.functions import Coalesce
 
             clients_qs = Client.objects.filter(
                 Q(name__icontains=query) |
@@ -203,6 +206,11 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                 Q(tags__name__icontains=query)
             ).distinct().prefetch_related('tags')[:12]
 
+            email_account = _get_user_email_account(self.request.user)
+            can_view_all_email_conversations = (
+                self.request.user.is_superuser
+                or self.request.user.groups.filter(name='Supervisor').exists()
+            )
             client_items = []
             for c in clients_qs:
                 parts = []
@@ -212,6 +220,39 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                     parts.append(str(c.email))
                 if c.business_name:
                     parts.append(str(c.business_name))
+                latest_email = None
+                if email_account:
+                    email_messages = EmailMessage.objects.filter(
+                        email_account=email_account,
+                        message__conversation__contact__client=c,
+                        message__conversation__channel='email',
+                    )
+                    if not can_view_all_email_conversations:
+                        email_messages = email_messages.filter(
+                            Q(message__conversation__assigned_to=self.request.user)
+                            | Q(message__conversation__assigned_to__isnull=True)
+                        )
+                    latest_email = (
+                        email_messages.select_related('message__conversation')
+                        .order_by(
+                            Coalesce('email_date', 'message__created_at').desc(),
+                            '-message__created_at',
+                        )
+                        .first()
+                    )
+
+                if latest_email:
+                    email_url = (
+                        f"{reverse('communications:dashboard')}"
+                        f"?channel=email&status=all"
+                        f"&conversation={latest_email.message.conversation_id}"
+                    )
+                else:
+                    email_url = reverse(
+                        'communications:open_client_email',
+                        args=[c.pk],
+                    )
+
                 client_items.append({
                     "title": highlight(c.name),
                     "subtitle": highlight(" • ".join(parts)),
@@ -222,7 +263,14 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                     },
                     "secondary": {
                         "label": "Abrir chat",
-                        "href": reverse('communications:open_client_whatsapp', args=[c.pk]),
+                        "href": reverse(
+                            'communications:open_client_whatsapp',
+                            args=[c.pk, 'whatsapp'],
+                        ),
+                    },
+                    "tertiary": {
+                        "label": "Abrir email",
+                        "href": email_url,
                     },
                     "meta": "Contacto",
                 })
@@ -274,8 +322,17 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                 Q(contact__client__email__icontains=query) |
                 Q(contact__client__phone__icontains=query) |
                 Q(contact__whatsapp_number__icontains=query) |
-                Q(last_message_preview__icontains=query)
-            ).select_related('contact__client')[:15]
+                Q(last_message_preview__icontains=query) |
+                Q(messages__content__icontains=query) |
+                Q(messages__sender_name__icontains=query) |
+                Q(messages__email_data__subject__icontains=query) |
+                Q(messages__email_data__from_address__icontains=query) |
+                Q(messages__email_data__to_addresses__icontains=query) |
+                Q(messages__email_data__cc_addresses__icontains=query) |
+                Q(messages__email_data__bcc_addresses__icontains=query) |
+                Q(messages__email_data__plain_body__icontains=query) |
+                Q(messages__email_data__html_body__icontains=query)
+            ).select_related('contact__client').distinct()[:15]
 
             conversation_items = []
             for conv in conversations_qs:
@@ -305,8 +362,15 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
             messages_qs = Message.objects.filter(
                 Q(content__icontains=query) |
                 Q(sender_name__icontains=query) |
-                Q(conversation__contact__client__name__icontains=query)
-            ).select_related('conversation', 'conversation__contact__client').order_by('-created_at')[:25]
+                Q(conversation__contact__client__name__icontains=query) |
+                Q(email_data__subject__icontains=query) |
+                Q(email_data__from_address__icontains=query) |
+                Q(email_data__to_addresses__icontains=query) |
+                Q(email_data__cc_addresses__icontains=query) |
+                Q(email_data__bcc_addresses__icontains=query) |
+                Q(email_data__plain_body__icontains=query) |
+                Q(email_data__html_body__icontains=query)
+            ).select_related('conversation', 'conversation__contact__client').distinct().order_by('-created_at')[:25]
 
             message_items = []
             for msg in messages_qs:
@@ -314,10 +378,18 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                 display_name = conv.get_display_name()
                 conv_url = reverse('communications:dashboard')
                 params = f"?conversation={conv.pk}&channel={conv.channel}"
+                email_data = getattr(msg, 'email_data', None)
+                message_content = msg.content
+                if conv.channel == 'email':
+                    if email_data and email_data.html_body:
+                        message_content = email_data.html_body
+                    elif email_data and email_data.plain_body:
+                        message_content = email_data.plain_body
+                    message_content = email_html_to_text(message_content)
                 message_items.append({
                     "title": highlight(display_name),
                     "subtitle": highlight(f"{conv.get_channel_display()} • {msg.created_at:%d/%m %H:%M}"),
-                    "snippet": snippet(msg.content),
+                    "snippet": snippet(message_content),
                     "primary": {
                         "label": "Ver en chat",
                         "href": f"{conv_url}{params}",
