@@ -923,8 +923,7 @@ def open_client_whatsapp(request, client_id, channel='whatsapp'):
             subject=f"Conversación con {client.name}" if channel == 'email' else None
         )
         assign_conversation_to_agent(conversation, agent=request.user, assigned_by=request.user)
-    
-    from django.urls import reverse
+
     url = reverse('communications:dashboard')
     return redirect(f'{url}?channel={channel}&conversation={conversation.pk}')
 
