@@ -2656,5 +2656,3 @@ def open_client_email(request, client_id):
     if client.email and str(client.email).strip():
         qs += f'&to={quote(str(client.email).strip(), safe="")}'
     return redirect(f'{url}?{qs}')
-
-    

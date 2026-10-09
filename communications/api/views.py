@@ -10,7 +10,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Q, Count
 from ..models import (
-    Contact, Conversation, Message, InternalNote, QuickReply,
+    Contact, ContactMenuState, Conversation, Message, InternalNote, QuickReply,
     WhatsAppAccount, EmailAccount, EmailTemplate, EmailSignature
 )
 from .serializers import (
@@ -344,6 +344,11 @@ class WhatsAppAccountViewSet(viewsets.ModelViewSet):
         )
 
         if success:
+            # Evitar que un menú pendiente de otro hilo se reactive al responder la plantilla.
+            if conversation and conversation.contact_id:
+                ContactMenuState.objects.filter(
+                    contact_id=conversation.contact_id
+                ).delete()
             return Response({'status': 'sent', 'message_id': result})
         return Response({'error': result}, status=status.HTTP_400_BAD_REQUEST)
 

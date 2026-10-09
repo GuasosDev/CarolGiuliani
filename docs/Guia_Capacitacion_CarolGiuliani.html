@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carol Giuliani — Guía de capacitación</title>
+  <style>
+    :root {
+      --ink: #1f2937;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --brand: #6658dd;
+      --bg: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.45;
+    }
+    .toolbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 1rem; flex-wrap: wrap;
+      padding: .75rem 1.25rem;
+      background: #fff; border-bottom: 1px solid var(--line);
+    }
+    .toolbar button {
+      background: var(--brand); color: #fff; border: 0;
+      border-radius: 999px; padding: .55rem 1rem;
+      font-weight: 700; cursor: pointer;
+    }
+    .page { max-width: 920px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    .card {
+      background: #fff; border: 1px solid var(--line);
+      border-radius: 14px; padding: 1.25rem 1.4rem; margin-bottom: 1rem;
+    }
+    h1 { margin: .2rem 0; font-size: 2rem; letter-spacing: -.02em; }
+    h2 { margin: 0 0 .75rem; font-size: 1.25rem; }
+    h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+    .kicker {
+      margin: 0; font-size: .72rem; font-weight: 800;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    }
+    .lead { color: #475569; max-width: 40rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+    .meta span {
+      background: #f1f5f9; border-radius: 999px;
+      padding: .3rem .75rem; font-size: .82rem;
+    }
+    .howto { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: .9rem 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: .5rem .35rem; vertical-align: top; }
+    th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+    .pill {
+      display: inline-flex; border-radius: 999px; padding: .15rem .55rem;
+      font-size: .72rem; font-weight: 800;
+    }
+    .pill-op { background: #dbeafe; color: #1d4ed8; }
+    .pill-ad { background: #ffedd5; color: #c2410c; }
+    .pill-sa { background: #ede9fe; color: #6d28d9; }
+    .pill-all { background: #e2e8f0; color: #334155; }
+    .module-head { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .35rem; }
+    .module-num { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 1rem; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    ol.steps { margin: 0 0 .8rem; padding-left: 1.2rem; }
+    ol.steps li { margin-bottom: .35rem; }
+    .box { border: 1px solid var(--line); border-radius: 12px; padding: .75rem .9rem; margin-bottom: .6rem; background: #f8fafc; }
+    .box h4 { margin: 0 0 .35rem; font-size: .82rem; }
+    .box p, .box ul { margin: 0; font-size: .9rem; }
+    .box ul { padding-left: 1.1rem; }
+    .practice { background: #ecfdf5; border-color: #a7f3d0; }
+    .tips { background: #fff7ed; border-color: #fed7aa; }
+    .mock {
+      border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden;
+      background: #f1f5f9; font-size: .72rem;
+    }
+    .mock-bar { background: #0f172a; color: #e2e8f0; padding: .4rem .55rem; font-weight: 700; }
+    .mock-body { background: #fff; padding: .65rem; }
+    .mock-cols { display: grid; grid-template-columns: 48px 1fr 1.2fr; min-height: 150px; }
+    .side, .list, .chat { padding: .4rem; border-right: 1px solid var(--line); }
+    .chat { border-right: 0; }
+    .side div, .row, .field {
+      background: #f8fafc; border: 1px solid var(--line); border-radius: 8px;
+      padding: .3rem .4rem; margin-bottom: .3rem;
+    }
+    .on { background: #ede9fe !important; color: #5b21b6; font-weight: 700; }
+    .bub { border-radius: 10px; padding: .3rem .45rem; margin-bottom: .3rem; max-width: 90%; }
+    .in { background: #f1f5f9; }
+    .out { background: #dcfce7; margin-left: auto; }
+    .caption { margin: .4rem 0 0; color: #94a3b8; font-size: .75rem; }
+    .checklist li { list-style: none; padding: .35rem 0; border-bottom: 1px dashed var(--line); }
+    .sign { display: grid; gap: .4rem; margin-top: .8rem; color: #475569; font-size: .9rem; }
+    .note { color: var(--muted); font-size: .85rem; }
+    footer { text-align: center; color: #94a3b8; font-size: .78rem; padding: 1rem 0 2rem; }
+    @media print {
+      .toolbar { display: none !important; }
+      body { background: #fff; }
+      .card { box-shadow: none; break-inside: avoid; }
+      .break { break-before: page; }
+      .cover.break { break-before: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <strong>Carol Giuliani — Guía de capacitación</strong>
+      <span style="color:#64748b;font-size:.85rem;margin-left:.5rem">Documento externo (no forma parte del sistema)</span>
+    </div>
+    <button type="button" onclick="window.print()">Imprimir / Guardar PDF</button>
+  </div>
+
+  <div class="page">
+    <section class="card cover break">
+      <p class="kicker">Documento de formación · uso interno</p>
+      <h1>Carol Giuliani</h1>
+      <h2 style="font-weight:700;color:#334155;margin-top:.25rem">Guía de capacitación paso a paso</h2>
+      <p class="lead">
+        Este documento es una <strong>guía para capacitar</strong> a los usuarios.
+        No es una pantalla del sistema: abrilo en el navegador e imprimilo / guardalo como PDF.
+      </p>
+      <div class="meta">
+        <span>Roles: Operario · Admin/Supervisor · Super Admin</span>
+        <span>Versión 1.0</span>
+      </div>
+      <div class="howto">
+        <h3>Cómo usar esta guía</h3>
+        <ol>
+          <li>Seguí los módulos <strong>en orden</strong>.</li>
+          <li>En cada uno: explicar → demostrar en el sistema → práctica del usuario → checklist.</li>
+          <li>Capacitá frente al sistema real; los dibujos son solo referencia visual.</li>
+          <li>Al final, firmá el checklist del rol correspondiente.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="card break">
+      <h2>Agenda sugerida</h2>
+      <table>
+        <thead><tr><th>Momento</th><th>Enfoque</th><th>Roles</th></tr></thead>
+        <tbody>
+          <tr><td>Día 1</td><td>Módulos 0–5 (base operativa)</td><td>Operarios (+ Admins observando)</td></tr>
+          <tr><td>Día 2</td><td>Módulos 6–9 (gestión y herramientas)</td><td>Admin / Supervisor</td></tr>
+          <tr><td>Día 3</td><td>Módulo 10 + casos reales</td><td>Super Admin + equipo</td></tr>
+          <tr><td>Día 7</td><td>Refuerzo 30 min</td><td>Todos</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Si hay poco tiempo: Operarios hacen 0–5; Admins agregan 6–9; Super Admin agrega 10.</p>
+    </section>
+
+    <!-- M0 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 0 · 15 min</span>
+        <span class="pill pill-all">Todos</span>
+      </div>
+      <h2>Bienvenida e ingreso</h2>
+      <p><strong>Objetivo:</strong> iniciar sesión, ubicar el menú y reconocer el propio usuario.</p>
+      <div class="grid">
+        <div>
+          <h3>Paso a paso</h3>
+          <ol class="steps">
+            <li>Abrir la URL del sistema.</li>
+            <li>Ingresar usuario y contraseña.</li>
+            <li>Verificar el nombre arriba a la derecha.</li>
+            <li>Recorrer: Dashboard, Contactos, Communications.</li>
+            <li>Menú de usuario: Mi Perfil / Configuración (si aplica) / Salir.</li>
+          </ol>
+          <div class="box practice"><h4>Práctica</h4><p>Cerrar sesión y volver a entrar sin ayuda.</p></div>
+          <div class="box"><h4>Aprobado</h4><ul><li>☐ Entra y sale solo</li><li>☐ Identifica el menú principal</li></ul></div>
+        </div>
+        <aside>
+          <div class="mock">
+            <div class="mock-bar">Login</div>
+            <div class="mock-body">
+              <div class="field">Usuario</div>
+              <div class="field">Contraseña</div>
+              <div class="row on" style="text-align:center">Ingresar</div>
+            </div>
+          </div>
+          <p class="caption">Señalá el login en el sistema real.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- M1 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 1 · 25 min</span>
+        <span class="pill pill-op">Operario</span>
+      </div>
+      <h2>Bandeja de Communications</h2>
+      <p><strong>Objetivo:</strong> entender sidebar de canales, lista de chats y área de conversación.</p>
+      <div class="grid">
+        <div>
+          <ol class="steps">
+            <li>Ir a <strong>Communications</strong>.</li>
+            <li>Sidebar: WhatsApp, Email, Multi, Interno.</li>
+            <li>Filtros: Todos / Activos / Pendientes / Cerrados.</li>
+            <li>Abrir una conversación de la lista.</li>
+            <li>Ver historial + cuadro para responder.</li>
+          </ol>
+          <div class="box practice"><h4>Práctica</h4><p>Cambiar de WhatsApp a Email y volver.</p></div>
+          <div class="box"><h4>Aprobado</h4><ul><li>☐ Nombra las 3 zonas de la pantalla</li><li>☐ Cambia canal y filtro</li></ul></div>
+        </div>
+        <aside>
+          <div class="mock">
+            <div class="mock-bar">Communications</div>
+            <div class="mock-cols">
+              <div class="side"><div class="on">WA</div><div>Mail</div><div>Multi</div></div>
+              <div class="list"><div class="row on">Cliente A</div><div class="row">Cliente B</div></div>
+              <div class="chat">
+                <div class="bub in">Hola…</div>
+                <div class="bub out">¡Hola!</div>
+                <div class="field">Escribir…</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- M2 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 2 · 30 min</span>
+        <span class="pill pill-op">Operario</span>
+      </div>
+      <h2>Atender WhatsApp</h2>
+      <ol class="steps">
+        <li>Canal <strong>WhatsApp</strong> → abrir un chat asignado o sin asignar.</li>
+        <li>Leer el historial antes de responder.</li>
+        <li>Enviar texto; probar adjunto si hay ambiente de prueba.</li>
+        <li>Usar una <strong>Respuesta rápida</strong> si existen atajos.</li>
+        <li>Cambiar estado: Activo / Pendiente / Cerrado.</li>
+      </ol>
+      <div class="box practice"><h4>Práctica</h4><p>Cliente pregunta horario → responder con rápida → dejar pendiente o cerrar.</p></div>
+      <div class="box tips"><h4>Tips</h4><ul>
+        <li>Fuera de la ventana de 24 h puede hacer falta plantilla WhatsApp.</li>
+        <li>Si no ve el chat, puede estar asignado a otro agente.</li>
+      </ul></div>
+      <div class="box"><h4>Aprobado</h4><ul><li>☐ Envía al menos un mensaje</li><li>☐ Cambia el estado</li></ul></div>
+    </section>
+
+    <!-- M3 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 3 · 20 min</span>
+        <span class="pill pill-op">Operario</span>
+      </div>
+      <h2>Nueva conversación WhatsApp</h2>
+      <div class="grid">
+        <div>
+          <ol class="steps">
+            <li>Usar <strong>Nueva conversación</strong>.</li>
+            <li>Buscar cliente (mín. 2 letras).</li>
+            <li>Seleccionar resultado y confirmar que abre el hilo.</li>
+          </ol>
+          <div class="box tips"><h4>Tips</h4><ul>
+            <li>Si el hilo ya existe y está de otro usuario, puede no abrirse en la bandeja del operario (permisos).</li>
+          </ul></div>
+          <div class="box"><h4>Aprobado</h4><ul><li>☐ Encuentra al cliente y llega al chat</li></ul></div>
+        </div>
+        <aside>
+          <div class="mock">
+            <div class="mock-bar">Modal · Nueva conversación</div>
+            <div class="mock-body">
+              <div class="field">Buscar cliente…</div>
+              <div class="row on">María Pérez · WhatsApp</div>
+              <div class="row">Juan López · WhatsApp</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- M4 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 4 · 30 min</span>
+        <span class="pill pill-op">Operario</span>
+      </div>
+      <h2>Email: leer, redactar, borradores</h2>
+      <ol class="steps">
+        <li>Canal <strong>Email</strong> (solo su casilla).</li>
+        <li>Abrir un mensaje.</li>
+        <li><strong>Redactar</strong>: Para, asunto, cuerpo, adjuntos.</li>
+        <li>Probar sugerencias de contactos.</li>
+        <li>Revisar Borradores y enviar; verificar que salga de borradores.</li>
+      </ol>
+      <div class="box"><h4>Aprobado</h4><ul><li>☐ Redacta y envía (o reabre un borrador) sin errores</li></ul></div>
+    </section>
+
+    <!-- M5 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 5 · 25 min</span>
+        <span class="pill pill-op">Operario</span>
+      </div>
+      <h2>Ficha de contacto, notas y transferencia</h2>
+      <div class="grid">
+        <div>
+          <ol class="steps">
+            <li>Desde un chat, abrir la ficha del contacto.</li>
+            <li>Revisar datos, etiquetas y notas.</li>
+            <li>Editar cliente si hace falta.</li>
+            <li>Agregar una nota de la conversación.</li>
+            <li><strong>Transferir</strong> a otro usuario de prueba.</li>
+          </ol>
+          <div class="box practice"><h4>Práctica</h4><p>Transferir y pedir que el compañero lo re-transfiera.</p></div>
+          <div class="box"><h4>Aprobado</h4><ul><li>☐ Edita un dato</li><li>☐ Transfiere y explica el efecto en la bandeja</li></ul></div>
+        </div>
+        <aside>
+          <div class="mock">
+            <div class="mock-bar">Ficha de contacto</div>
+            <div class="mock-body">
+              <div class="row">Datos · Email · Tel · CUIT</div>
+              <div class="row">Etiquetas · Notas</div>
+              <div class="row on">Transferir · Editar</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- M6 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 6 · 25 min</span>
+        <span class="pill pill-ad">Admin</span>
+      </div>
+      <h2>Contactos, etiquetas e importación</h2>
+      <ol class="steps">
+        <li>Menú <strong>Contactos</strong>: alta de un contacto.</li>
+        <li>Asignar etiquetas.</li>
+        <li>Si hay permiso: Importar CSV desde Configuración (vista previa antes de confirmar).</li>
+      </ol>
+      <div class="box"><h4>Aprobado</h4><ul><li>☐ Crea un contacto usable en WA/Email</li></ul></div>
+    </section>
+
+    <!-- M7 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 7 · 30 min</span>
+        <span class="pill pill-ad">Admin</span>
+      </div>
+      <h2>Supervisión, métricas y reportes</h2>
+      <ol class="steps">
+        <li>Dashboard / panel de Supervisor.</li>
+        <li>Revisar abiertos, pendientes y carga por agente.</li>
+        <li>En Communications: ver conversaciones de todo el equipo.</li>
+        <li>Generar <strong>Reporte PDF</strong> por cliente y fechas.</li>
+      </ol>
+      <div class="box practice"><h4>Práctica</h4><p>Ubicar un pendiente sin asignar y transferirlo a un operario.</p></div>
+      <div class="box"><h4>Aprobado</h4><ul><li>☐ Lee el dashboard de carga</li><li>☐ Genera un PDF de prueba</li></ul></div>
+    </section>
+
+    <!-- M8 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 8 · 25 min</span>
+        <span class="pill pill-ad">Admin</span>
+      </div>
+      <h2>Respuestas rápidas y menú de bienvenida</h2>
+      <ol class="steps">
+        <li>Crear una respuesta rápida (ej. /horario).</li>
+        <li>Revisar Menú de bienvenida: texto, opciones y asignación.</li>
+        <li>Explicar cuándo puede no mostrarse el menú (ej. si el agente ya contactó ese día).</li>
+      </ol>
+      <div class="box"><h4>Aprobado</h4><ul><li>☐ Crea al menos una respuesta rápida usable</li></ul></div>
+    </section>
+
+    <!-- M9 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 9 · 35 min</span>
+        <span class="pill pill-ad">Admin</span>
+      </div>
+      <h2>Configuración del sistema</h2>
+      <ol class="steps">
+        <li>Abrir Configuración: cuentas WhatsApp y Email (revisar, sin tocar producción en la 1.ª pasada).</li>
+        <li>Tono / volumen de notificación.</li>
+        <li>Firma de correo.</li>
+        <li>Plantillas WhatsApp si están habilitadas.</li>
+      </ol>
+      <div class="box tips"><h4>Tips</h4><ul>
+        <li>Credenciales IMAP/SMTP y tokens Meta: solo con Super Admin y respaldo.</li>
+      </ul></div>
+      <div class="box"><h4>Aprobado</h4><ul><li>☐ Ubica cuentas y notificaciones sin cambiar secretos</li></ul></div>
+    </section>
+
+    <!-- M10 -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 10 · 40 min</span>
+        <span class="pill pill-sa">Super Admin</span>
+      </div>
+      <h2>Usuarios, roles, áreas y empresa</h2>
+      <ol class="steps">
+        <li>Gestión de usuarios: alta/edición de un usuario de prueba.</li>
+        <li>Roles y grupos; áreas laborales.</li>
+        <li>Configuración de empresa.</li>
+        <li>Verificar que un Operario nuevo solo ve sus chats y su casilla de email.</li>
+      </ol>
+      <div class="box practice"><h4>Práctica</h4><p>Alta de Operario de prueba → login de verificación → desactivar al terminar.</p></div>
+      <div class="box tips"><h4>Tips</h4><ul>
+        <li>No usar Super Admin para el día a día.</li>
+        <li>Cada EmailAccount debe tener dueño correcto.</li>
+      </ul></div>
+      <div class="box"><h4>Aprobado</h4><ul><li>☐ Crea usuario con rol correcto y valida su bandeja</li></ul></div>
+    </section>
+
+    <!-- M11 cierre -->
+    <section class="card break">
+      <div class="module-head">
+        <span class="module-num">Módulo 11 · 15 min</span>
+        <span class="pill pill-all">Todos</span>
+      </div>
+      <h2>Cierre y checklist</h2>
+      <ol class="steps">
+        <li>Repasar el checklist del rol.</li>
+        <li>Dejar claro el escalamiento: Operario → Admin → Super Admin.</li>
+        <li>Guardar este documento como PDF (botón arriba).</li>
+        <li>Agendar refuerzo a los 7 días con 2–3 casos reales.</li>
+      </ol>
+    </section>
+
+    <section class="card break">
+      <h2>Checklists finales</h2>
+
+      <h3>Operario / Agente</h3>
+      <ul class="checklist">
+        <li>☐ Login / logout</li>
+        <li>☐ Bandeja WA + Email</li>
+        <li>☐ Responder y cambiar estado</li>
+        <li>☐ Nueva conversación WA</li>
+        <li>☐ Ficha + nota + transferir</li>
+        <li>☐ Usar respuestas rápidas</li>
+      </ul>
+      <div class="sign">
+        <div>Usuario: _______________________</div>
+        <div>Formador: _____________________</div>
+        <div>Fecha: ____ / ____ / ________</div>
+      </div>
+
+      <h3 style="margin-top:1.25rem">Admin / Supervisor</h3>
+      <ul class="checklist">
+        <li>☐ Todo lo de Operario</li>
+        <li>☐ Dashboard supervisor</li>
+        <li>☐ Ver chats de todo el equipo</li>
+        <li>☐ Reporte PDF</li>
+        <li>☐ Crear respuestas rápidas</li>
+        <li>☐ Menú de bienvenida</li>
+        <li>☐ Contactos / etiquetas / import (si aplica)</li>
+        <li>☐ Configuración (notificaciones / firma / revisión)</li>
+      </ul>
+      <div class="sign">
+        <div>Usuario: _______________________</div>
+        <div>Formador: _____________________</div>
+        <div>Fecha: ____ / ____ / ________</div>
+      </div>
+
+      <h3 style="margin-top:1.25rem">Super Admin</h3>
+      <ul class="checklist">
+        <li>☐ Todo lo de Admin</li>
+        <li>☐ Alta de usuarios y roles</li>
+        <li>☐ Áreas laborales</li>
+        <li>☐ Configuración empresa</li>
+        <li>☐ Validar casillas Email por usuario</li>
+        <li>☐ Política de quién es Super Admin</li>
+      </ul>
+      <div class="sign">
+        <div>Usuario: _______________________</div>
+        <div>Formador: _____________________</div>
+        <div>Fecha: ____ / ____ / ________</div>
+      </div>
+    </section>
+
+    <footer>
+      Carol Giuliani · Guía de capacitación (documento externo) · Abrir en navegador → Imprimir → Guardar como PDF<br>
+      Archivo: <code>docs/Guia_Capacitacion_CarolGiuliani.html</code>
+    </footer>
+  </div>
+</body>
+</html>

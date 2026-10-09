@@ -256,3 +256,51 @@ class ExclusiveAssignmentTest(TestCase):
         reassign_conversation(conv, self.nati, self.gise)
         conv.refresh_from_db()
         self.assertEqual(conv.assigned_to_id, self.nati.id)
+
+
+class WelcomeMenuAgentOutreachTests(TestCase):
+    def setUp(self):
+        self.agent = User.objects.create_user('nati_wa', 'nati_wa@example.com', 'pass')
+        self.contact = Contact.objects.create(
+            whatsapp_number='5491112345678',
+            preferred_channel='whatsapp',
+        )
+        self.conversation = Conversation.objects.create(
+            contact=self.contact,
+            channel='whatsapp',
+            status='normal',
+            assigned_to=self.agent,
+        )
+
+    def test_unanswered_template_skips_welcome_menu(self):
+        from communications.whatsapp_handler import _has_unanswered_template
+
+        Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='outbound',
+            content='📄 Plantilla: inicio_conversacion',
+            sender=self.agent,
+            metadata={
+                'template_name': 'inicio_conversacion',
+                'template_language': 'es_AR',
+            },
+        )
+        inbound = Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='inbound',
+            content='hola',
+        )
+        self.assertTrue(_has_unanswered_template(self.contact, inbound))
+
+    def test_client_first_message_does_not_look_like_template_reply(self):
+        from communications.whatsapp_handler import _has_unanswered_template
+
+        inbound = Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='inbound',
+            content='hola',
+        )
+        self.assertFalse(_has_unanswered_template(self.contact, inbound))

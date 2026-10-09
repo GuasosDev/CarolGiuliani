@@ -506,26 +506,16 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                 client_id=None,
                 preferred_channel='whatsapp'
             )
-        
-        # Get or create conversation
-        conversation = Conversation.objects.filter(
-            contact=contact,
-            channel='whatsapp',
-            status__in=['normal', 'open', 'assigned', 'pending']
-        ).first()
-        
-        if not conversation:
-            conversation = Conversation.objects.create(
-                contact=contact,
-                channel='whatsapp',
-                status='normal',
-                priority='normal'
-            )
-            
-            # Auto-assign to an agent
-            assign_conversation_to_agent(conversation)
 
-        was_closed = (conversation.status == 'closed')
+        # Si el número matchea varios Contact, preferir el que ya tiene el
+        # hilo abierto / plantilla pendiente (evita menú en un contacto "nuevo").
+        preferred_contact = _prefer_contact_with_agent_outreach(contact)
+        if preferred_contact is not None:
+            contact = preferred_contact
+        
+        # Reutilizar conversación abierta; si está cerrada pero el agente inició
+        # (plantilla), reabrir ese hilo en vez de crear uno nuevo + menú.
+        conversation, was_closed = _find_open_or_reopen_whatsapp_conversation(contact)
         
         # Create message
         base_metadata = {'from': from_number, 'timestamp': timestamp}
@@ -614,7 +604,14 @@ def process_incoming_message(whatsapp_account, msg_data, value):
 
         # ── Welcome Menu Logic (only for text messages) ──────────────────────
         if message_type == 'text':
-            _handle_welcome_menu(handler, contact, conversation, content, force_show=was_closed)
+            _handle_welcome_menu(
+                handler,
+                contact,
+                conversation,
+                content,
+                inbound_message=message,
+                force_show=was_closed,
+            )
         # ─────────────────────────────────────────────────────────────────────
 
         # Broadcast via WebSocket
@@ -629,6 +626,124 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         return False
 
 
+def _message_is_welcome_menu(msg):
+    return bool((msg.metadata or {}).get('welcome_menu'))
+
+
+def _message_is_template(msg):
+    meta = msg.metadata or {}
+    if meta.get('template_name'):
+        return True
+    content = (msg.content or '').strip()
+    if content.startswith('📄 Plantilla:') or content.lower().startswith('plantilla:'):
+        return True
+    try:
+        wa = msg.whatsapp_data
+    except WhatsAppMessage.DoesNotExist:
+        wa = None
+    return bool(wa and wa.template_name)
+
+
+def _related_whatsapp_contacts(contact):
+    """Incluye el contacto y otros con el mismo sufijo telefónico (AR 54/549)."""
+    contacts = {contact.pk: contact}
+    raw_numbers = [
+        contact.whatsapp_number,
+        normalize_phone_number(contact.whatsapp_number),
+    ]
+    for number in raw_numbers:
+        if not number:
+            continue
+        digits = ''.join(filter(str.isdigit, str(number)))
+        if len(digits) < 10:
+            continue
+        suffix = digits[-10:]
+        for related in Contact.objects.filter(whatsapp_number__endswith=suffix):
+            contacts[related.pk] = related
+    return list(contacts.values())
+
+
+def _prefer_contact_with_agent_outreach(contact):
+    related = _related_whatsapp_contacts(contact)
+    open_statuses = ['normal', 'open', 'assigned', 'pending']
+
+    for candidate in related:
+        if Conversation.objects.filter(
+            contact=candidate,
+            channel='whatsapp',
+            status__in=open_statuses,
+        ).exists():
+            return candidate
+
+    for candidate in related:
+        last_msg = (
+            Message.objects.filter(
+                conversation__contact=candidate,
+                message_type='whatsapp',
+            )
+            .order_by('-created_at', '-id')
+            .first()
+        )
+        if (
+            last_msg
+            and last_msg.direction == 'outbound'
+            and not _message_is_welcome_menu(last_msg)
+        ):
+            return candidate
+    return contact
+
+
+def _find_open_or_reopen_whatsapp_conversation(contact):
+    """
+    Reutiliza la conversación abierta; si no hay, reabre una cerrada con
+    plantilla/outreach pendiente en vez de crear un hilo nuevo (que dispara menú).
+    """
+    related_ids = [c.pk for c in _related_whatsapp_contacts(contact)]
+    conversation = (
+        Conversation.objects.filter(
+            contact_id__in=related_ids,
+            channel='whatsapp',
+            status__in=['normal', 'open', 'assigned', 'pending'],
+        )
+        .order_by('-last_message_at', '-updated_at', '-pk')
+        .first()
+    )
+    was_closed = False
+    if conversation:
+        return conversation, was_closed
+
+    closed_qs = Conversation.objects.filter(
+        contact_id__in=related_ids,
+        channel='whatsapp',
+        status='closed',
+    ).order_by('-last_message_at', '-updated_at', '-pk')
+
+    for closed in closed_qs[:10]:
+        last_msg = (
+            Message.objects.filter(conversation=closed, message_type='whatsapp')
+            .order_by('-created_at', '-id')
+            .first()
+        )
+        if (
+            last_msg
+            and last_msg.direction == 'outbound'
+            and not _message_is_welcome_menu(last_msg)
+        ):
+            closed.status = 'normal'
+            closed.closed_at = None
+            closed.save(update_fields=['status', 'closed_at', 'updated_at'])
+            return closed, True
+
+    conversation = Conversation.objects.create(
+        contact=contact,
+        channel='whatsapp',
+        status='normal',
+        priority='normal',
+    )
+    assign_conversation_to_agent(conversation)
+    return conversation, False
+
+
 def _agent_started_whatsapp_outreach_today(contact, start, end):
     """
     True si hoy el contacto recibió primero un mensaje nuestro (p. ej. plantilla),
@@ -637,9 +752,10 @@ def _agent_started_whatsapp_outreach_today(contact, start, end):
     Así, si el agente contactó al cliente y éste responde, no se le muestra
     el menú de bienvenida como si hubiera iniciado él el chat.
     """
+    contact_ids = [c.pk for c in _related_whatsapp_contacts(contact)]
     qs = (
         Message.objects.filter(
-            conversation__contact=contact,
+            conversation__contact_id__in=contact_ids,
             message_type='whatsapp',
             created_at__gte=start,
             created_at__lt=end,
@@ -648,9 +764,8 @@ def _agent_started_whatsapp_outreach_today(contact, start, end):
     )
 
     for msg in qs.iterator():
-        meta = msg.metadata or {}
         # Ignorar el propio menú de bienvenida (también es outbound)
-        if msg.direction == 'outbound' and meta.get('welcome_menu'):
+        if msg.direction == 'outbound' and _message_is_welcome_menu(msg):
             continue
         if msg.direction == 'outbound':
             return True
@@ -659,12 +774,51 @@ def _agent_started_whatsapp_outreach_today(contact, start, end):
     return False
 
 
-def _handle_welcome_menu(handler, contact, conversation, text, force_show=False):
+def _has_unanswered_template(contact, inbound_message):
+    """
+    True si, después del último inbound del contacto, el equipo envió una
+    plantilla (aunque haya pasado medianoche o el reply caiga en otra conversación).
+    """
+    contact_ids = [c.pk for c in _related_whatsapp_contacts(contact)]
+    prior_messages = Message.objects.filter(
+        conversation__contact_id__in=contact_ids,
+        message_type='whatsapp',
+        created_at__lt=inbound_message.created_at,
+    )
+    last_inbound = (
+        prior_messages.filter(direction='inbound')
+        .order_by('-created_at', '-id')
+        .first()
+    )
+    outbound = prior_messages.filter(direction='outbound')
+    if last_inbound:
+        outbound = outbound.filter(created_at__gt=last_inbound.created_at)
+
+    for msg in outbound.order_by('-created_at', '-id').iterator():
+        if _message_is_welcome_menu(msg):
+            continue
+        if _message_is_template(msg):
+            return True
+        # Cualquier mensaje saliente de un agente (no automático) también cuenta
+        # como outreach iniciado por el equipo.
+        if msg.sender_id:
+            return True
+    return False
+
+
+def _handle_welcome_menu(
+    handler,
+    contact,
+    conversation,
+    text,
+    inbound_message,
+    force_show=False,
+):
     """
     Show the welcome menu on the first inbound text of the day, then keep it
     suppressed until the next day (00:00 local time), unless forced.
 
-    No mostrar si hoy la conversación la inició el equipo (plantilla / outbound).
+    No mostrar si la conversación la inició el equipo (plantilla / outbound).
     """
     text_stripped = text.strip().lower()
     if not text_stripped:
@@ -685,7 +839,7 @@ def _handle_welcome_menu(handler, contact, conversation, text, force_show=False)
             menu_state.delete()
             menu_state = None
         else:
-        # Try to parse as a number
+            # Try to parse as a number
             try:
                 chosen_number = int(text_stripped)
                 item = menu_state.menu.items.filter(number=chosen_number).first()
@@ -714,11 +868,14 @@ def _handle_welcome_menu(handler, contact, conversation, text, force_show=False)
     except ContactMenuState.DoesNotExist:
         pass
 
-    # Si hoy iniciamos nosotros (plantilla / mensaje saliente), no tratar la
-    # respuesta del cliente como "primer contacto" con menú de bienvenida.
-    if _agent_started_whatsapp_outreach_today(contact, start, end):
+    # Si el equipo inició (plantilla u outreach), no tratar la respuesta del
+    # cliente como "primer contacto" con menú de bienvenida.
+    if (
+        _has_unanswered_template(contact, inbound_message)
+        or _agent_started_whatsapp_outreach_today(contact, start, end)
+    ):
         logger.info(
-            "Skip welcome menu for contact %s: agent-initiated outreach today",
+            "Skip welcome menu for contact %s: agent-initiated outreach",
             contact.pk,
         )
         return
