@@ -266,12 +266,14 @@ def _email_header_recipients(email_msg):
     return ', '.join(to_list), ', '.join(cc_list), ', '.join(bcc_list)
 
 
-def _email_reply_quote_html(email_msg):
-    """Cita HTML editable del mensaje original para Responder / Responder a todos."""
+def _email_reply_quote_html(email_msg, body=None):
+    """Cita HTML editable del mensaje original para Responder / Responder a todos.
+    body: HTML limpio ya calculado (evita relimpiar el mismo mensaje)."""
     from django.utils.html import escape
     from .utils.email_headers import decode_mime_header
 
-    body = _email_message_body_html(email_msg)
+    if body is None:
+        body = _email_message_body_html(email_msg)
     if not email_msg and not body:
         return ''
 
@@ -1628,6 +1630,11 @@ def email_message_detail(request, pk):
         else:
             raw_src = plain_text_to_email_html(m.content or '')
             m.render_content = raw_src
+        # Persistir el cache en la primera limpieza: evita recalcular en cada
+        # apertura del hilo (limpiar_email_html es costoso en threads largos).
+        if ed and not ed.cleaned_html and m.render_content:
+            ed.cleaned_html = m.render_content
+            EmailMessage.objects.filter(pk=ed.pk).update(cleaned_html=m.render_content)
 
     selected_message = next(
     (m for m in messages if m.pk == email_message.message.pk),
@@ -1662,8 +1669,11 @@ def email_message_detail(request, pk):
     if not reply_bcc_joined and email_view_bcc:
         reply_bcc_joined = email_view_bcc
 
-    forward_preview_html = _email_forward_preview_html(email_message)
-    reply_quote_html = _email_reply_quote_html(email_message)
+    # Una sola limpieza del mensaje seleccionado: reutilizada por el hilo,
+    # el preview de reenvío y la cita de respuesta.
+    selected_body_html = _email_message_body_html(email_message)
+    forward_preview_html = selected_body_html
+    reply_quote_html = _email_reply_quote_html(email_message, selected_body_html)
 
     from django.contrib.auth.models import User as AuthUser
     transfer_users = AuthUser.objects.filter(is_active=True).exclude(
