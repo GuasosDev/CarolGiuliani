@@ -102,7 +102,7 @@
                                             <div class="bg-soft-primary text-primary rounded-circle p-2 me-3" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;">
                                                 <i class="fas fa-user"></i>
                                             </div>
-                                            <div class="fw-bold text-dark">{{ conv.contact.client.name|default:conv.contact.whatsapp_number|default:conv.contact.client.email }}</div>
+                                            <div class="fw-bold text-dark">{% firstof conv.contact.client.name conv.contact.whatsapp_number conv.contact.client.email %}</div>
                                         </div>
                                     </td>
                                     <td>
