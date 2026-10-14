@@ -98,6 +98,9 @@ def _email_message_body_html(email_msg):
     """HTML limpio del cuerpo de un EmailMessage (para preview/cita)."""
     if not email_msg:
         return ''
+    # Use cached cleaned_html if available
+    if getattr(email_msg, 'cleaned_html', None):
+        return email_msg.cleaned_html
     if email_msg.html_body and str(email_msg.html_body).strip():
         raw_src = email_msg.html_body
     elif email_msg.plain_body and str(email_msg.plain_body).strip():
@@ -1344,7 +1347,10 @@ class ContactCreateView(GenericCreateView):
 def conversation_detail(request, pk):
     """Conversation detail view"""
     try:
-        conversation = get_object_or_404(Conversation, pk=pk)
+        conversation = get_object_or_404(
+            Conversation.objects.select_related('contact__client', 'assigned_to'),
+            pk=pk
+        )
         
         # Check permission (agents can only see their own, supervisors see all)
         # Relaxed check for debugging: if it's in the allowed list for the user, show it.
@@ -1383,15 +1389,20 @@ def conversation_detail(request, pk):
                 m.envio_remitente = (m.sender.get_full_name() or m.sender.username or '').strip()
             if conversation.channel == 'email':
                 ed = getattr(m, 'email_data', None)
-                if ed and ed.html_body and str(ed.html_body).strip():
+                if ed and ed.cleaned_html:
+                    m.render_content = ed.cleaned_html
+                elif ed and ed.html_body and str(ed.html_body).strip():
                     raw_src = ed.html_body
+                    m.render_content = limpiar_email_html(raw_src)
                 elif m.content and '<' in (m.content or '') and '>' in (m.content or ''):
                     raw_src = m.content
+                    m.render_content = limpiar_email_html(raw_src)
                 elif ed and ed.plain_body and str(ed.plain_body).strip():
                     raw_src = plain_text_to_email_html(ed.plain_body)
+                    m.render_content = raw_src
                 else:
                     raw_src = plain_text_to_email_html(m.content or '')
-                m.render_content = limpiar_email_html(raw_src)
+                    m.render_content = raw_src
             else:
                 m.render_content = m.content
 
@@ -1603,15 +1614,20 @@ def email_message_detail(request, pk):
 
     for m in messages:
         ed = getattr(m, 'email_data', None)
-        if ed and ed.html_body and str(ed.html_body).strip():
+        if ed and ed.cleaned_html:
+            m.render_content = ed.cleaned_html
+        elif ed and ed.html_body and str(ed.html_body).strip():
             raw_src = ed.html_body
+            m.render_content = limpiar_email_html(raw_src)
         elif m.content and '<' in (m.content or '') and '>' in (m.content or ''):
             raw_src = m.content
+            m.render_content = limpiar_email_html(raw_src)
         elif ed and ed.plain_body and str(ed.plain_body).strip():
             raw_src = plain_text_to_email_html(ed.plain_body)
+            m.render_content = raw_src
         else:
             raw_src = plain_text_to_email_html(m.content or '')
-        m.render_content = limpiar_email_html(raw_src)
+            m.render_content = raw_src
 
     selected_message = next(
     (m for m in messages if m.pk == email_message.message.pk),

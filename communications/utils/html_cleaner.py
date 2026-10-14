@@ -295,123 +295,79 @@ def email_html_to_text(html):
     return soup.get_text(" ", strip=True)
 
 
+# Pre-compiled regex for image alt pattern
+_IMAGE_ALT_RE = re.compile(r"image\d*\.(png|jpg|jpeg|gif|webp)")
+
+# Try to use lxml parser (much faster) if available
+try:
+    import lxml  # noqa: F401
+    _BS4_PARSER = "lxml"
+except ImportError:
+    _BS4_PARSER = "html.parser"
+
+
 def limpiar_email_html(html):
 
     if not html:
         return ""
 
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(html, _BS4_PARSER)
 
     _strip_embedded_webmail_header(soup)
     _collapse_quoted_email_history(soup)
-     # eliminar css embebido
+
+    # eliminar css embebido y comentarios HTML
     for style in soup.find_all("style"):
         style.decompose()
-    # eliminar comentarios HTML
-    for comment in soup.find_all(
-        string=lambda text: isinstance(text, Comment)
-    ):
+    for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
         comment.extract()
 
-    # eliminar scripts peligrosos
-    for tag in soup([
-        'script',
-        'object',
-        'embed',
-        'form',
-        'input',
-        'button',
-        'select',
-        'option',
-        'textarea',
-        'canvas',
+    # eliminar scripts y tags peligrosos en una sola pasada
+    for tag in soup.find_all([
+        'script', 'object', 'embed', 'form', 'input', 'button',
+        'select', 'option', 'textarea', 'canvas',
     ]):
         tag.decompose()
 
-    
-
     # limpiar imágenes
     for img in soup.find_all("img"):
-        
-        if not hasattr(img, "attrs"):
+        if not getattr(img, 'attrs', None):
             continue
 
-        if img.attrs is None:
-            continue 
         alt = (img.get("alt") or "").strip().lower()
-
-        # ocultar nombres basura tipo image001.png
-        if re.match(
-            r"image\d*\.(png|jpg|jpeg|gif|webp)",
-            alt
-        ):
+        if _IMAGE_ALT_RE.match(alt):
             img["alt"] = ""
 
         current_style = img.get("style") or ""
-
-        img["style"] = f"""
-            {current_style};
-            max-width:100%;
-            height:auto;
-            object-fit:contain;
-            """
+        img["style"] = f"{current_style};max-width:100%;height:auto;object-fit:contain;"
         img["loading"] = "lazy"
 
         src = (img.get("src") or "").lower()
-        
         if src.startswith("data:image") and len(src) > 500000:
             img.decompose()
             continue
-        # eliminar tracking pixels
-        if (
-            "tracking" in src
-            or "pixel" in src
-            or "openrate" in src
-        ):
+        if "tracking" in src or "pixel" in src or "openrate" in src:
             img.decompose()
             continue
 
     # links seguros
     for a in soup.find_all("a"):
-
         href = a.get("href") or ""
-
         if href:
-
             a["target"] = "_blank"
             a["rel"] = "noopener noreferrer"
+            a["style"] = (a.get("style") or "") + ";word-break:break-word;"
 
-            current_style = a.get("style") or ""
-
-            # conservar links visibles
-            a["style"] = (
-                current_style
-                + ";word-break:break-word;"
-            )
-
-   # iframes seguros
+    # iframes seguros
     for iframe in soup.find_all("iframe"):
-
         src = (iframe.get("src") or "").lower()
-
-        allowed = any(domain in src for domain in [
-            "youtube.com",
-            "youtu.be",
-            "vimeo.com",
-        ])
-
+        allowed = any(d in src for d in ("youtube.com", "youtu.be", "vimeo.com"))
         if not allowed:
             iframe.decompose()
             continue
-
-        iframe["style"] = """
-            max-width:100%;
-            border:none;
-        """
-
+        iframe["style"] = "max-width:100%;border:none;"
         iframe["loading"] = "lazy"
         iframe["referrerpolicy"] = "no-referrer"
-
 
     content = unescape(str(soup))
 
@@ -419,13 +375,7 @@ def limpiar_email_html(html):
         content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
-        protocols=[
-            'http',
-            'https',
-            'mailto',
-            'data',
-            'cid',
-        ],
+        protocols=['http', 'https', 'mailto', 'data', 'cid'],
         strip=True,
         css_sanitizer=css_sanitizer
     )

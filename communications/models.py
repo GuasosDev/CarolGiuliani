@@ -138,21 +138,33 @@ class Conversation(models.Model):
         return f"{display_name} - {self.get_channel_display()} ({self.get_status_display()})"
 
     def get_display_name(self):
-        """Returns a human-readable name for the conversation, with fallbacks."""
+        """Returns a human-readable name for the conversation, with fallbacks.
+        Cached per-instance to avoid N+1 queries when called repeatedly in templates."""
+        cached = getattr(self, '_display_name_cache', None)
+        if cached is not None:
+            return cached
+
         from .utils.email_headers import decode_mime_header
 
-        if self.contact and self.contact.client:
-            return decode_mime_header(self.contact.client.name) or self.contact.client.name
+        result = "Desconocido"
+        if self.contact_id:
+            # Use cached related objects if available via select_related/prefetch
+            contact = self.contact
+            if contact:
+                client = getattr(contact, 'client', None)
+                if client and client.name:
+                    result = decode_mime_header(client.name) or client.name
+                elif contact.whatsapp_number:
+                    result = contact.whatsapp_number
 
-        # Look for sender_name in messages if no client linked
-        msg = self.messages.filter(direction='inbound').order_by('-created_at').first()
-        if msg and msg.sender_name:
-            return decode_mime_header(msg.sender_name) or msg.sender_name
+        if result == "Desconocido":
+            # Look for sender_name in messages if no client linked
+            msg = self.messages.filter(direction='inbound').order_by('-created_at').first()
+            if msg and msg.sender_name:
+                result = decode_mime_header(msg.sender_name) or msg.sender_name
 
-        if self.contact and self.contact.whatsapp_number:
-            return self.contact.whatsapp_number
-
-        return "Desconocido"
+        self._display_name_cache = result
+        return result
 
     def close(self):
         """Close the conversation"""
@@ -511,6 +523,7 @@ class EmailMessage(models.Model):
     subject = models.CharField(max_length=500, verbose_name="Asunto")
     html_body = models.TextField(blank=True, null=True, verbose_name="Cuerpo HTML")
     plain_body = models.TextField(blank=True, null=True, verbose_name="Cuerpo Texto Plano")
+    cleaned_html = models.TextField(blank=True, null=True, verbose_name="HTML Limpio (cacheado)")
     
     # Email headers for threading
     email_message_id = models.CharField(max_length=255, verbose_name="Message-ID")
@@ -550,6 +563,26 @@ class EmailMessage(models.Model):
         ]
     def __str__(self):
         return f"Email: {self.subject}"
+
+    def save(self, *args, **kwargs):
+        # Regenerate cleaned_html cache when html_body changes
+        if self.pk:
+            try:
+                old = EmailMessage.objects.get(pk=self.pk)
+                body_changed = old.html_body != self.html_body
+            except EmailMessage.DoesNotExist:
+                body_changed = True
+        else:
+            body_changed = True
+
+        if body_changed and self.html_body:
+            from .utils.html_cleaner import limpiar_email_html
+            try:
+                self.cleaned_html = limpiar_email_html(self.html_body)
+            except Exception:
+                self.cleaned_html = None
+
+        super().save(*args, **kwargs)
 
 
 class EmailThread(models.Model):
