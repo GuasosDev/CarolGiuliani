@@ -108,10 +108,41 @@ def _rows_count():
     return qs.count()
 _t("email_rows_qs.count()  [COUNT paginador, doble subquery]", _rows_count)
 
-# 5) Traer la primera pagina (15 filas) con select_related + Exists
-def _page():
-    from django.db.models import Exists, OuterRef
-    from communications.models import EmailAttachment
+# 5) Primera pagina con la forma NUEVA de la vista (ids materializados + indice)
+from django.db.models import Exists, OuterRef
+from communications.models import EmailAttachment
+
+visible_conv_ids = list(
+    get_agent_conversations(user).filter(
+        id__in=EmailMessage.objects.filter(email_account=ua).values_list(
+            "message__conversation_id", flat=True
+        )
+    ).values_list("id", flat=True)
+)
+print("   -> visible_conv_ids materializados:", len(visible_conv_ids))
+
+def _page_new():
+    qs = (
+        EmailMessage.objects.select_related(
+            "message", "message__conversation",
+            "message__conversation__contact",
+            "message__conversation__contact__client",
+            "email_account",
+        )
+        .filter(
+            message__conversation_id__in=visible_conv_ids,
+            email_account=ua,
+            message__direction="inbound",
+        )
+        .annotate(has_attachments=Exists(
+            EmailAttachment.objects.filter(email_message_id=OuterRef("pk"))))
+        .order_by("-email_date")[:15]
+    )
+    return len(list(qs))
+_t("primera pagina NUEVA (ids materializados + indice)", _page_new)
+
+# 5b) Forma VIEJA para comparar (subquery anidado en el IN)
+def _page_old():
     qs = (
         EmailMessage.objects.select_related(
             "message", "message__conversation",
@@ -133,11 +164,23 @@ def _page():
         .order_by("-email_date")[:15]
     )
     return len(list(qs))
-_t("primera pagina (15 filas) select_related+Exists+order", _page)
+_t("primera pagina VIEJA (subquery anidado) [referencia]", _page_old)
 
 # 6) _get_conversation_counts completo (dispara ~7 counts sobre el mismo base_qs)
 _t("_get_conversation_counts()  [todos los conteos sidebar]",
    lambda: _get_conversation_counts(user))
+
+# 7) End-to-end REAL sobre la vista ya parcheada (test client)
+try:
+    from django.test import Client
+    if "testserver" not in settings.ALLOWED_HOSTS:
+        settings.ALLOWED_HOSTS.append("testserver")
+    c = Client()
+    c.force_login(user)
+    _t("GET /communications/?channel=email  [VISTA REAL end-to-end]",
+       lambda: c.get("/communications/?channel=email").status_code)
+except Exception as e:
+    print("end-to-end fallo:", e)
 
 print("=" * 70)
 print("ÍNDICES en communications_emailmessage:")
@@ -150,12 +193,12 @@ with connection.cursor() as cur:
     except Exception as e:
         print("   no se pudo listar:", e)
 
-# EXPLAIN de las dos candidatas principales
+# EXPLAIN de la consulta de pagina NUEVA (ORDER BY email_date)
 _explain(
-    "conversations IN(subquery) distinct",
-    get_agent_conversations(user).filter(
-        id__in=EmailMessage.objects.filter(email_account=ua).values_list(
-            "message__conversation_id", flat=True
-        )
-    ).distinct(),
+    "PAGE nueva: inbox WHERE account + conversation_id IN(list) ORDER BY email_date",
+    EmailMessage.objects.filter(
+        message__conversation_id__in=visible_conv_ids,
+        email_account=ua,
+        message__direction="inbound",
+    ).order_by("-email_date"),
 )
