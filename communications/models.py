@@ -561,6 +561,15 @@ class EmailMessage(models.Model):
                 name='unique_message_id_per_account'
             )
         ]
+        indexes = [
+            # Inbox del dashboard: WHERE email_account_id = X ORDER BY email_date.
+            # Sin este indice, el ORDER BY + LIMIT sobre miles de emails fuerza
+            # un filesort completo y MySQL no puede cortar temprano.
+            models.Index(
+                fields=['email_account', 'email_date'],
+                name='emailmsg_acct_date_idx',
+            ),
+        ]
     def __str__(self):
         return f"Email: {self.subject}"
 

@@ -645,10 +645,17 @@ def dashboard(request):
                     id__in=email_conversation_ids
                 ).distinct()
 
+                # Materializar los ids de conversacion a una lista de enteros.
+                # Pasar `message__conversation__in=<queryset .distinct()>` hace
+                # que MySQL reevalue el subquery como DEPENDIENTE (por cada fila)
+                # al combinarlo con ORDER BY + LIMIT: ~20s sobre miles de emails.
+                # Con una lista de ids el IN es un set constante y usa el indice.
+                visible_conv_ids = list(conversations.values_list('id', flat=True))
+
                 email_rows_qs = (
                     EmailMessage.objects.select_related(*email_select_related)
                     .filter(
-                        message__conversation__in=conversations,
+                        message__conversation_id__in=visible_conv_ids,
                         email_account=user_email_account,
                     )
                 )
