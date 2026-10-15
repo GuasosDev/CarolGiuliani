@@ -161,8 +161,47 @@ n2 = len(ctx2.captured_queries)
 
 print(f"   -> queries: _reply_all_recipients={n1}  _email_header_recipients={n2}")
 
-# el SQL exacto del LIKE/icontains
-mid = (em.email_message_id or '').strip().strip('<>')
+# El mid real: si es muy corto, LIKE '%x%' casa con TODO y eso explicaria todo.
+mid_raw = getattr(em, 'email_message_id', None) or ''
+from communications.utils.email_threading import clean_message_id
+mid = clean_message_id(mid_raw)
+print(f"   -> email_message_id raw len={len(str(mid_raw))}  mid len={len(mid)}  valor={mid[:120]!r}")
+
+# Isolar SQL-puro vs ORM/Python: el MISMO query via cursor (solo em.id, sin
+# select_related => sin bajar html_body/cleaned_html/metadata).
+with CaptureQueriesContext(connection) as ctx3:
+    _t("ORM: qs.filter(mid_q)[:8]  (select_related, baja blobs)",
+       lambda: list(
+           EmailMessage.objects.filter(message__direction='outbound')
+           .exclude(pk=em.pk)
+           .select_related('message')
+           .order_by('-message__created_at')
+           .filter(Q(email_message_id=mid) | Q(email_message_id=f'<{mid}>')
+                   | Q(email_message_id__icontains=mid))[:8]
+       ))
+if ctx3.captured_queries:
+    _sql3 = ctx3.captured_queries[-1]['sql']
+    t0 = time.perf_counter()
+    with connection.cursor() as cur:
+        cur.execute(_sql3)
+        _rows = cur.fetchall()
+    print(f"{(time.perf_counter()-t0)*1000:10.1f} ms  SQL PURO (mismo query via cursor) -> {_rows and len(_rows)} filas")
+
+# Cuantas filas casa realmente el LIKE
+if mid:
+    t0 = time.perf_counter()
+    with connection.cursor() as cur:
+        cur.execute(
+            """SELECT COUNT(*) FROM communications_emailmessage em
+               JOIN communications_message m ON m.id = em.message_id
+               WHERE m.direction='outbound'
+                 AND (em.email_message_id = %s OR em.email_message_id = %s
+                      OR em.email_message_id LIKE CONCAT('%%', %s, '%%'))""",
+            [mid, f'<{mid}>', mid],
+        )
+        _hits = cur.fetchone()[0]
+    print(f"{(time.perf_counter()-t0)*1000:10.1f} ms  filas que casan con el mid -> {_hits}")
+
 if mid:
     _explain(
         "sibling outbound: direction+icontains(email_message_id) ORDER BY created_at",
