@@ -35,7 +35,7 @@ from .whatsapp_handler import process_whatsapp_webhook
 from .assignment_system import get_agent_conversations, assign_conversation_to_agent
 from clients.models import Client
 from core.views import GenericCreateView
-from django.db.models import Exists, OuterRef, Prefetch, Q
+from django.db.models import Exists, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import Coalesce
 from .utils.html_cleaner import limpiar_email_html, plain_text_to_email_html
 from django.http import JsonResponse
@@ -664,12 +664,17 @@ def dashboard(request):
                         )
                     )
                 else:
-                    # Visibilidad de conversacion SIN .distinct():
-                    # get_agent_conversations() usa .distinct() y, al meterlo en
-                    # un EXISTS, MariaDB lo materializa como derived table y
-                    # recorre TODAS las conversaciones + filesort (20s en frio).
-                    # Con un filtro plano, el EXISTS es una busqueda por PK y
-                    # EmailMessage conduce con el indice (email_account, email_date).
+                    # Visibilidad de conversacion como SUBCONSULTA CORRELACIONADA
+                    # con LIMIT, no como EXISTS.
+                    # MariaDB aplanaba el EXISTS en un semijoin y elegia conducir
+                    # desde communications_conversation (range por assigned_to,
+                    # ~5905 filas) -> 'Using temporary; Using filesort' sobre todos
+                    # los emails = 13-33s en frio.
+                    # Un LIMIT dentro de la subconsulta bloquea esa transformacion:
+                    # la conversacion queda como DEPENDENT SUBQUERY con eq_ref por
+                    # PK y EmailMessage conduce con emailmsg_acct_date_idx
+                    # (email_account_id, email_date) -> ORDER BY -email_date + LIMIT
+                    # sin filesort (~0.3ms medido en produccion).
                     if (
                         request.user.is_superuser
                         or request.user.groups.filter(name='Supervisor').exists()
@@ -686,16 +691,17 @@ def dashboard(request):
                     elif folder_filter not in ('sent', 'drafts'):
                         vis_qs = vis_qs.exclude(status='closed')
 
+                    visible_conv_pk = Subquery(
+                        vis_qs.filter(
+                            pk=OuterRef('message__conversation_id')
+                        ).values('pk').order_by()[:1]
+                    )
+
                     email_rows_qs = (
                         EmailMessage.objects.select_related(*email_select_related)
                         .filter(email_account=user_email_account)
-                        .filter(
-                            Exists(
-                                vis_qs.filter(
-                                    pk=OuterRef('message__conversation_id')
-                                )
-                            )
-                        )
+                        .annotate(_visible_conv_pk=visible_conv_pk)
+                        .filter(_visible_conv_pk__isnull=False)
                     )
 
                 if folder_filter == 'trash':

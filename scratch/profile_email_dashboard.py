@@ -108,12 +108,13 @@ def _rows_count():
     return qs.count()
 _t("email_rows_qs.count()  [COUNT paginador, doble subquery]", _rows_count)
 
-# 5) Primera pagina con la forma NUEVA de la vista (EXISTS + indice)
-from django.db.models import Exists, OuterRef, Q
+# 5) Primera pagina con la forma NUEVA de la vista (Subquery LIMIT + indice)
+from django.db.models import Exists, OuterRef, Q, Subquery
 from communications.models import EmailAttachment, Conversation
 
-# Forma NUEVA (igual que la vista): visibilidad SIN .distinct() para que el
-# EXISTS sea busqueda por PK y EmailMessage conduzca con el indice de fecha.
+# Forma NUEVA (igual que la vista): visibilidad como subconsulta correlacionada
+# CON LIMIT. El LIMIT impide que MariaDB la aplane a semijoin, asi EmailMessage
+# conduce con emailmsg_acct_date_idx y el ORDER BY -email_date no hace filesort.
 if user.is_superuser or user.groups.filter(name="Supervisor").exists():
     vis_qs = Conversation.objects.all()
 else:
@@ -122,8 +123,9 @@ else:
     )
 vis_qs = vis_qs.filter(channel="email").exclude(status="closed")
 
-def _page_new():
-    qs = (
+
+def _build_new_qs():
+    return (
         EmailMessage.objects.select_related(
             "message", "message__conversation",
             "message__conversation__contact",
@@ -131,14 +133,24 @@ def _page_new():
             "email_account",
         )
         .filter(email_account=ua)
-        .filter(Exists(vis_qs.filter(pk=OuterRef("message__conversation_id"))))
+        .annotate(
+            _visible_conv_pk=Subquery(
+                vis_qs.filter(pk=OuterRef("message__conversation_id")).values("pk")[:1]
+            )
+        )
+        .filter(_visible_conv_pk__isnull=False)
         .filter(message__direction="inbound")
         .annotate(has_attachments=Exists(
             EmailAttachment.objects.filter(email_message_id=OuterRef("pk"))))
-        .order_by("-email_date")[:15]
+        .order_by("-email_date")
     )
-    return len(list(qs))
-_t("primera pagina NUEVA (EXISTS + indice)", _page_new)
+
+
+def _page_new():
+    return len(list(_build_new_qs()[:15]))
+
+
+_t("primera pagina NUEVA (Subquery LIMIT + indice)", _page_new)
 
 # 5b) Forma VIEJA para comparar (subquery anidado en el IN)
 def _page_old():
@@ -192,11 +204,11 @@ with connection.cursor() as cur:
     except Exception as e:
         print("   no se pudo listar:", e)
 
-# EXPLAIN de la consulta de pagina NUEVA (EXISTS + ORDER BY email_date)
+# EXPLAIN de la consulta REAL que genera el ORM (verifica el LIMIT en la subconsulta)
+_sql, _params = _build_new_qs().query.sql_with_params()
+print("\n--- SQL que genera el ORM (nueva) ---")
+print(_sql)
 _explain(
-    "PAGE nueva (EXISTS): account + EXISTS(conv visible) + direction ORDER BY email_date",
-    EmailMessage.objects.filter(email_account=ua)
-    .filter(Exists(vis_qs.filter(pk=OuterRef("message__conversation_id"))))
-    .filter(message__direction="inbound")
-    .order_by("-email_date"),
+    "PAGE nueva (Subquery LIMIT): account + subquery(conv visible)[:1] + direction ORDER BY email_date",
+    _build_new_qs(),
 )

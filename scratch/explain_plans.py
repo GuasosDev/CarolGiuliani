@@ -146,5 +146,29 @@ run(
     [ua_id, u_id],
 )
 
+# 6) Replica el SQL REAL del ORM: igual que la 5 pero con INNER JOIN extra a
+#    conversation (producto del select_related('message__conversation')).
+#    Verifica que ese join no vuelva a tentar a MariaDB a conducir desde c.
+run(
+    "6) Como la 5 + INNER JOIN conversation (select_related real del ORM)",
+    """
+    SELECT em.id
+    FROM communications_emailmessage em
+    JOIN communications_message m ON m.id = em.message_id
+    JOIN communications_conversation c2 ON c2.id = m.conversation_id
+    WHERE em.email_account_id = %s
+      AND m.direction = 'inbound'
+      AND (SELECT c.id FROM communications_conversation c
+           WHERE c.channel = 'email'
+             AND c.status <> 'closed'
+             AND (c.assigned_to_id = %s OR c.assigned_to_id IS NULL)
+             AND c.id = m.conversation_id
+           LIMIT 1) IS NOT NULL
+    ORDER BY em.email_date DESC
+    LIMIT 15
+    """,
+    [ua_id, u_id],
+)
+
 print("\n" + "=" * 70)
 print("Elegí la variante cuyo EXPLAIN muestre key=emailmsg_acct_date_idx y SIN 'Using filesort'.")
