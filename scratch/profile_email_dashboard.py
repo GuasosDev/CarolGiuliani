@@ -108,18 +108,17 @@ def _rows_count():
     return qs.count()
 _t("email_rows_qs.count()  [COUNT paginador, doble subquery]", _rows_count)
 
-# 5) Primera pagina con la forma NUEVA de la vista (ids materializados + indice)
+# 5) Primera pagina con la forma NUEVA de la vista (EXISTS + indice)
 from django.db.models import Exists, OuterRef
 from communications.models import EmailAttachment
 
-visible_conv_ids = list(
-    get_agent_conversations(user).filter(
-        id__in=EmailMessage.objects.filter(email_account=ua).values_list(
-            "message__conversation_id", flat=True
-        )
-    ).values_list("id", flat=True)
+# Forma NUEVA: EXISTS correlacionado (semijoin), conduciendo desde
+# EmailMessage con el indice (email_account_id, email_date).
+vis_qs = (
+    get_agent_conversations(user)
+    .filter(channel="email")
+    .exclude(status="closed")
 )
-print("   -> visible_conv_ids materializados:", len(visible_conv_ids))
 
 def _page_new():
     qs = (
@@ -129,17 +128,15 @@ def _page_new():
             "message__conversation__contact__client",
             "email_account",
         )
-        .filter(
-            message__conversation_id__in=visible_conv_ids,
-            email_account=ua,
-            message__direction="inbound",
-        )
+        .filter(email_account=ua)
+        .filter(Exists(vis_qs.filter(pk=OuterRef("message__conversation_id"))))
+        .filter(message__direction="inbound")
         .annotate(has_attachments=Exists(
             EmailAttachment.objects.filter(email_message_id=OuterRef("pk"))))
         .order_by("-email_date")[:15]
     )
     return len(list(qs))
-_t("primera pagina NUEVA (ids materializados + indice)", _page_new)
+_t("primera pagina NUEVA (EXISTS + indice)", _page_new)
 
 # 5b) Forma VIEJA para comparar (subquery anidado en el IN)
 def _page_old():
@@ -193,12 +190,11 @@ with connection.cursor() as cur:
     except Exception as e:
         print("   no se pudo listar:", e)
 
-# EXPLAIN de la consulta de pagina NUEVA (ORDER BY email_date)
+# EXPLAIN de la consulta de pagina NUEVA (EXISTS + ORDER BY email_date)
 _explain(
-    "PAGE nueva: inbox WHERE account + conversation_id IN(list) ORDER BY email_date",
-    EmailMessage.objects.filter(
-        message__conversation_id__in=visible_conv_ids,
-        email_account=ua,
-        message__direction="inbound",
-    ).order_by("-email_date"),
+    "PAGE nueva (EXISTS): account + EXISTS(conv visible) + direction ORDER BY email_date",
+    EmailMessage.objects.filter(email_account=ua)
+    .filter(Exists(vis_qs.filter(pk=OuterRef("message__conversation_id"))))
+    .filter(message__direction="inbound")
+    .order_by("-email_date"),
 )

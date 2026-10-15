@@ -645,20 +645,43 @@ def dashboard(request):
                     id__in=email_conversation_ids
                 ).distinct()
 
-                # Materializar los ids de conversacion a una lista de enteros.
-                # Pasar `message__conversation__in=<queryset .distinct()>` hace
-                # que MySQL reevalue el subquery como DEPENDIENTE (por cada fila)
-                # al combinarlo con ORDER BY + LIMIT: ~20s sobre miles de emails.
-                # Con una lista de ids el IN es un set constante y usa el indice.
-                visible_conv_ids = list(conversations.values_list('id', flat=True))
-
-                email_rows_qs = (
-                    EmailMessage.objects.select_related(*email_select_related)
-                    .filter(
-                        message__conversation_id__in=visible_conv_ids,
-                        email_account=user_email_account,
+                # Rendimiento (MySQL): conducir desde EmailMessage usando el
+                # indice emailmsg_acct_date_idx (email_account_id, email_date)
+                # para que el ORDER BY + LIMIT no ordene TODOS los emails. La
+                # visibilidad de la conversacion se resuelve con EXISTS
+                # (semijoin correlacionado) en lugar de
+                # `conversation__in=<subquery>` o de una lista grande de ids,
+                # que obligan a MySQL a materializar y hacer filesort completo
+                # (segundos sobre miles de filas).
+                if search_q:
+                    # Con busqueda se conservan los filtros de conversacion ya
+                    # aplicados sobre `conversations` (caso menos frecuente).
+                    email_rows_qs = (
+                        EmailMessage.objects.select_related(*email_select_related)
+                        .filter(
+                            message__conversation__in=conversations,
+                            email_account=user_email_account,
+                        )
                     )
-                )
+                else:
+                    vis_qs = get_agent_conversations(request.user).filter(
+                        channel='email'
+                    )
+                    if status_filter and status_filter not in ('all', 'inbox'):
+                        vis_qs = vis_qs.filter(status=status_filter)
+                    elif folder_filter not in ('sent', 'drafts'):
+                        vis_qs = vis_qs.exclude(status='closed')
+                    email_rows_qs = (
+                        EmailMessage.objects.select_related(*email_select_related)
+                        .filter(email_account=user_email_account)
+                        .filter(
+                            Exists(
+                                vis_qs.filter(
+                                    pk=OuterRef('message__conversation_id')
+                                )
+                            )
+                        )
+                    )
 
                 if folder_filter == 'trash':
                     email_rows_qs = email_rows_qs.filter(
