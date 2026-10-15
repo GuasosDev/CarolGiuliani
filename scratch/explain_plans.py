@@ -123,5 +123,28 @@ run(
     [ua_id],
 )
 
+# 5) Subconsulta correlacionada con LIMIT (lo que emitiria el ORM con
+#    Subquery(...values('pk')[:1]) + isnull=False). El LIMIT impide que
+#    MariaDB la aplane a semijoin -> emailmessage conduce con el indice.
+run(
+    "5) Subquery correlacionada con LIMIT (forma ORM objetivo)",
+    """
+    SELECT em.id
+    FROM communications_emailmessage em
+    JOIN communications_message m ON m.id = em.message_id
+    WHERE em.email_account_id = %s
+      AND m.direction = 'inbound'
+      AND (SELECT c.id FROM communications_conversation c
+           WHERE c.channel = 'email'
+             AND c.status <> 'closed'
+             AND (c.assigned_to_id = %s OR c.assigned_to_id IS NULL)
+             AND c.id = m.conversation_id
+           LIMIT 1) IS NOT NULL
+    ORDER BY em.email_date DESC
+    LIMIT 15
+    """,
+    [ua_id, u_id],
+)
+
 print("\n" + "=" * 70)
 print("Elegí la variante cuyo EXPLAIN muestre key=emailmsg_acct_date_idx y SIN 'Using filesort'.")
