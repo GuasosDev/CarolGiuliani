@@ -29,6 +29,7 @@ from communications.views import (
     _email_message_body_html,
     _email_reply_quote_html,
     _email_compose_recipient_catalog,
+    _find_sibling_outbound_bcc,
     get_agent_conversations,
 )
 
@@ -160,6 +161,11 @@ with CaptureQueriesContext(connection) as ctx2:
 n2 = len(ctx2.captured_queries)
 
 print(f"   -> queries: _reply_all_recipients={n1}  _email_header_recipients={n2}")
+
+# El hermano directo: tras el fix, para un INBOUND _reply_all_recipients ya no
+# debe llamarlo. _email_header_recipients si (el Cco se muestra en la barra).
+_t("_find_sibling_outbound_bcc(em)  [medicion directa]",
+   lambda: _find_sibling_outbound_bcc(em))
 
 # El mid real: si es muy corto, LIKE '%x%' casa con TODO y eso explicaria todo.
 mid_raw = getattr(em, 'email_message_id', None) or ''

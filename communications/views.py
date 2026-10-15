@@ -155,13 +155,6 @@ def _reply_all_recipients(email_msg, my_email=None):
     from_addr = (getattr(email_msg, 'from_address', None) or '').strip()
     tos = _normalize_email_addr_list(getattr(email_msg, 'to_addresses', None))
     ccs = _normalize_email_addr_list(getattr(email_msg, 'cc_addresses', None))
-    bccs = _normalize_email_addr_list(getattr(email_msg, 'bcc_addresses', None))
-    if not bccs:
-        meta = getattr(getattr(email_msg, 'message', None), 'metadata', None) or {}
-        if isinstance(meta, dict):
-            bccs = _normalize_email_addr_list(meta.get('bcc_addresses'))
-    if not bccs:
-        bccs = _find_sibling_outbound_bcc(email_msg)
 
     direction = None
     msg = getattr(email_msg, 'message', None)
@@ -180,6 +173,15 @@ def _reply_all_recipients(email_msg, my_email=None):
         return result
 
     if direction == 'outbound':
+        bccs = _normalize_email_addr_list(getattr(email_msg, 'bcc_addresses', None))
+        if not bccs:
+            meta = getattr(msg, 'metadata', None) or {}
+            if isinstance(meta, dict):
+                bccs = _normalize_email_addr_list(meta.get('bcc_addresses'))
+        if not bccs:
+            # Recien aca hace falta el hermano saliente: antes de leer la BD.
+            bccs = _find_sibling_outbound_bcc(email_msg)
+
         to_list = dedupe(tos, {my} if my else set())
         if not to_list and tos:
             to_list = [tos[0]]
@@ -215,38 +217,71 @@ def _find_sibling_outbound_bcc(email_msg):
     msg = getattr(email_msg, 'message', None)
     conv_id = getattr(msg, 'conversation_id', None) if msg else None
     own_pk = getattr(email_msg, 'pk', None)
+    account_id = getattr(email_msg, 'email_account_id', None)
 
+    # Solo se leen bcc_addresses y el metadata del hermano. Bajar el resto
+    # (html_body / cleaned_html / plain_body ~35KB por fila) hacia que MariaDB
+    # metiera las 31K filas completas en la tabla temporal del ORDER BY: ~1GB
+    # escrito a disco para volver, en la practica, con 0 filas.
     qs = (
         EmailMessage.objects.filter(message__direction='outbound')
         .exclude(pk=own_pk)
         .select_related('message')
-        .order_by('-message__created_at')
+        .only('id', 'bcc_addresses', 'email_date', 'message__id', 'message__metadata')
     )
 
-    candidates = []
+    def _first_bcc(cands):
+        for sib in cands:
+            bccs = _normalize_email_addr_list(getattr(sib, 'bcc_addresses', None))
+            if bccs:
+                return bccs
+            meta = getattr(getattr(sib, 'message', None), 'metadata', None) or {}
+            if isinstance(meta, dict):
+                bccs = _normalize_email_addr_list(meta.get('bcc_addresses'))
+                if bccs:
+                    return bccs
+        return []
+
+    # 1) Coincidencia EXACTA de Message-ID: busca por indice y no necesita
+    #    ORDER BY (a lo sumo un unico hermano con ese Message-ID), asi que no
+    #    hay filesort ni tabla temporal.
     if mid:
-        mid_q = (
-            models.Q(email_message_id=mid)
-            | models.Q(email_message_id=f'<{mid}>')
-            | models.Q(email_message_id__icontains=mid)
+        exact = list(
+            qs.filter(
+                models.Q(email_message_id=mid)
+                | models.Q(email_message_id=f'<{mid}>')
+            )[:8]
         )
-        candidates = list(qs.filter(mid_q)[:8])
-    if not candidates and conv_id:
+        found = _first_bcc(exact)
+        if found:
+            return found
+
+    # 2) Hermanos de la misma conversacion (scoping chico, indexado por FK)
+    if conv_id:
         subj = (getattr(email_msg, 'subject', None) or '').strip()
         conv_qs = qs.filter(message__conversation_id=conv_id)
         if subj:
             conv_qs = conv_qs.filter(subject=subj)
-        candidates = list(conv_qs[:8])
+        if account_id:
+            # orden por la fecha propia de EmailMessage: el indice
+            # emailmsg_acct_date_idx (email_account_id, email_date) da el DESC
+            # sin filesort, y email_date es el reemplazo natural de
+            # message__created_at para "el hermano mas reciente".
+            conv_qs = conv_qs.filter(email_account_id=account_id).order_by('-email_date')
+        found = _first_bcc(list(conv_qs[:8]))
+        if found:
+            return found
 
-    for sib in candidates:
-        bccs = _normalize_email_addr_list(getattr(sib, 'bcc_addresses', None))
-        if bccs:
-            return bccs
-        meta = getattr(getattr(sib, 'message', None), 'metadata', None) or {}
-        if isinstance(meta, dict):
-            bccs = _normalize_email_addr_list(meta.get('bcc_addresses'))
-            if bccs:
-                return bccs
+    # 3) Unico caso en que queda el LIKE '%mid%' (no indexable): cuando ni el
+    #    ID exacto ni la conversacion dieron Cco. Antes era el primer intento.
+    if mid:
+        loose = list(
+            qs.filter(email_message_id__icontains=mid)[:8]
+        )
+        found = _first_bcc(loose)
+        if found:
+            return found
+
     return []
 
 
