@@ -664,13 +664,28 @@ def dashboard(request):
                         )
                     )
                 else:
-                    vis_qs = get_agent_conversations(request.user).filter(
-                        channel='email'
-                    )
+                    # Visibilidad de conversacion SIN .distinct():
+                    # get_agent_conversations() usa .distinct() y, al meterlo en
+                    # un EXISTS, MariaDB lo materializa como derived table y
+                    # recorre TODAS las conversaciones + filesort (20s en frio).
+                    # Con un filtro plano, el EXISTS es una busqueda por PK y
+                    # EmailMessage conduce con el indice (email_account, email_date).
+                    if (
+                        request.user.is_superuser
+                        or request.user.groups.filter(name='Supervisor').exists()
+                    ):
+                        vis_qs = Conversation.objects.all()
+                    else:
+                        vis_qs = Conversation.objects.filter(
+                            Q(assigned_to=request.user)
+                            | Q(assigned_to__isnull=True)
+                        )
+                    vis_qs = vis_qs.filter(channel='email')
                     if status_filter and status_filter not in ('all', 'inbox'):
                         vis_qs = vis_qs.filter(status=status_filter)
                     elif folder_filter not in ('sent', 'drafts'):
                         vis_qs = vis_qs.exclude(status='closed')
+
                     email_rows_qs = (
                         EmailMessage.objects.select_related(*email_select_related)
                         .filter(email_account=user_email_account)

@@ -109,16 +109,18 @@ def _rows_count():
 _t("email_rows_qs.count()  [COUNT paginador, doble subquery]", _rows_count)
 
 # 5) Primera pagina con la forma NUEVA de la vista (EXISTS + indice)
-from django.db.models import Exists, OuterRef
-from communications.models import EmailAttachment
+from django.db.models import Exists, OuterRef, Q
+from communications.models import EmailAttachment, Conversation
 
-# Forma NUEVA: EXISTS correlacionado (semijoin), conduciendo desde
-# EmailMessage con el indice (email_account_id, email_date).
-vis_qs = (
-    get_agent_conversations(user)
-    .filter(channel="email")
-    .exclude(status="closed")
-)
+# Forma NUEVA (igual que la vista): visibilidad SIN .distinct() para que el
+# EXISTS sea busqueda por PK y EmailMessage conduzca con el indice de fecha.
+if user.is_superuser or user.groups.filter(name="Supervisor").exists():
+    vis_qs = Conversation.objects.all()
+else:
+    vis_qs = Conversation.objects.filter(
+        Q(assigned_to=user) | Q(assigned_to__isnull=True)
+    )
+vis_qs = vis_qs.filter(channel="email").exclude(status="closed")
 
 def _page_new():
     qs = (

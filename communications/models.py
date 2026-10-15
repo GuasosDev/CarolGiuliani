@@ -479,6 +479,13 @@ class EmailAccount(models.Model):
     sync_enabled = models.BooleanField(default=True, verbose_name="Sincronización Activa")
     sync_interval = models.IntegerField(default=5, verbose_name="Intervalo de Sincronización (minutos)")
     last_sync_at = models.DateTimeField(null=True, blank=True)
+    # Último UID IMAP sincronizado (INBOX). Permite sync incremental:
+    # en vez de recorrer todo el buzón (12k+ queries) cada minuto, se buscan
+    # solo los UIDs nuevos (> last_synced_uid). NULL = aún no inicializado.
+    last_synced_uid = models.BigIntegerField(
+        null=True, blank=True,
+        verbose_name="Último UID IMAP sincronizado",
+    )
     
     is_active = models.BooleanField(default=True, verbose_name="Activa")
     

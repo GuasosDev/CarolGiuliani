@@ -181,10 +181,29 @@ class EmailHandler:
                 )
                 return []
 
+            # Sync INCREMENTAL: solo UIDs mayores al último sincronizado.
+            # Antes se hacía uid search 'ALL' y un exists() por cada mensaje
+            # (12k+ queries por minuto) -> saturaba CPU/IO el server.
+            last_uid = self.account.last_synced_uid
+            if last_uid is None:
+                # Primera vez: arrancar desde el UID ya sincronizado más alto
+                # para no re-escanear todo el buzón. Si la cuenta está vacía
+                # en BD, empieza en 0 (primer escaneo completo, una sola vez).
+                existing = EmailMessage.objects.filter(
+                    email_account=self.account
+                ).values_list('imap_uid', flat=True)
+                ints = [int(u) for u in existing if u and str(u).isdigit()]
+                last_uid = max(ints) if ints else 0
+
+            if last_uid > 0:
+                search_criterion = f'UID {last_uid + 1}:*'
+            else:
+                search_criterion = 'ALL'
+
             status, messages = self.imap_connection.uid(
                 'search',
                 None,
-                'ALL'
+                search_criterion
             )
 
             if status != 'OK':
@@ -197,22 +216,39 @@ class EmailHandler:
 
             if not messages or not messages[0]:
                 logger.info(
-                    f"No emails found for {self.account.email_address}"
+                    f"No new emails for {self.account.email_address} "
+                    f"(since UID {last_uid})"
                 )
+                # Persistir el punto de partida recién inicializado.
+                if self.account.last_synced_uid is None:
+                    EmailAccount.objects.filter(pk=self.account.pk).update(
+                        last_synced_uid=last_uid
+                    )
+                    self.account.last_synced_uid = last_uid
                 return []
 
             email_uids = messages[0].split()
 
             logger.info(
-                f"Found {len(email_uids)} emails "
-                f"for {self.account.email_address}"
+                f"Found {len(email_uids)} new emails "
+                f"for {self.account.email_address} (since UID {last_uid})"
             )
 
             fetched_emails = []
+            max_uid = last_uid
 
             for uid in reversed(email_uids):
 
                 uid_str = uid.decode()
+
+                # Avanzar el marcador de progreso (UIDs IMAP son numéricos y
+                # monótonos crecientes dentro de la carpeta).
+                try:
+                    uid_int = int(uid_str)
+                    if uid_int > max_uid:
+                        max_uid = uid_int
+                except (TypeError, ValueError):
+                    pass
 
                 logger.debug(
                     f"[{self.account.email_address}] UID={uid_str} START"
@@ -326,6 +362,13 @@ class EmailHandler:
                 f"Fetched {len(fetched_emails)} new emails "
                 f"for {self.account.email_address}"
             )
+
+            # Persistir el progreso del sync incremental.
+            if max_uid > (self.account.last_synced_uid or 0):
+                EmailAccount.objects.filter(pk=self.account.pk).update(
+                    last_synced_uid=max_uid
+                )
+                self.account.last_synced_uid = max_uid
 
             return fetched_emails
 
