@@ -17,83 +17,13 @@
 <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
     {% if current_channel == 'email' %}
     {% include "communications/partials/email_toolbar.html" %}
-
-    {% else %}
-    
-    <!-- Status Filter Buttons (Exact match to image) -->
-    <div class="comm-status-filter-bar d-flex align-items-center gap-2 pe-3 border-end">
-        <!-- Todos / Inbox -->
-        <a href="?status=all{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="filter-btn {% if current_status == 'all' or not current_status %}active{% endif %}" title="Todos">
-            <div class="icon-circle" style="background-color: #0d2142;">
-                <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
-            </div>
-            <span class="filter-count">{{ current_filter_total }}</span>
-        </a>
-
-
-
-
-<!-- Status Filter Buttons (Exact match to image) -->
-<div class="comm-status-filter-bar d-flex align-items-center gap-2 pe-3 border-end">
-        <!-- Activos -->
-        <a href="?status=normal{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="filter-btn {% if current_status == 'normal' %}active{% endif %}" title="Activos">
-            <div class="icon-circle" style="background-color: #198754;">
-                <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
-            </div>
-            <span class="filter-count">{{ normal_count }}</span>
-        </a>
-
-        <!-- Pendientes -->
-        <a href="?status=pending{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="filter-btn {% if current_status == 'pending' %}active{% endif %}" title="Pendientes">
-            <div class="icon-circle" style="background-color: #ffc107;">
-                <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
-            </div>
-            <span class="filter-count">{{ pending_count }}</span>
-        </a>
-
-        <!-- Cerrados -->
-        <a href="?status=closed{% if current_channel %}&channel={{ current_channel }}{% endif %}" 
-           class="filter-btn {% if current_status == 'closed' %}active{% endif %}" title="Cerrados">
-            <div class="icon-circle" style="background-color: #dc3545;">
-                <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
-            </div>
-            <span class="filter-count">{{ closed_count }}</span>
-        </a>
-       
-
-
-    </div>
-    
-    
-    {% endif %}
-
-    {% if current_channel != 'email' %}
-    <!-- Action Buttons Group (Nuevo / Reporte) — oculto en vista correo -->
-    <div class="d-flex align-items-center shadow-sm" style="border-radius: 25px; overflow: hidden; height: 45px; border: 1px solid #dee2e6;">
-        <button hx-get="{% url 'client_create' %}" hx-target="#modal-body" hx-trigger="click"
-            onclick="openModal()" class="btn btn-primary h-100 d-flex align-items-center px-4" 
-            style="background-color: #6f42c1; border: none; border-radius: 0;">
-            <i class="fas fa-plus me-2"></i>
-            <span class="fw-bold" style="font-size: 0.9rem;">Nuevo</span>
-        </button>
-        <button hx-get="{% url 'communications:conversation_report' %}" hx-target="#modal-body"
-            hx-trigger="click" onclick="openModal()"
-            class="btn btn-white h-100 d-flex align-items-center px-4 border-0"
-            style="background-color: #fff; color: #333; border-radius: 0;">
-            <i class="fas fa-file-pdf me-2 text-danger" style="font-size: 1.1rem;"></i>
-            <span class="fw-bold" style="font-size: 0.9rem;">Reporte</span>
-        </button>
-    </div>
     {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'communications/css/communications.css' %}">
-<link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}?v=apple-modals-5">
+<link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}?v=wa-dark-2">
 {% block comm_css %}{% endblock %}
 {% endblock %}
 
@@ -136,7 +66,7 @@
         <!-- WhatsApp -->
         <a href="{% url 'communications:dashboard' %}?channel=whatsapp" 
            class="sidebar-icon-btn {% if current_channel == 'whatsapp' %}active{% endif %}" title="WhatsApp">
-            <i class="fab fa-whatsapp" style="color: #25D366;"></i>
+            <i class="fab fa-whatsapp"></i>
             <span>WhatsApp</span>
             {% if whatsapp_count > 0 %}
             <span class="sidebar-badge">{{ whatsapp_count }}</span>
@@ -146,7 +76,7 @@
         <!-- Email -->
         <a href="{% url 'communications:dashboard' %}?channel=email" 
            class="sidebar-icon-btn {% if current_channel == 'email' %}active{% endif %}" title="Email">
-            <i class="fas fa-envelope" style="color: #0d6efd;"></i>
+            <i class="fas fa-envelope"></i>
             <span>Email</span>
             {% if email_count > 0 %}
             <span class="sidebar-badge">{{ email_count }}</span>
@@ -156,7 +86,7 @@
         <!-- Multicanal -->
         <a href="{% url 'communications:dashboard' %}?channel=multichannel" 
            class="sidebar-icon-btn {% if current_channel == 'multichannel' %}active{% endif %}" title="Multicanal">
-            <i class="fas fa-sync-alt" style="color: #0dcaf0;"></i>
+            <i class="fas fa-sync-alt"></i>
             <span>Multi</span>
             {% if total_channel_count > 0 %}
             <span class="sidebar-badge">{{ total_channel_count }}</span>
@@ -166,7 +96,7 @@
         <!-- Interno -->
         <a href="{% url 'communications:internal_chat' %}" 
            class="sidebar-icon-btn {% if current_channel == 'internal' %}active{% endif %}" title="Interno">
-            <i class="fas fa-comments" style="color: #6c757d;"></i>
+            <i class="fas fa-comments"></i>
             <span>Interno</span>
             {% if internal_count > 0 %}
             <span class="sidebar-badge">{{ internal_count }}</span>
@@ -177,31 +107,31 @@
 
         <!-- Respuestas Rápidas -->
         <a href="{% url 'communications:quick_replies' %}" class="sidebar-icon-btn" title="Respuestas Rápidas">
-            <i class="fas fa-bolt" style="color: #ffc107;"></i>
+            <i class="fas fa-bolt"></i>
             <span>Rápidas</span>
         </a>
 
         <!-- Bienvenida -->
         <a href="{% url 'communications:welcome_menus' %}" class="sidebar-icon-btn" title="Menú de Bienvenida">
-            <i class="fas fa-list-ul" style="color: #ffc107;"></i>
+            <i class="fas fa-list-ul"></i>
             <span>Bienvenida</span>
         </a>
 
         <!-- Plantillas -->
         <a href="#" class="sidebar-icon-btn" title="Plantillas">
-            <i class="fas fa-file-alt" style="color: #6c757d;"></i>
+            <i class="fas fa-file-alt"></i>
             <span>Plantillas</span>
         </a>
 
         <!-- Etiquetas -->
         <a href="{% url 'client_tag_full_list' %}" class="sidebar-icon-btn" title="Etiquetas">
-            <i class="fas fa-tags" style="color: #0dcaf0;"></i>
+            <i class="fas fa-tags"></i>
             <span>Etiquetas</span>
         </a>
 
         <!-- Reportes -->
         <a href="#" class="sidebar-icon-btn" title="Reportes">
-            <i class="fas fa-chart-bar" style="color: #198754;"></i>
+            <i class="fas fa-chart-bar"></i>
             <span>Reportes</span>
         </a>
     </div>

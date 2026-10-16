@@ -21,7 +21,7 @@
                class="filter-btn {% if current_status == 'all' or not current_status %}active{% endif %}"
                title="Todos">
 
-                <div class="icon-circle" style="background-color: #0d2142;">
+                <div class="icon-circle is-all">
                     <i class="fas fa-list text-white" style="font-size: 0.8rem;"></i>
                 </div>
 
@@ -34,7 +34,7 @@
                class="filter-btn {% if current_status == 'normal' %}active{% endif %}"
                title="Activos">
 
-                <div class="icon-circle" style="background-color: #198754;">
+                <div class="icon-circle is-normal">
                     <i class="fas fa-check text-white" style="font-size: 0.8rem;"></i>
                 </div>
 
@@ -47,7 +47,7 @@
                class="filter-btn {% if current_status == 'pending' %}active{% endif %}"
                title="Pendientes">
 
-                <div class="icon-circle" style="background-color: #ffc107;">
+                <div class="icon-circle is-pending">
                     <i class="fas fa-hourglass-half text-white" style="font-size: 0.8rem;"></i>
                 </div>
 
@@ -60,7 +60,7 @@
                class="filter-btn {% if current_status == 'closed' %}active{% endif %}"
                title="Cerrados">
 
-                <div class="icon-circle" style="background-color: #dc3545;">
+                <div class="icon-circle is-closed">
                     <i class="fas fa-times text-white" style="font-size: 0.8rem;"></i>
                 </div>
 
@@ -68,18 +68,48 @@
 
             </a>
 
-           {% if current_channel == 'whatsapp' %}
-            <button
-                type="button"
-                class="btn btn-success btn-sm d-flex align-items-center gap-2 ms-auto"
-                id="btnNewWhatsappConversation"
-                title="Nueva conversación de WhatsApp">
+            <div class="comm-wa-actions ms-auto d-flex align-items-center gap-2">
+                {% if current_channel == 'whatsapp' %}
+                <button
+                    type="button"
+                    class="comm-wa-btn comm-wa-btn-primary"
+                    id="btnNewWhatsappConversation"
+                    title="Nueva conversación de WhatsApp">
 
-                <i class="fab fa-whatsapp"></i>
-                <span>Nueva conversación</span>
+                    <i class="fab fa-whatsapp"></i>
+                    <span>Nueva conversación</span>
 
-            </button>
-            {% endif %}
+                </button>
+                {% endif %}
+
+                <button
+                    type="button"
+                    class="comm-wa-btn comm-wa-btn-ghost"
+                    hx-get="{% url 'client_create' %}"
+                    hx-target="#modal-body"
+                    hx-trigger="click"
+                    onclick="openModal()"
+                    title="Nuevo contacto">
+
+                    <i class="fas fa-plus"></i>
+                    <span>Nuevo</span>
+
+                </button>
+
+                <button
+                    type="button"
+                    class="comm-wa-btn comm-wa-btn-ghost"
+                    hx-get="{% url 'communications:conversation_report' %}"
+                    hx-target="#modal-body"
+                    hx-trigger="click"
+                    onclick="openModal()"
+                    title="Reporte de conversaciones">
+
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Reporte</span>
+
+                </button>
+            </div>
         </div>
 
     {% endif %}

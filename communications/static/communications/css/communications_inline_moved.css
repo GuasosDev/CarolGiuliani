@@ -1749,3 +1749,1014 @@ body.dark-mode .email-read-from {
 body.dark-mode .email-read-body {
     color: #e2e8f0 !important;
 }
+
+/* ============================================================
+   Entorno de comunicaciones - Estetica "WhatsApp Web" (oscuro)
+   Paleta: verde #25D366 sobre base oscura (design.md).
+   Capa puramente visual: no cambia estructura, datos ni comportamiento.
+   ============================================================ */
+
+.comm-layout {
+    --ps-primary: #25D366;
+    --ps-primary-deep: #1DA851;
+    --ps-primary-tint: rgba(37, 211, 102, .12);
+    --ps-primary-tint-2: rgba(37, 211, 102, .20);
+    --ps-canvas: #0B141A;
+    --ps-surface: #111B21;
+    --ps-surface-2: #202C33;
+    --ps-outline: #2A3942;
+    --ps-outline-strong: #374248;
+    --ps-text: #E9EDEF;
+    --ps-text-muted: #8696A0;
+    --ps-text-soft: #667781;
+    --ps-success: #25D366;
+    --ps-warning: #F39C12;
+    --ps-error: #E74C3C;
+    --ps-radius-sm: 4px;
+    --ps-radius: 8px;
+    --ps-radius-lg: 12px;
+    --ps-shadow-1: none;
+    --ps-shadow-2: 0 4px 12px rgba(0, 0, 0, .35);
+    --ps-bubble-out: #005C4B;
+    --ps-bubble-out-border: #005C4B;
+    --omni-whatsapp: #25D366;
+    --omni-success: #25D366;
+    font-family: 'Hanken Grotesk', 'Nunito', system-ui, -apple-system, sans-serif !important;
+    background-color: var(--ps-canvas) !important;
+    color: var(--ps-text);
+    gap: 12px !important;
+    padding: 12px !important;
+}
+
+.comm-layout ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.comm-layout ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.comm-layout ::-webkit-scrollbar-thumb {
+    background: var(--ps-outline-strong);
+    border-radius: 999px;
+}
+
+.comm-layout .comm-main-panel {
+    background: transparent !important;
+}
+
+.comm-layout .comm-dashboard-shell {
+    gap: 12px !important;
+    padding: 0 !important;
+}
+
+.comm-layout .comm-main-toolbar-wrap {
+    margin-bottom: 12px !important;
+    padding-right: 0 !important;
+    gap: 8px !important;
+}
+
+.comm-layout .comm-splitter {
+    flex: 0 0 8px;
+    background: none !important;
+}
+
+/* ---------- Sidebar de canales ---------- */
+
+.comm-layout .comm-sidebar-nav {
+    width: 80px !important;
+    min-width: 80px !important;
+    padding: 12px 8px !important;
+    gap: 2px !important;
+    background: var(--ps-surface) !important;
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: var(--ps-radius-lg) !important;
+    box-shadow: var(--ps-shadow-1) !important;
+}
+
+.comm-layout .sidebar-icon-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 56px !important;
+    margin: 0 !important;
+    padding: 6px 4px !important;
+    gap: 3px;
+    border: 0 !important;
+    border-radius: var(--ps-radius) !important;
+    background: transparent !important;
+    color: var(--ps-text-muted) !important;
+    position: relative;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.comm-layout .sidebar-icon-btn i {
+    font-size: 1.15rem !important;
+    margin: 0 !important;
+    color: inherit !important;
+}
+
+.comm-layout .sidebar-icon-btn span {
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: .05em;
+    line-height: 1.1;
+    text-transform: uppercase;
+    color: inherit !important;
+    opacity: .9;
+}
+
+.comm-layout .sidebar-icon-btn:hover {
+    background: var(--ps-surface-2) !important;
+    border: 0 !important;
+    color: var(--ps-text) !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .sidebar-icon-btn.active {
+    background: var(--ps-primary-tint) !important;
+    border: 0 !important;
+    color: var(--ps-primary) !important;
+}
+
+.comm-layout .sidebar-icon-btn.active::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 28px;
+    border-radius: 0 4px 4px 0;
+    background: var(--ps-primary);
+}
+
+.comm-layout .sidebar-icon-btn .sidebar-badge {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--ps-primary);
+    color: #0B141A !important;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    line-height: 1;
+}
+
+.comm-layout .sidebar-divider {
+    width: 40px !important;
+    height: 1px !important;
+    margin: 8px 0 !important;
+    background: var(--ps-outline) !important;
+}
+
+/* ---------- Toolbar + filtros + acciones ---------- */
+
+.comm-layout .comm-wa-toolbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 8px !important;
+    min-width: 0;
+    padding: 8px 10px !important;
+    background: var(--ps-surface) !important;
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: var(--ps-radius) !important;
+    box-shadow: var(--ps-shadow-1) !important;
+    overflow: hidden !important;
+}
+
+.comm-layout .filter-btn {
+    width: auto !important;
+    min-width: 0 !important;
+    height: 34px !important;
+    padding: 0 11px 0 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
+    flex: 0 0 auto;
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: 999px !important;
+    background: var(--ps-surface) !important;
+    overflow: visible !important;
+    transition: border-color .15s ease, background-color .15s ease;
+}
+
+.comm-layout .filter-btn .icon-circle {
+    width: 22px !important;
+    height: 22px !important;
+    margin: 0 !important;
+    border-radius: 999px !important;
+}
+
+.comm-layout .filter-btn .icon-circle.is-all {
+    background-color: var(--ps-primary) !important;
+}
+
+.comm-layout .filter-btn .icon-circle.is-normal {
+    background-color: var(--ps-success) !important;
+}
+
+.comm-layout .filter-btn .icon-circle.is-pending {
+    background-color: var(--ps-warning) !important;
+}
+
+.comm-layout .filter-btn .icon-circle.is-closed {
+    background-color: var(--ps-error) !important;
+}
+
+.comm-layout .filter-btn .icon-circle i {
+    font-size: .68rem !important;
+}
+
+.comm-layout .filter-btn .filter-count {
+    position: static !important;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: var(--ps-text) !important;
+    line-height: 1 !important;
+}
+
+.comm-layout .filter-btn:hover {
+    background: var(--ps-surface-2) !important;
+    border-color: var(--ps-outline-strong) !important;
+}
+
+.comm-layout .filter-btn.active {
+    border-color: var(--ps-primary) !important;
+    background: var(--ps-primary-tint) !important;
+    box-shadow: inset 0 0 0 1px var(--ps-primary) !important;
+}
+
+.comm-layout .comm-wa-actions {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+}
+
+.comm-layout .comm-wa-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px !important;
+    border-radius: 999px !important;
+    border: 1px solid transparent !important;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: none !important;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.comm-layout .comm-wa-btn i {
+    font-size: .85rem;
+}
+
+.comm-layout .comm-wa-btn-primary {
+    background: var(--ps-primary) !important;
+    border-color: var(--ps-primary) !important;
+    color: #fff !important;
+}
+
+.comm-layout .comm-wa-btn-primary:hover {
+    background: var(--ps-primary-deep) !important;
+    border-color: var(--ps-primary-deep) !important;
+    color: #fff !important;
+}
+
+.comm-layout .comm-wa-btn-ghost {
+    background: var(--ps-surface) !important;
+    border-color: var(--ps-outline-strong) !important;
+    color: var(--ps-text) !important;
+}
+
+.comm-layout .comm-wa-btn-ghost:hover {
+    background: var(--ps-primary-tint) !important;
+    border-color: var(--ps-primary) !important;
+    color: var(--ps-primary) !important;
+}
+
+/* ---------- Panel de lista de conversaciones ---------- */
+
+.comm-layout .comm-list-panel:not(.comm-mail-shell) {
+    width: 340px;
+    min-width: 300px;
+    max-width: 480px;
+    background: var(--ps-surface) !important;
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: var(--ps-radius-lg) !important;
+    box-shadow: var(--ps-shadow-1) !important;
+}
+
+.comm-layout .comm-dashboard-conversations .list-group-item.conversation-item {
+    padding: 10px 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--ps-outline) !important;
+    border-left: 3px solid transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--ps-text) !important;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+.comm-layout .comm-dashboard-conversations .list-group-item.conversation-item:hover {
+    background: var(--ps-surface-2) !important;
+}
+
+.comm-layout .comm-dashboard-conversations .list-group-item.conversation-item.active {
+    background: var(--ps-primary-tint) !important;
+    border-left: 3px solid var(--ps-primary) !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .conversation-item.status-normal {
+    border-left-color: var(--ps-success) !important;
+}
+
+.comm-layout .conversation-item.status-pending {
+    border-left-color: var(--ps-warning) !important;
+}
+
+.comm-layout .conversation-item.status-closed {
+    border-left-color: var(--ps-error) !important;
+}
+
+.comm-layout .conversation-item .fw-bold.text-dark {
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    color: var(--ps-text) !important;
+}
+
+.comm-layout .conversation-item small {
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 12px !important;
+}
+
+.comm-layout .conversation-item small.text-muted {
+    color: var(--ps-text-muted) !important;
+}
+
+.comm-layout .conversation-item .status-indicator {
+    width: 8px !important;
+    height: 8px !important;
+}
+
+.comm-layout .conversation-item .status-indicator.bg-success {
+    background-color: var(--ps-success) !important;
+}
+
+.comm-layout .conversation-item .status-indicator.bg-warning {
+    background-color: var(--ps-warning) !important;
+}
+
+.comm-layout .conversation-item .status-indicator.bg-danger {
+    background-color: var(--ps-error) !important;
+}
+
+.comm-layout .conversation-item .text-success {
+    color: var(--ps-success) !important;
+}
+
+.comm-layout .conversation-item .text-primary {
+    color: var(--ps-primary) !important;
+}
+
+.comm-layout .comm-list-panel .pagination .page-link {
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: var(--ps-radius-sm) !important;
+    margin: 0 2px;
+    padding: 3px 8px;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 12px !important;
+    color: var(--ps-text-muted) !important;
+    background: var(--ps-surface) !important;
+}
+
+.comm-layout .comm-list-panel .pagination .page-item.active .page-link {
+    background: var(--ps-primary) !important;
+    border-color: var(--ps-primary) !important;
+    color: #fff !important;
+}
+
+.comm-layout .comm-list-panel .bg-white {
+    background: var(--ps-surface) !important;
+}
+
+.comm-layout .comm-list-panel .border-top {
+    border-color: var(--ps-outline) !important;
+}
+
+.comm-layout .comm-dashboard-conversations .list-group-item.bg-light {
+    background: var(--ps-surface-2) !important;
+    color: var(--ps-text-muted) !important;
+    border-color: var(--ps-outline) !important;
+}
+
+/* ---------- Panel de detalle ---------- */
+
+.comm-layout .comm-detail-panel,
+.comm-layout .comm-detail-panel-default {
+    background: var(--ps-surface) !important;
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: var(--ps-radius-lg) !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .comm-empty-state {
+    color: var(--ps-text-muted) !important;
+    gap: 2px;
+}
+
+.comm-layout .comm-empty-state .rounded-circle {
+    background: var(--ps-primary-tint) !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .comm-empty-state .rounded-circle i {
+    color: var(--ps-primary) !important;
+    opacity: 1 !important;
+}
+
+.comm-layout .comm-empty-state h5 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ps-text);
+}
+
+.comm-layout .comm-empty-state p {
+    font-size: 13px;
+}
+
+/* ---------- Cabecera del chat ---------- */
+
+.comm-layout .omni-chat-header:not(.email-read-topbar) {
+    min-height: 60px !important;
+    padding: 10px 16px !important;
+    background: var(--ps-surface) !important;
+    border-bottom: 1px solid var(--ps-outline) !important;
+}
+
+.comm-layout .omni-chat-header:not(.email-read-topbar) > .d-flex {
+    gap: 12px !important;
+}
+
+.comm-layout .omni-chat-header h6 {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--ps-text) !important;
+}
+
+.comm-layout .omni-chat-header h6 .badge {
+    background: var(--ps-surface-2) !important;
+    color: var(--ps-text-muted) !important;
+    font-weight: 500 !important;
+}
+
+.comm-layout .omni-chat-header:not(.email-read-topbar) .small.text-muted {
+    color: var(--ps-text-muted) !important;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+}
+
+.comm-layout .omni-chat-header:not(.email-read-topbar) .omni-avatar {
+    background-color: var(--ps-primary) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+}
+
+.comm-layout .comm-chat-expand {
+    height: 32px;
+    padding: 0 14px !important;
+    border: 0 !important;
+    border-radius: var(--ps-radius) !important;
+    background: var(--ps-primary) !important;
+    color: #fff !important;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .comm-chat-expand:hover {
+    background: var(--ps-primary-deep) !important;
+    color: #fff !important;
+}
+
+.comm-layout .chat-header-actions {
+    align-items: center;
+    gap: 6px;
+}
+
+.comm-layout .chat-header-actions .btn-outline-secondary {
+    width: 32px;
+    height: 32px;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--ps-outline-strong) !important;
+    border-radius: var(--ps-radius) !important;
+    background: var(--ps-surface) !important;
+    color: var(--ps-text-muted) !important;
+    font-size: .78rem !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .chat-header-actions .btn-outline-secondary:hover {
+    background: var(--ps-primary-tint) !important;
+    border-color: var(--ps-primary) !important;
+    color: var(--ps-primary) !important;
+}
+
+.comm-layout .chat-header-actions .btn-primary {
+    height: 32px;
+    padding: 0 14px !important;
+    border: 1px solid var(--ps-primary) !important;
+    border-radius: var(--ps-radius) !important;
+    background: var(--ps-primary) !important;
+    color: #fff !important;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .chat-header-actions .btn-primary:hover {
+    background: var(--ps-primary-deep) !important;
+    border-color: var(--ps-primary-deep) !important;
+}
+
+.comm-layout .chat-header-actions form .btn {
+    width: 32px;
+    height: 32px;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent !important;
+    border-radius: var(--ps-radius) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .chat-header-actions form .btn-outline-success {
+    color: var(--ps-success) !important;
+}
+
+.comm-layout .chat-header-actions form .btn-outline-warning {
+    color: var(--ps-warning) !important;
+}
+
+.comm-layout .chat-header-actions form .btn-outline-danger {
+    color: var(--ps-error) !important;
+}
+
+.comm-layout .chat-header-actions form .btn:hover {
+    background: var(--ps-surface-2) !important;
+}
+
+/* ---------- Area de mensajes ---------- */
+
+.comm-layout .omni-messages-area:not(.email-read-pane-root) {
+    padding: 16px !important;
+    background: var(--ps-canvas) !important;
+}
+
+.comm-layout .date-divider {
+    margin: 8px 0 !important;
+}
+
+.comm-layout .date-divider span {
+    padding: 4px 12px !important;
+    border: 1px solid var(--ps-outline);
+    border-radius: 999px !important;
+    background: var(--ps-surface) !important;
+    color: var(--ps-text-muted) !important;
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: .06em;
+}
+
+.comm-layout .date-divider::before {
+    background: var(--ps-outline) !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) {
+    margin-bottom: 12px !important;
+    gap: 8px !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-content-wrapper {
+    max-width: 68% !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-bubble {
+    padding: 8px 12px !important;
+    border-radius: var(--ps-radius) !important;
+    font-size: 13.5px !important;
+    line-height: 1.45 !important;
+    box-shadow: var(--ps-shadow-1) !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email).inbound .msg-bubble {
+    background: var(--ps-surface) !important;
+    border: 1px solid var(--ps-outline) !important;
+    border-bottom-left-radius: 2px !important;
+    color: var(--ps-text) !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email).outbound .msg-bubble {
+    background: var(--ps-bubble-out) !important;
+    border: 1px solid var(--ps-bubble-out-border) !important;
+    border-bottom-right-radius: 2px !important;
+    color: var(--ps-text) !important;
+}
+
+/* El canal de WhatsApp anida dos burbujas: la interna se neutraliza */
+.comm-layout .omni-msg-row:not(.is-email) .msg-bubble .msg-bubble {
+    display: block !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    font-size: inherit !important;
+    max-width: 100% !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: .68rem !important;
+    font-weight: 600 !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-avatar.bg-primary {
+    background-color: var(--ps-primary) !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-avatar.bg-secondary {
+    background-color: var(--ps-surface-2) !important;
+    color: var(--ps-text) !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .message-meta {
+    font-family: 'Inter', 'Nunito', sans-serif !important;
+    font-size: 10.5px !important;
+    color: var(--ps-text-soft) !important;
+    margin-top: 4px !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-status-delivered {
+    color: var(--ps-primary) !important;
+}
+
+/* ---------- Compositor de mensajes ---------- */
+
+.comm-layout .omni-chat-input-area {
+    padding: 12px 16px 14px !important;
+    background: var(--ps-surface) !important;
+    border-top: 1px solid var(--ps-outline) !important;
+}
+
+.comm-layout .chat-input-box {
+    align-items: flex-end !important;
+    gap: 6px !important;
+    padding: 6px 8px 6px 14px !important;
+    border: 1px solid var(--ps-outline-strong) !important;
+    border-radius: var(--ps-radius-lg) !important;
+    background: var(--ps-surface) !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .chat-input-box textarea {
+    min-height: 38px !important;
+    max-height: 140px !important;
+    padding: 8px 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    font-family: inherit !important;
+    font-size: 13.5px !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .chat-input-box textarea:focus {
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .chat-input-box .tool-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent !important;
+    border-radius: var(--ps-radius) !important;
+    background: transparent !important;
+    color: var(--ps-text-muted) !important;
+    font-size: .9rem !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .chat-input-box .tool-btn:hover {
+    background: var(--ps-primary-tint) !important;
+    color: var(--ps-primary) !important;
+}
+
+.comm-layout .btn-send {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px;
+    margin-left: 8px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: var(--ps-primary) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .btn-send:hover {
+    background: var(--ps-primary-deep) !important;
+    color: #fff !important;
+}
+
+.comm-layout .btn-send i {
+    font-size: 1rem !important;
+}
+
+.comm-layout .omni-chat-input-area .alert-warning {
+    border: 0;
+    border-radius: var(--ps-radius);
+    background: rgba(243, 156, 18, .14);
+    color: #F5C77E;
+    font-size: 12px;
+}
+
+/* ---------- Compositor: dropdown, adjuntos y campos en modo oscuro ---------- */
+
+.comm-layout .chat-input-box textarea {
+    color: var(--ps-text) !important;
+    caret-color: var(--ps-primary);
+}
+
+.comm-layout .chat-input-box textarea::placeholder {
+    color: var(--ps-text-soft) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu {
+    background: var(--ps-surface-2) !important;
+    border: 1px solid var(--ps-outline) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu .bg-white {
+    background: var(--ps-surface-2) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu .border-bottom,
+.comm-layout .omni-chat-input-area .dropdown-menu .border-top {
+    border-color: var(--ps-outline) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-item {
+    color: var(--ps-text) !important;
+    border-color: var(--ps-outline) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-item:hover,
+.comm-layout .omni-chat-input-area .dropdown-item:focus {
+    background: var(--ps-surface) !important;
+    color: var(--ps-text) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu .text-muted {
+    color: var(--ps-text-muted) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu .text-primary {
+    color: var(--ps-primary) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu .text-success {
+    color: var(--ps-success) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu .badge.bg-light {
+    background: var(--ps-surface) !important;
+    border-color: var(--ps-outline) !important;
+    color: var(--ps-text-muted) !important;
+}
+
+.comm-layout .omni-chat-input-area .dropdown-menu .form-control {
+    background: var(--ps-surface) !important;
+    border-color: var(--ps-outline) !important;
+    color: var(--ps-text) !important;
+}
+
+.comm-layout .attachment-card {
+    background: var(--ps-surface-2) !important;
+    border-color: var(--ps-outline) !important;
+}
+
+/* ---------- Adjuntos dentro del chat (modo oscuro) ---------- */
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-preview {
+    display: inline-block;
+    margin: 8px 8px 8px 0;
+    vertical-align: top;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card {
+    width: 200px;
+    height: 120px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: var(--ps-radius) !important;
+    background: var(--ps-surface-2) !important;
+    box-shadow: none !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-preview {
+    display: block;
+    width: 100%;
+    height: 80px;
+    background: var(--ps-surface);
+    cursor: pointer;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-thumb {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    display: block;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-icon {
+    width: 100%;
+    height: 80px;
+    background: var(--ps-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-icon i {
+    font-size: 2rem;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-meta {
+    padding: 8px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-info {
+    flex: 1;
+    min-width: 0;
+    margin-right: 8px;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ps-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-size {
+    font-size: 11px;
+    color: var(--ps-text-muted);
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-download {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-outline);
+    border-radius: 50%;
+    color: var(--ps-text-muted);
+    text-decoration: none;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-download:hover {
+    background: var(--ps-primary-tint);
+    border-color: var(--ps-primary);
+    color: var(--ps-primary);
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .attachment-card .att-download i {
+    font-size: 12px;
+}
+
+/* ---------- Detalles del canal WhatsApp ---------- */
+
+.comm-layout .omni-chat-header:not(.email-read-topbar) .text-primary {
+    color: var(--ps-primary) !important;
+}
+
+.comm-layout .omni-chat-header:not(.email-read-topbar) .text-success {
+    color: var(--ps-success) !important;
+}
+
+.comm-layout .omni-messages-area .multichannel-detect {
+    padding: 6px 14px;
+    border: 1px solid var(--ps-outline) !important;
+    border-radius: 999px;
+    background: var(--ps-surface) !important;
+    color: var(--ps-text-muted);
+    font-size: 12px;
+}
+
+.comm-layout .chat-transcription {
+    margin-top: 8px;
+    margin-left: 8px;
+    max-width: 200px;
+    padding: 8px;
+    border-radius: var(--ps-radius);
+    background: var(--ps-surface) !important;
+    color: var(--ps-text-muted);
+    font-size: 12px;
+}
+
+.comm-layout .chat-input-hint {
+    font-size: .7rem;
+}
+
+.comm-layout .chat-online-status {
+    font-size: .7rem;
+    color: var(--ps-primary);
+}
+
+.comm-layout .chat-online-status .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: var(--ps-primary);
+}
+
+.comm-layout .omni-messages-area:not(.email-read-pane-root) .text-muted,
+.comm-layout .omni-chat-input-area .text-muted,
+.comm-layout .comm-list-panel:not(.comm-mail-shell) .comm-dashboard-conversations .text-muted {
+    color: var(--ps-text-muted) !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-action-btn {
+    color: var(--ps-text-soft) !important;
+}
+
+.comm-layout .omni-msg-row:not(.is-email) .msg-action-btn:hover {
+    color: var(--ps-primary) !important;
+}
+
+/* ---------- Ajustes responsive ---------- */
+
+@media (max-width: 1399.98px) {
+    .comm-layout .comm-wa-btn span {
+        display: none;
+    }
+
+    .comm-layout .comm-wa-btn {
+        padding: 0 10px !important;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .comm-layout .comm-list-panel {
+        width: min(320px, 34vw) !important;
+    }
+
+    .comm-layout .comm-dashboard-shell {
+        gap: 8px !important;
+    }
+}
