@@ -855,7 +855,15 @@ class EmailDraft(models.Model):
 
 class InternalChatMessage(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_chat_messages')
+    mentioned_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mentioned_internal_chat_messages',
+    )
     content = models.TextField()
+    is_private = models.BooleanField(default=False)
     file = models.FileField(upload_to='internal_chat/', null=True, blank=True)
     original_filename = models.CharField(max_length=255, null=True, blank=True)
     mime_type = models.CharField(max_length=120, null=True, blank=True)

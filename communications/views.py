@@ -922,6 +922,8 @@ def _get_conversation_counts(user, channel=None):
 
     internal_count_qs = InternalChatMessage.objects.exclude(
         author=user
+    ).filter(
+        Q(is_private=False) | Q(mentioned_user=user)
     )
 
     if read_state:
@@ -1179,7 +1181,75 @@ def internal_chat(request):
         defaults={'last_read_at': timezone.now()}
     )
     counts = _get_conversation_counts(request.user)
-    return render(request, 'communications/internal_chat.html', {**counts, 'current_channel': 'internal'})
+    users = User.objects.filter(is_active=True).only(
+        'id', 'username', 'first_name', 'last_name'
+    ).order_by('first_name', 'last_name', 'username')
+    mention_users = [_internal_chat_mention_user(user) for user in users]
+    return render(request, 'communications/internal_chat.html', {
+        **counts,
+        'current_channel': 'internal',
+        'mention_users': mention_users,
+    })
+
+
+def _internal_chat_mention_user(user):
+    name = user.get_full_name().strip() or user.username
+    initials = ''.join(part[0] for part in name.split()[:2]).upper()
+    return {
+        'id': user.pk,
+        'username': user.username,
+        'name': name,
+        'initials': initials or user.username[:1].upper(),
+    }
+
+
+def _render_internal_chat_content(content, users_by_username):
+    from django.utils.html import conditional_escape, format_html, format_html_join
+
+    content = (content or '').replace('\r\n', '\n').replace('\r', '\n')
+    pattern = None
+    if users_by_username:
+        usernames = sorted(users_by_username, key=len, reverse=True)
+        pattern = re.compile(
+            r'(?<![\w@.])@\s*('
+            + '|'.join(re.escape(name) for name in usernames)
+            + r')(?![\w@.+-])',
+            re.IGNORECASE,
+        )
+
+    rendered_lines = []
+    for line in content.split('\n'):
+        parts = []
+        cursor = 0
+        if pattern:
+            for match in pattern.finditer(line):
+                parts.append(conditional_escape(line[cursor:match.start()]))
+                mention_user = users_by_username[match.group(1).lower()]
+                parts.append(format_html(
+                    '<span class="internal-chat-mention" title="{}">@{}</span>',
+                    mention_user['name'],
+                    mention_user['name'],
+                ))
+                cursor = match.end()
+        parts.append(conditional_escape(line[cursor:]))
+        rendered_lines.append(format_html_join('', '{}', ((part,) for part in parts)))
+
+    return format_html_join(format_html('<br>'), '{}', ((line,) for line in rendered_lines))
+
+
+def _internal_chat_mentioned_usernames(content, usernames):
+    if not usernames:
+        return []
+    pattern = re.compile(
+        r'(?<![\w@.])@\s*('
+        + '|'.join(
+            re.escape(username)
+            for username in sorted(usernames, key=len, reverse=True)
+        )
+        + r')(?![\w@.+-])',
+        re.IGNORECASE,
+    )
+    return list(dict.fromkeys(match.group(1).lower() for match in pattern.finditer(content)))
 
 
 @login_required
@@ -1188,8 +1258,27 @@ def internal_chat_messages_partial(request):
         user=request.user,
         defaults={'last_read_at': timezone.now()}
     )
-    messages = InternalChatMessage.objects.select_related('author').order_by('-created_at')[:200]
-    messages = reversed(list(messages))
+    messages = InternalChatMessage.objects.filter(
+        Q(is_private=False)
+        | Q(author=request.user)
+        | Q(mentioned_user=request.user)
+    ).select_related('author').order_by('-created_at')[:200]
+    messages = list(reversed(list(messages)))
+    active_users = User.objects.filter(is_active=True).only(
+        'id', 'username', 'first_name', 'last_name'
+    )
+    users_by_username = {
+        user.username.lower(): _internal_chat_mention_user(user)
+        for user in active_users
+    }
+    for message in messages:
+        author = _internal_chat_mention_user(message.author)
+        message.author_display_name = author['name']
+        message.author_initials = author['initials']
+        message.rendered_content = _render_internal_chat_content(
+            message.content,
+            users_by_username,
+        )
     return render(request, 'communications/partials/internal_chat_messages.html', {
         'messages': messages,
     })
@@ -1202,7 +1291,29 @@ def internal_chat_send(request):
     if not content:
         return JsonResponse({'error': 'Mensaje vacío'}, status=400)
 
-    InternalChatMessage.objects.create(author=request.user, content=content)
+    active_users = list(User.objects.filter(is_active=True).only('id', 'username'))
+    users_by_username = {user.username.lower(): user for user in active_users}
+    mentioned_usernames = _internal_chat_mentioned_usernames(
+        content,
+        users_by_username,
+    )
+    if len(mentioned_usernames) > 1:
+        return JsonResponse(
+            {'error': 'Un mensaje privado solo puede mencionar a un usuario.'},
+            status=400,
+        )
+
+    mentioned_user = (
+        users_by_username[mentioned_usernames[0]]
+        if mentioned_usernames
+        else None
+    )
+    InternalChatMessage.objects.create(
+        author=request.user,
+        content=content,
+        mentioned_user=mentioned_user,
+        is_private=mentioned_user is not None,
+    )
     InternalChatReadState.objects.update_or_create(
         user=request.user,
         defaults={'last_read_at': timezone.now()}
@@ -1736,7 +1847,7 @@ def email_message_detail(request, pk):
     whatsapp_account = WhatsAppAccount.objects.filter(is_active=True).first()
     email_account = _get_user_email_account(request.user)
 
-    counts = _get_conversation_counts(request.user)
+    #counts = _get_conversation_counts(request.user)
 
     quick_replies = QuickReply.objects.filter(
         models.Q(created_by=request.user) | models.Q(is_global=True)
@@ -1797,7 +1908,7 @@ def email_message_detail(request, pk):
         'reply_quote_html': reply_quote_html,
         'email_compose_recipients_catalog': email_compose_recipients_catalog,
         'user_email_signature': EmailSignature.get_default_for(request.user),
-        **counts,
+         #**counts,
     }
 
     return render(request, 'communications/partials/conversation_content.html', context)

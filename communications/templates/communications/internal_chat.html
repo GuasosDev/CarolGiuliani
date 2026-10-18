@@ -23,20 +23,33 @@
         <div class="omni-chat-input-area">
             <form id="internalChatForm" method="post" action="{% url 'communications:internal_chat_send' %}" data-messages-url="{% url 'communications:internal_chat_messages' %}" data-current-user-id="{{ request.user.id }}">
                 {% csrf_token %}
-                <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary" style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
-                    <textarea class="form-control border-0 shadow-none" name="content" rows="1" placeholder="Escribe un mensaje interno..."></textarea>
-                    <button type="submit" class="btn-send ms-2" style="border:none;">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
+                <div class="internal-chat-composer">
+                    <div id="internalChatMentionSuggestions"
+                         class="internal-chat-mention-suggestions"
+                         role="listbox"
+                         aria-label="Usuarios para mencionar"
+                         hidden></div>
+                    <div class="chat-input-box bg-white p-2 rounded border focus-ring-primary" style="box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                        <textarea class="form-control border-0 shadow-none"
+                                  name="content"
+                                  rows="1"
+                                  placeholder="Escribe un mensaje para todos o menciona a alguien con @."
+                                  aria-controls="internalChatMentionSuggestions"
+                                  aria-autocomplete="list"
+                                  autocomplete="off"></textarea>
+                        <button type="submit" class="btn-send ms-2" style="border:none;">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="d-flex justify-content-between px-2 mt-2">
-                    <div class="small text-muted" style="font-size: 0.7rem;">Enter para enviar, Shift+Enter para nueva línea.</div>
+                    <div class="small text-muted" style="font-size: 0.7rem;">Sin mención lo ven todos; con @usuario, solo esa persona y tú. Enter para enviar, Shift+Enter para nueva línea.</div>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+{{ mention_users|json_script:"internalChatMentionUsers" }}
 <script src="{% static 'communications/js/internal_chat.js' %}"></script>
 {% endblock %}
-

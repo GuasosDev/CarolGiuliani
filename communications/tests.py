@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from rest_framework.permissions import IsAuthenticated
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from clients.models import Client
@@ -15,6 +16,7 @@ from communications.models import (
     Conversation,
     EmailAccount,
     EmailMessage,
+    InternalChatMessage,
     Message,
     WhatsAppAccount,
 )
@@ -25,6 +27,7 @@ from communications.utils.email_threading import (
 )
 from communications.utils.html_cleaner import email_html_to_text, limpiar_email_html
 from communications.whatsapp_handler import _has_unanswered_template
+from communications.views import _render_internal_chat_content
 
 User = get_user_model()
 
@@ -53,6 +56,176 @@ class EmailHtmlRenderingTests(SimpleTestCase):
         self.assertIn('<details class="email-quoted-history">', rendered)
         self.assertIn('<summary>Mostrar mensaje citado</summary>', rendered)
         self.assertIn('Contenido citado', rendered)
+
+
+class InternalChatMentionRenderingTests(SimpleTestCase):
+    def test_mentions_render_with_display_name_and_avatar_initials(self):
+        rendered = _render_internal_chat_content(
+            'Hola @ ana, ¿puedes revisarlo?',
+            {
+                'ana': {
+                    'name': 'Ana Pérez',
+                    'initials': 'AP',
+                },
+            },
+        )
+
+        self.assertIn('class="internal-chat-mention"', rendered)
+        self.assertIn('@Ana Pérez', rendered)
+        self.assertNotIn('internal-chat-mention-avatar', rendered)
+
+    def test_mentions_match_username_case_insensitively(self):
+        rendered = _render_internal_chat_content(
+            'Hola @ ANA',
+            {
+                'ana': {
+                    'name': 'Ana Pérez',
+                    'initials': 'AP',
+                },
+            },
+        )
+
+        self.assertIn('@Ana Pérez', rendered)
+
+    def test_message_content_is_escaped_and_newlines_are_preserved(self):
+        rendered = _render_internal_chat_content(
+            '<script>alert(1)</script>\n@ana',
+            {
+                'ana': {
+                    'name': 'Ana',
+                    'initials': 'A',
+                },
+            },
+        )
+
+        self.assertNotIn('<script>', rendered)
+        self.assertIn('&lt;script&gt;', rendered)
+        self.assertIn('<br>', rendered)
+        self.assertIn('@Ana', rendered)
+
+
+class InternalChatMessagesPartialTests(SimpleTestCase):
+    @patch('communications.views.render')
+    @patch('communications.views.User.objects.filter')
+    @patch('communications.views.InternalChatMessage.objects.filter')
+    @patch('communications.views.InternalChatReadState.objects.update_or_create')
+    def test_messages_remain_available_for_template_after_rendering(
+        self,
+        _update_read_state,
+        filter_messages,
+        filter_users,
+        render,
+    ):
+        author = SimpleNamespace(
+            pk=1,
+            username='maria',
+            get_full_name=lambda: 'María Gómez',
+        )
+        current_user = SimpleNamespace(
+            pk=2,
+            username='ana',
+            get_full_name=lambda: 'Ana Pérez',
+        )
+        message = SimpleNamespace(
+            pk=10,
+            author_id=author.pk,
+            author=author,
+            content='Hola @ana',
+        )
+        filter_messages.return_value.select_related.return_value.order_by.return_value = [message]
+        filter_users.return_value.only.return_value = [current_user]
+        request = RequestFactory().get('/communications/internal-chat/messages/')
+        request.user = SimpleNamespace(is_authenticated=True, pk=current_user.pk)
+
+        from communications.views import internal_chat_messages_partial
+
+        internal_chat_messages_partial(request)
+
+        rendered_messages = render.call_args.args[2]['messages']
+        self.assertEqual(len(rendered_messages), 1)
+        self.assertEqual(rendered_messages[0].author_display_name, 'María Gómez')
+        self.assertIn('@Ana Pérez', rendered_messages[0].rendered_content)
+
+
+class InternalChatMentionViewTests(SimpleTestCase):
+    @patch('communications.views.InternalChatReadState.objects.update_or_create')
+    @patch('communications.views.InternalChatMessage.objects.create')
+    @patch('communications.views.User.objects.filter')
+    def test_mention_sends_private_message_to_one_user(
+        self,
+        filter_users,
+        create_message,
+        _update_read_state,
+    ):
+        recipient = SimpleNamespace(pk=3, username='ana')
+        filter_users.return_value.only.return_value = [recipient]
+        request = RequestFactory().post(
+            '/communications/internal-chat/send/',
+            {'content': 'Hola @ ana'},
+        )
+        request.user = SimpleNamespace(is_authenticated=True, pk=2)
+
+        from communications.views import internal_chat_send
+
+        response = internal_chat_send(request)
+
+        self.assertEqual(response.status_code, 200)
+        create_message.assert_called_once_with(
+            author=request.user,
+            content='Hola @ ana',
+            mentioned_user=recipient,
+            is_private=True,
+        )
+
+    @patch('communications.views.InternalChatReadState.objects.update_or_create')
+    @patch('communications.views.InternalChatMessage.objects.create')
+    @patch('communications.views.User.objects.filter')
+    def test_message_without_mention_remains_public(
+        self,
+        filter_users,
+        create_message,
+        _update_read_state,
+    ):
+        filter_users.return_value.only.return_value = [
+            SimpleNamespace(pk=3, username='ana')
+        ]
+        request = RequestFactory().post(
+            '/communications/internal-chat/send/',
+            {'content': 'Hola a todos'},
+        )
+        request.user = SimpleNamespace(is_authenticated=True, pk=2)
+
+        from communications.views import internal_chat_send
+
+        response = internal_chat_send(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(create_message.call_args.kwargs['is_private'])
+        self.assertIsNone(create_message.call_args.kwargs['mentioned_user'])
+
+    @patch('communications.views.InternalChatMessage.objects.create')
+    @patch('communications.views.User.objects.filter')
+    def test_multiple_mentions_are_rejected_to_avoid_ambiguous_privacy(
+        self,
+        filter_users,
+        create_message,
+    ):
+        filter_users.return_value.only.return_value = [
+            SimpleNamespace(pk=3, username='ana'),
+            SimpleNamespace(pk=4, username='maria'),
+        ]
+        request = RequestFactory().post(
+            '/communications/internal-chat/send/',
+            {'content': 'Hola @ana y @maria'},
+        )
+        request.user = SimpleNamespace(is_authenticated=True, pk=2)
+
+        from communications.views import internal_chat_send
+
+        response = internal_chat_send(request)
+
+        self.assertEqual(response.status_code, 400)
+        create_message.assert_not_called()
 
 
 class WhatsAppTemplatePermissionTests(SimpleTestCase):

@@ -7,6 +7,87 @@
     var currentUserId = parseInt(form.dataset.currentUserId || '0', 10);
     var lastInboundId = 0;
     var initialized = false;
+    var textarea = form.querySelector('textarea[name="content"]');
+    var suggestions = document.getElementById('internalChatMentionSuggestions');
+    var mentionUsers = [];
+    var filteredMentionUsers = [];
+    var activeMentionIndex = 0;
+    var mentionStart = -1;
+
+    mentionUsers = JSON.parse(
+        document.getElementById('internalChatMentionUsers').textContent
+    );
+
+    function hideMentionSuggestions() {
+        if (!suggestions) return;
+        suggestions.hidden = true;
+        suggestions.replaceChildren();
+        filteredMentionUsers = [];
+        activeMentionIndex = 0;
+        mentionStart = -1;
+    }
+
+    function insertMention(user) {
+        if (!textarea || mentionStart < 0) return;
+        var cursor = textarea.selectionStart;
+        var before = textarea.value.slice(0, mentionStart);
+        var after = textarea.value.slice(cursor);
+        var inserted = '@' + user.username + ' ';
+        textarea.value = before + inserted + after;
+        var nextCursor = before.length + inserted.length;
+        textarea.focus();
+        textarea.setSelectionRange(nextCursor, nextCursor);
+        hideMentionSuggestions();
+    }
+
+    function renderMentionSuggestions(users) {
+        suggestions.replaceChildren();
+        users.forEach(function (user, index) {
+            var option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'internal-chat-mention-option' +
+                (index === activeMentionIndex ? ' active' : '');
+            option.setAttribute('role', 'option');
+            option.setAttribute('aria-selected', index === activeMentionIndex ? 'true' : 'false');
+
+            var avatar = document.createElement('span');
+            avatar.className = 'internal-chat-mention-avatar';
+            avatar.textContent = user.initials;
+            var name = document.createElement('span');
+            name.textContent = user.name;
+            var username = document.createElement('small');
+            username.className = 'text-muted ms-auto';
+            username.textContent = '@' + user.username;
+            option.append(avatar, name, username);
+
+            option.addEventListener('mousedown', function (event) {
+                event.preventDefault();
+                insertMention(user);
+            });
+            suggestions.appendChild(option);
+        });
+        suggestions.hidden = users.length === 0;
+    }
+
+    function updateMentionSuggestions() {
+        if (!textarea || !suggestions) return;
+        var cursor = textarea.selectionStart;
+        var beforeCursor = textarea.value.slice(0, cursor);
+        var match = beforeCursor.match(/(^|[^\p{L}\p{N}_@])@([\p{L}\p{N}_@.+ -]*)$/u);
+        if (!match) {
+            hideMentionSuggestions();
+            return;
+        }
+
+        mentionStart = cursor - match[2].length - 1;
+        var query = match[2].trim().toLocaleLowerCase();
+        filteredMentionUsers = mentionUsers.filter(function (user) {
+            return user.username.toLocaleLowerCase().includes(query) ||
+                user.name.toLocaleLowerCase().includes(query);
+        }).slice(0, 8);
+        activeMentionIndex = 0;
+        renderMentionSuggestions(filteredMentionUsers);
+    }
 
     function getLastMetaFromRoot(rootEl) {
         if (!rootEl) return { id: 0, authorId: 0 };
@@ -53,9 +134,36 @@
             .catch(function () {});
     }
 
-    var textarea = form.querySelector('textarea[name="content"]');
     if (textarea) {
+        textarea.addEventListener('input', updateMentionSuggestions);
+        textarea.addEventListener('click', updateMentionSuggestions);
+        textarea.addEventListener('keyup', function (event) {
+            if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                updateMentionSuggestions();
+            }
+        });
         textarea.addEventListener('keydown', function (e) {
+            if (!suggestions.hidden && filteredMentionUsers.length) {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    var direction = e.key === 'ArrowDown' ? 1 : -1;
+                    activeMentionIndex = (
+                        activeMentionIndex + direction + filteredMentionUsers.length
+                    ) % filteredMentionUsers.length;
+                    renderMentionSuggestions(filteredMentionUsers);
+                    return;
+                }
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    insertMention(filteredMentionUsers[activeMentionIndex]);
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    hideMentionSuggestions();
+                    return;
+                }
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 form.dispatchEvent(new Event('submit'));
@@ -83,6 +191,7 @@
                 throw new Error(data.error || 'Error al enviar');
             }
             if (textarea) textarea.value = '';
+            hideMentionSuggestions();
             refresh();
         }).catch(function (err) {
             alert(err.message);

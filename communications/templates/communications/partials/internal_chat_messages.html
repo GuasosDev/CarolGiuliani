@@ -4,8 +4,9 @@
      data-author-id="{{ m.author_id }}">
 
     {% if m.author_id != request.user.id %}
-    <div class="omni-avatar bg-secondary msg-avatar">
-        {{ m.author.username|make_list|first|upper }}
+    <div class="omni-avatar bg-secondary msg-avatar"
+         title="{{ m.author_display_name }}">
+        {{ m.author_initials }}
     </div>
     {% endif %}
 
@@ -13,7 +14,7 @@
 
         {% if m.author_id != request.user.id %}
         <div class="msg-header">
-            <span class="fw-bold text-dark">{{ m.author.username }}</span>
+            <span class="fw-bold text-dark">{{ m.author_display_name }}</span>
         </div>
         {% endif %}
 
@@ -24,7 +25,7 @@
                 bg-dark
             {% endif %}
         ">
-            {{ m.content|linebreaksbr }}
+            {{ m.rendered_content }}
 
             {% if m.file %}
                 {% with mt=m.mime_type|default:'' %}
@@ -64,8 +65,9 @@
     </div>
 
     {% if m.author_id == request.user.id %}
-    <div class="omni-avatar bg-primary text-white msg-avatar ms-2">
-        {{ m.author.username|make_list|first|upper }}
+    <div class="omni-avatar bg-primary text-white msg-avatar ms-2"
+         title="{{ m.author_display_name }}">
+        {{ m.author_initials }}
     </div>
     {% endif %}
 
@@ -76,4 +78,3 @@
     No hay mensajes en el chat interno.
 </div>
 {% endfor %}
-
