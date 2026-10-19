@@ -1,0 +1,963 @@
+/* ============================================================
+   Tema "GenMail" para la vista de Email de Communications
+   -----------------------------------------------------------
+   Estética púrpura oscuro tipo cliente de correo moderno.
+   Todo está scoped bajo .comm-mail-dashboard-row (vista email
+   del dashboard) para no afectar WhatsApp / multicanal.
+   ============================================================ */
+
+.comm-mail-dashboard-row {
+    --gm-frame-1: #47205e;
+    --gm-frame-2: #341344;
+    --gm-frame-3: #2a0f38;
+    --gm-panel: #ffffff;
+    --gm-panel-2: #faf8fd;
+    --gm-ink: #322b3d;
+    --gm-ink-soft: #6f6880;
+    --gm-ink-mute: #9b94ab;
+    --gm-accent: #6d3bbf;
+    --gm-accent-soft: #f2ecfb;
+    --gm-accent-line: #e3d9f5;
+    --gm-lavender: #d9c8ee;
+    --gm-chip: #f0eaf9;
+    --gm-topbar: rgba(30, 10, 44, 0.55);
+    --gm-border: #e9e4f2;
+    --gm-shadow: 0 18px 40px rgba(18, 4, 30, 0.35);
+    --gm-radius: 18px;
+
+    background: linear-gradient(160deg, var(--gm-frame-1) 0%, var(--gm-frame-2) 55%, var(--gm-frame-3) 100%) !important;
+    border-radius: 22px;
+    box-shadow: var(--gm-shadow);
+}
+
+/* El wrap del toolbar se convierte en la "ventana" púrpura */
+.comm-layout .comm-main-toolbar-wrap:has(.comm-gm-frame) {
+    background: linear-gradient(160deg, var(--gm-frame-1) 0%, var(--gm-frame-2) 70%, var(--gm-frame-3) 100%);
+    border-radius: 22px 22px 0 0;
+    margin-bottom: 0 !important;
+    padding: 10px 14px 0 14px !important;
+    box-shadow: var(--gm-shadow);
+}
+
+/* ------------------------------------------------------------
+   BARRA SUPERIOR (dots + buscador + cuenta)
+   ------------------------------------------------------------ */
+
+.comm-gm-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.comm-gm-topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 40px;
+}
+
+.comm-gm-dots {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+    padding-left: 4px;
+}
+
+.comm-gm-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.comm-gm-dot.r { background: #ff5f57; }
+.comm-gm-dot.y { background: #febc2e; }
+.comm-gm-dot.g { background: #28c840; }
+
+.comm-gm-search {
+    flex: 0 1 520px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--gm-topbar);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 4px 8px 4px 16px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.comm-gm-search:focus-within {
+    border-color: rgba(217, 200, 238, 0.45);
+    background: rgba(24, 8, 36, 0.75);
+}
+
+.comm-gm-search .comm-gm-search-ico {
+    color: var(--gm-lavender);
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.comm-gm-search input[type="search"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f3edfa;
+    font-size: 0.85rem;
+    height: 28px;
+}
+
+.comm-gm-search input[type="search"]::placeholder {
+    color: rgba(217, 200, 238, 0.6);
+}
+
+.comm-gm-search input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+}
+
+.comm-gm-search select {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--gm-lavender);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    height: 26px;
+    padding: 0 8px;
+    max-width: 7rem;
+}
+
+.comm-gm-search select option {
+    color: #322b3d;
+    background: #fff;
+}
+
+.comm-gm-search .comm-gm-search-btn {
+    background: transparent;
+    border: none;
+    color: var(--gm-lavender);
+    width: 30px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.comm-gm-search .comm-gm-search-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.comm-gm-account {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #f3edfa;
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    max-width: 260px;
+}
+
+.comm-gm-account i {
+    color: var(--gm-lavender);
+}
+
+.comm-gm-account span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   FILA DE ACCIONES (Correo nuevo + acciones)
+   ------------------------------------------------------------ */
+
+.comm-gm-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 2px 0 10px 0;
+}
+
+.comm-gm-btn-new {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #ffffff;
+    color: #3a1a4e;
+    border: none;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 7px 18px;
+    margin-right: 10px;
+    box-shadow: 0 4px 14px rgba(10, 2, 18, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.comm-gm-btn-new:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(10, 2, 18, 0.45);
+    color: #3a1a4e;
+}
+
+.comm-gm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: transparent;
+    border: none;
+    color: var(--gm-lavender);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 7px 11px;
+    border-radius: 10px;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.comm-gm-btn:hover,
+.comm-gm-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.comm-gm-btn i {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.comm-gm-btn.comm-gm-btn-danger:hover {
+    background: rgba(255, 95, 87, 0.18);
+    color: #ffb4af;
+}
+
+.comm-gm-actions .dropdown-menu {
+    background: #ffffff;
+    border: 1px solid var(--gm-border);
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(24, 8, 36, 0.28);
+    padding: 6px;
+    min-width: 190px;
+}
+
+.comm-gm-actions .dropdown-menu .dropdown-item {
+    color: var(--gm-ink);
+    font-size: 0.83rem;
+    border-radius: 8px;
+    padding: 7px 12px;
+}
+
+.comm-gm-actions .dropdown-menu .dropdown-item:hover {
+    background: var(--gm-accent-soft);
+    color: var(--gm-accent);
+}
+
+.comm-gm-actions .dropdown-toggle::after {
+    margin-left: 0.3em;
+    vertical-align: 0.15em;
+}
+
+/* ------------------------------------------------------------
+   SHELL: paneles blancos redondeados dentro del marco púrpura
+   ------------------------------------------------------------ */
+
+.comm-layout .comm-mail-dashboard-row.comm-dashboard-shell {
+    padding: 14px !important;
+    gap: 12px !important;
+}
+
+.comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell {
+    background: var(--gm-panel) !important;
+    border: none !important;
+    border-radius: var(--gm-radius) !important;
+    box-shadow: 0 10px 26px rgba(14, 3, 24, 0.28) !important;
+}
+
+.comm-mail-dashboard-row #conversation-detail-panel.comm-mail-shell-detail {
+    background: var(--gm-panel) !important;
+    border: none !important;
+    border-radius: var(--gm-radius) !important;
+    box-shadow: 0 10px 26px rgba(14, 3, 24, 0.28) !important;
+}
+
+.comm-mail-dashboard-row .comm-splitter {
+    flex: 0 0 4px;
+}
+
+.comm-mail-dashboard-row .comm-splitter:hover {
+    background: linear-gradient(90deg, transparent 0, rgba(217, 200, 238, 0.5) 2px, transparent 4px) !important;
+}
+
+/* ------------------------------------------------------------
+   SIDEBAR DE CARPETAS
+   ------------------------------------------------------------ */
+
+.comm-gm-sidebar {
+    width: 228px;
+    min-width: 228px;
+    flex-shrink: 0;
+    background: rgba(22, 7, 34, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: var(--gm-radius);
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    color: var(--gm-lavender);
+}
+
+.comm-gm-side-section {
+    margin-bottom: 8px;
+}
+
+.comm-gm-side-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(217, 200, 238, 0.65);
+    padding: 6px 10px 8px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.comm-gm-side-title i {
+    font-size: 0.7rem;
+}
+
+.comm-gm-side-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    color: var(--gm-lavender);
+    text-decoration: none;
+    font-size: 0.83rem;
+    font-weight: 500;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.comm-gm-side-link i {
+    width: 18px;
+    text-align: center;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.comm-gm-side-link:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #ffffff;
+}
+
+.comm-gm-side-link.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.comm-gm-side-link .comm-gm-count {
+    margin-left: auto;
+    background: var(--gm-accent);
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.comm-gm-side-link .comm-gm-count.comm-gm-count-muted {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--gm-lavender);
+}
+
+.comm-gm-side-link.comm-gm-side-disabled,
+.comm-gm-side-link.comm-gm-side-disabled:hover {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: transparent;
+    color: var(--gm-lavender);
+}
+
+.comm-gm-side-footer {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: center;
+}
+
+.comm-gm-side-footer a {
+    color: rgba(217, 200, 238, 0.75);
+    font-size: 1rem;
+    padding: 8px;
+    border-radius: 10px;
+}
+
+.comm-gm-side-footer a:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ------------------------------------------------------------
+   CABECERA DEL PANEL DE LISTA (título + Actualizar + chips)
+   ------------------------------------------------------------ */
+
+.comm-gm-list-head {
+    padding: 16px 18px 10px 18px;
+    border-bottom: 1px solid var(--gm-border);
+    flex-shrink: 0;
+}
+
+.comm-gm-list-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.comm-gm-list-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--gm-ink);
+    margin: 0;
+}
+
+.comm-gm-refresh {
+    background: transparent;
+    border: none;
+    color: var(--gm-ink-mute);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.comm-gm-refresh:hover {
+    color: var(--gm-accent);
+    background: var(--gm-accent-soft);
+}
+
+.comm-gm-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.comm-gm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--gm-chip);
+    color: #4d3565;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.comm-gm-chip:hover {
+    background: var(--gm-accent-line);
+    color: #3a1a4e;
+}
+
+.comm-gm-chip.active {
+    background: #2e1240;
+    color: #ffffff;
+}
+
+.comm-gm-chip .comm-gm-chip-n {
+    font-weight: 800;
+    opacity: 0.85;
+}
+
+/* ------------------------------------------------------------
+   GRUPOS DE FECHA + ITEMS DE EMAIL
+   ------------------------------------------------------------ */
+
+.comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .list-group {
+    padding: 4px 8px 10px 8px;
+}
+
+.comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell .list-group-item {
+    border: none;
+}
+
+.comm-gm-datehead {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gm-ink-mute);
+    padding: 12px 10px 5px 10px;
+    background: transparent;
+}
+
+.comm-gm-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 10px !important;
+    position: relative;
+    transition: background 0.15s ease;
+}
+
+.comm-gm-item:hover {
+    background: var(--gm-panel-2) !important;
+}
+
+.comm-gm-item.active {
+    background: var(--gm-accent-soft) !important;
+    box-shadow: inset 3px 0 0 var(--gm-accent) !important;
+}
+
+.comm-gm-avatar {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+/* Paleta de avatares (cicla por posición) */
+.comm-gm-item:nth-child(6n+1) .comm-gm-avatar { background: #1f9e94; }
+.comm-gm-item:nth-child(6n+2) .comm-gm-avatar { background: #c99a2c; }
+.comm-gm-item:nth-child(6n+3) .comm-gm-avatar { background: #8e44ad; }
+.comm-gm-item:nth-child(6n+4) .comm-gm-avatar { background: #c0392b; }
+.comm-gm-item:nth-child(6n+5) .comm-gm-avatar { background: #3f51b5; }
+.comm-gm-item:nth-child(6n+6) .comm-gm-avatar { background: #2e8b57; }
+
+.comm-gm-item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.comm-gm-item-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.comm-gm-item-from {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--gm-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.comm-gm-item.read .comm-gm-item-from {
+    font-weight: 600;
+    color: var(--gm-ink-soft);
+}
+
+.comm-gm-item-time {
+    font-size: 0.72rem;
+    color: var(--gm-ink-mute);
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.comm-gm-item.read .comm-gm-item-time {
+    font-weight: 500;
+}
+
+.comm-gm-item-subject {
+    font-size: 0.8rem;
+    color: var(--gm-ink-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 1px;
+}
+
+.comm-gm-item.unread .comm-gm-item-subject {
+    color: var(--gm-ink);
+    font-weight: 700;
+}
+
+.comm-gm-item-snippet {
+    font-size: 0.76rem;
+    color: var(--gm-ink-mute);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 1px;
+}
+
+.comm-gm-item-flags {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 6px;
+    color: var(--gm-ink-mute);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+/* Sobreponer estilos legacy del item de inbox */
+.comm-mail-dashboard-row .comm-email-inbox-item {
+    border-left: none !important;
+}
+
+.comm-mail-dashboard-row .comm-email-inbox-item.active {
+    background: var(--gm-accent-soft) !important;
+    border-left: none !important;
+    box-shadow: inset 3px 0 0 var(--gm-accent) !important;
+}
+
+.comm-mail-dashboard-row .comm-email-inbox-item:not(.active):hover {
+    background: var(--gm-panel-2) !important;
+}
+
+/* Estados vacíos */
+.comm-gm-empty {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--gm-ink-mute);
+}
+
+.comm-gm-empty i {
+    font-size: 2.4rem;
+    opacity: 0.4;
+    margin-bottom: 0.8rem;
+}
+
+.comm-gm-empty p {
+    margin: 0;
+    font-size: 0.88rem;
+}
+
+/* Paginación */
+.comm-mail-dashboard-row .pagination {
+    gap: 4px;
+}
+
+.comm-mail-dashboard-row .pagination .page-link {
+    border: none;
+    color: var(--gm-ink-soft);
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 5px 11px;
+    background: transparent;
+}
+
+.comm-mail-dashboard-row .pagination .page-link:hover {
+    background: var(--gm-accent-soft);
+    color: var(--gm-accent);
+}
+
+.comm-mail-dashboard-row .pagination .page-item.active .page-link {
+    background: #2e1240;
+    color: #ffffff;
+}
+
+/* ------------------------------------------------------------
+   PANEL DE DETALLE / LECTURA DE EMAIL
+   ------------------------------------------------------------ */
+
+.comm-gm-read {
+    padding: 22px 26px;
+    color: var(--gm-ink);
+}
+
+.comm-gm-read-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.comm-gm-read-subject {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--gm-ink);
+    line-height: 1.25;
+    margin: 0;
+    min-width: 0;
+}
+
+.comm-gm-read-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.comm-gm-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--gm-ink-mute);
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.comm-gm-icon-btn:hover {
+    background: var(--gm-accent-soft);
+    color: var(--gm-accent);
+}
+
+.comm-gm-sender-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--gm-border);
+    margin-bottom: 16px;
+}
+
+.comm-gm-sender-row .comm-gm-avatar {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    font-size: 0.9rem;
+}
+
+.comm-gm-sender-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.comm-gm-sender-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--gm-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.comm-gm-sender-name a {
+    color: var(--gm-accent);
+    text-decoration: none;
+}
+
+.comm-gm-sender-name a:hover {
+    text-decoration: underline;
+}
+
+.comm-gm-sender-meta {
+    font-size: 0.76rem;
+    color: var(--gm-ink-mute);
+    margin-top: 1px;
+}
+
+.comm-gm-sender-time {
+    font-size: 0.76rem;
+    color: var(--gm-ink-mute);
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.comm-gm-read .email-read-body,
+.comm-gm-read .email-body {
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--gm-ink);
+}
+
+/* Hilo / historial */
+.comm-gm-read .email-thread-history {
+    border-top: 1px solid var(--gm-border) !important;
+    margin-top: 22px;
+    padding-top: 14px;
+}
+
+.comm-gm-read .email-thread-history summary {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gm-ink-soft);
+}
+
+/* Adjuntos */
+.comm-gm-read .email-thread-attachment {
+    border: 1px solid var(--gm-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--gm-panel-2);
+    transition: box-shadow 0.15s ease;
+}
+
+.comm-gm-read .email-thread-attachment:hover {
+    box-shadow: 0 6px 16px rgba(30, 10, 44, 0.12);
+}
+
+.comm-gm-read .attachment-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 10px;
+    font-size: 0.76rem;
+    color: var(--gm-ink-soft);
+}
+
+/* Botones suaves dentro del detalle */
+.comm-gm-read .btn-outline-primary {
+    color: var(--gm-accent);
+    border-color: var(--gm-accent-line);
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.comm-gm-read .btn-outline-primary:hover {
+    background: var(--gm-accent);
+    border-color: var(--gm-accent);
+    color: #fff;
+}
+
+/* Estado vacío del detalle */
+.comm-mail-dashboard-row .comm-empty-state {
+    color: var(--gm-ink-mute);
+}
+
+.comm-mail-dashboard-row .comm-empty-state h5 {
+    color: var(--gm-ink);
+    font-weight: 700;
+}
+
+/* ------------------------------------------------------------
+   Scrollbars y detalles finales
+   ------------------------------------------------------------ */
+
+.comm-mail-dashboard-row ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.comm-mail-dashboard-row ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.comm-mail-dashboard-row ::-webkit-scrollbar-thumb {
+    background: rgba(109, 59, 191, 0.28);
+    border-radius: 999px;
+}
+
+.comm-gm-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 991.98px) {
+    .comm-gm-sidebar {
+        display: none;
+    }
+
+    .comm-gm-search {
+        flex: 1 1 auto;
+    }
+
+    .comm-gm-account span {
+        display: none;
+    }
+
+    .comm-gm-account {
+        padding: 5px 10px;
+    }
+
+    .comm-gm-btn span.comm-gm-btn-txt {
+        display: none;
+    }
+
+    .comm-gm-btn {
+        padding: 7px 9px;
+    }
+}
+
+/* ------------------------------------------------------------
+   Modo oscuro global: el email conserva su tema propio
+   ------------------------------------------------------------ */
+
+body.dark-mode .comm-mail-dashboard-row #conversation-list-panel.comm-mail-shell,
+body.dark-mode .comm-mail-dashboard-row #conversation-detail-panel.comm-mail-shell-detail {
+    background: var(--gm-panel) !important;
+}
+
+body.dark-mode .comm-mail-dashboard-row .bg-white {
+    background-color: #ffffff !important;
+    color: var(--gm-ink) !important;
+}
+
+body.dark-mode .comm-gm-item-from,
+body.dark-mode .comm-gm-list-title {
+    color: var(--gm-ink) !important;
+}
+
+body.dark-mode .comm-gm-item-subject,
+body.dark-mode .comm-gm-refresh {
+    color: var(--gm-ink-soft) !important;
+}
+
+body.dark-mode .comm-gm-item-snippet,
+body.dark-mode .comm-gm-item-time,
+body.dark-mode .comm-gm-sender-time,
+body.dark-mode .comm-gm-sender-meta,
+body.dark-mode .comm-gm-datehead {
+    color: var(--gm-ink-mute) !important;
+}
+
+body.dark-mode .comm-gm-read .email-read-body,
+body.dark-mode .comm-gm-read .email-body,
+body.dark-mode .comm-gm-read-subject,
+body.dark-mode .comm-gm-sender-name {
+    color: var(--gm-ink) !important;
+}

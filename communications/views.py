@@ -6,6 +6,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.core.files.base import ContentFile
+import datetime
 import tempfile
 import zipfile
 import threading
@@ -521,7 +522,10 @@ def dashboard(request):
         
         # If filtering by channel, we generally want to see all unless specific status is requested
         if status_filter and status_filter != 'all':
-            conversations = conversations.filter(status=status_filter)
+            # En email, "unread" se resuelve a nivel de EmailMessage
+            # (no es un estado de conversación): se filtra más abajo.
+            if not (channel_filter == 'email' and status_filter == 'unread'):
+                conversations = conversations.filter(status=status_filter)
 
         if channel_filter == 'email' and search_q:
             conversations = conversations.filter(
@@ -721,7 +725,7 @@ def dashboard(request):
                             | Q(assigned_to__isnull=True)
                         )
                     vis_qs = vis_qs.filter(channel='email')
-                    if status_filter and status_filter not in ('all', 'inbox'):
+                    if status_filter and status_filter not in ('all', 'inbox', 'unread'):
                         vis_qs = vis_qs.filter(status=status_filter)
                     elif folder_filter not in ('sent', 'drafts'):
                         vis_qs = vis_qs.exclude(status='closed')
@@ -747,6 +751,14 @@ def dashboard(request):
                     # inbox default
                     email_rows_qs = email_rows_qs.filter(
                         message__direction='inbound'
+                    )
+
+                # Filtro "No leídos" (chip del listado): aplica sobre
+                # bandeja/papelera, no sobre enviados.
+                if status_filter == 'unread':
+                    email_rows_qs = email_rows_qs.filter(
+                        message__direction='inbound',
+                        message__is_read=False,
                     )
 
             if folder_filter != 'drafts':
@@ -816,6 +828,31 @@ def dashboard(request):
                         r.lower() == my_email
                         for r in recipients
                     )
+
+                    # Agrupación por fecha para la cabecera del listado
+                    # (Hoy / Ayer / día de semana / fecha). Días en español
+                    # fijos para no depender del locale del servidor.
+                    em_date = em.email_date or (
+                        em.message.created_at if em.message else None
+                    )
+                    em.is_today = False
+                    em.day_group = ""
+                    if em_date:
+                        today = timezone.localdate()
+                        msg_day = timezone.localtime(em_date).date()
+                        em.is_today = msg_day == today
+                        if msg_day == today:
+                            em.day_group = "Hoy"
+                        elif msg_day == today - datetime.timedelta(days=1):
+                            em.day_group = "Ayer"
+                        elif (today - msg_day).days < 7:
+                            dias = (
+                                "lunes", "martes", "miércoles", "jueves",
+                                "viernes", "sábado", "domingo",
+                            )
+                            em.day_group = dias[msg_day.weekday()].capitalize()
+                        else:
+                            em.day_group = msg_day.strftime("%d/%m/%Y")
 
             conversations = conversations.order_by(
                 '-last_message_at',

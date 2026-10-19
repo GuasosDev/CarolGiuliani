@@ -127,6 +127,69 @@
     data-current-channel="{{ current_channel|default:'all' }}"
 >
 
+    {% if current_channel == 'email' %}
+    <!-- ===================================================== -->
+    <!-- SIDEBAR DE CARPETAS DE CORREO -->
+    <!-- ===================================================== -->
+    <aside class="comm-gm-sidebar" aria-label="Carpetas de correo">
+
+        <div class="comm-gm-side-section">
+            <div class="comm-gm-side-title">
+                <span>Todas las cuentas</span>
+                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+            </div>
+            <a class="comm-gm-side-link {% if not current_folder or current_folder == 'inbox' %}active{% endif %}"
+               href="{% url 'communications:dashboard' %}?channel=email&folder=inbox">
+                <i class="fas fa-inbox" aria-hidden="true"></i>
+                <span>Bandeja de entrada</span>
+                {% if unread_count %}<span class="comm-gm-count">{{ unread_count }}</span>{% endif %}
+            </a>
+        </div>
+
+        <div class="comm-gm-side-section">
+            <div class="comm-gm-side-title" title="{% if email_account %}{{ email_account.email_address }}{% else %}Cuenta{% endif %}">
+                <span>{% if email_account %}{{ email_account.email_address }}{% else %}Cuenta{% endif %}</span>
+            </div>
+            <a class="comm-gm-side-link {% if current_folder == 'inbox' %}active{% endif %}"
+               href="{% url 'communications:dashboard' %}?channel=email&folder=inbox">
+                <i class="fas fa-inbox" aria-hidden="true"></i>
+                <span>Bandeja de entrada</span>
+                <span class="comm-gm-count comm-gm-count-muted">{{ current_filter_total }}</span>
+            </a>
+            <a class="comm-gm-side-link {% if current_folder == 'drafts' %}active{% endif %}"
+               href="{% url 'communications:dashboard' %}?channel=email&folder=drafts">
+                <i class="fas fa-file-alt" aria-hidden="true"></i>
+                <span>Borradores</span>
+                <span class="comm-gm-count comm-gm-count-muted" data-comm-drafts-count>{{ drafts_count|default:0 }}</span>
+            </a>
+            <a class="comm-gm-side-link {% if current_folder == 'sent' %}active{% endif %}"
+               href="{% url 'communications:dashboard' %}?channel=email&folder=sent">
+                <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                <span>Enviados</span>
+                <span class="comm-gm-count comm-gm-count-muted">{{ sent_count }}</span>
+            </a>
+            <span class="comm-gm-side-link comm-gm-side-disabled">
+                <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                <span>SPAM</span>
+                <span class="comm-gm-count comm-gm-count-muted">0</span>
+            </span>
+            <a class="comm-gm-side-link {% if current_status == 'closed' or current_folder == 'trash' %}active{% endif %}"
+               href="{% url 'communications:dashboard' %}?channel=email&status=closed">
+                <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                <span>Papelera</span>
+                <span class="comm-gm-count comm-gm-count-muted">{{ closed_count }}</span>
+            </a>
+        </div>
+
+        <div class="comm-gm-side-footer">
+            <a href="{% url 'communications:settings' %}" title="Configuración de correo">
+                <i class="fas fa-cog" aria-hidden="true"></i>
+            </a>
+        </div>
+
+    </aside>
+    {% endif %}
+
 
     <!-- ===================================================== -->
     <!-- COLUMNA 1: LISTA DE CONVERSACIONES -->
@@ -136,6 +199,50 @@
         class="comm-dashboard-panel comm-list-panel bg-white d-flex flex-column h-100 border rounded-4 shadow-sm overflow-hidden flex-shrink-0{% if current_channel == 'email' %} comm-mail-shell{% endif %}"
         id="conversation-list-panel"
     >
+
+        {% if current_channel == 'email' %}
+        <div class="comm-gm-list-head">
+            <div class="comm-gm-list-title-row">
+                <h2 class="comm-gm-list-title">
+                    {% if current_folder == 'sent' %}
+                        Enviados
+                    {% elif current_folder == 'drafts' %}
+                        Borradores
+                    {% elif current_folder == 'trash' or current_status == 'closed' %}
+                        Papelera
+                    {% else %}
+                        Bandeja de entrada
+                    {% endif %}
+                </h2>
+                <button
+                    type="button"
+                    class="comm-gm-refresh"
+                    title="Actualizar lista"
+                    onclick="if(typeof window.commMailRefreshList === 'function') { window.commMailRefreshList(); } else { window.location.reload(); }"
+                >
+                    Actualizar
+                </button>
+            </div>
+            {% if current_folder != 'drafts' %}
+            <div class="comm-gm-chips">
+                <a
+                    class="comm-gm-chip {% if current_status != 'unread' %}active{% endif %}"
+                    href="?channel=email{% if current_folder == 'sent' %}&folder=sent{% elif current_folder == 'trash' %}&folder=trash{% else %}&folder=inbox{% endif %}"
+                >
+                    Todos
+                </a>
+                {% if current_folder != 'sent' %}
+                <a
+                    class="comm-gm-chip {% if current_status == 'unread' %}active{% endif %}"
+                    href="?channel=email{% if current_folder == 'trash' %}&folder=trash{% else %}&folder=inbox{% endif %}&status=unread"
+                >
+                    No leídos <span class="comm-gm-chip-n">{{ unread_count }}</span>
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Scrollable List -->
 
@@ -163,67 +270,54 @@
 
                         <button
                             type="button"
-                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
+                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item comm-gm-item"
                             data-draft-id="{{ d.id }}"
                             onclick="if (typeof window.commOpenEmailDraft === 'function') window.commOpenEmailDraft('{{ d.id }}')"
                         >
 
-                            <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <span class="comm-gm-avatar" aria-hidden="true">
+                                <i class="fas fa-file-alt"></i>
+                            </span>
 
-                                <small class="text-secondary text-truncate">
+                            <span class="comm-gm-item-body">
 
-                                    {% if d.compose_mode == 'reply' %}
-                                        Responder
-                                    {% elif d.compose_mode == 'reply-all' %}
-                                        Responder a todos
-                                    {% elif d.compose_mode == 'forward' %}
-                                        Reenviar
-                                    {% else %}
-                                        Redactar
-                                    {% endif %}
+                                <span class="comm-gm-item-top">
 
-                                </small>
+                                    <span class="comm-gm-item-from">
+                                        {% if d.compose_mode == 'reply' %}
+                                            Responder
+                                        {% elif d.compose_mode == 'reply-all' %}
+                                            Responder a todos
+                                        {% elif d.compose_mode == 'forward' %}
+                                            Reenviar
+                                        {% else %}
+                                            Borrador
+                                        {% endif %}
+                                    </span>
 
-                                <span
-                                    class="comm-email-subject text-truncate small fw-normal text-secondary flex-grow-1"
-                                    style="min-width:0;"
-                                >
-                                    {{ d.subject|default:"(Sin asunto)"|truncatechars:56 }}
+                                    <span class="comm-gm-item-time">
+                                        {{ d.updated_at|date:"d/m/Y" }}
+                                    </span>
+
                                 </span>
 
-                                <small class="text-nowrap flex-shrink-0 text-secondary">
-                                    {{ d.updated_at|date:"d/m/Y H:i" }}
-                                </small>
+                                <span class="comm-gm-item-subject">
+                                    {{ d.subject|default:"(Sin asunto)"|truncatechars:60 }}
+                                </span>
 
-                            </div>
+                                <span class="comm-gm-item-snippet" title="{{ d.to_addresses }}">
+                                    Para: {{ d.to_addresses|default:"(sin destinatario)"|truncatechars:60 }}
+                                </span>
 
-
-                            <div class="d-flex justify-content-between align-items-center">
-
-                                <small
-                                    class="text-truncate text-secondary"
-                                    style="min-width:0;"
-                                    title="{{ d.to_addresses }}"
-                                >
-                                    Para:
-                                    {{ d.to_addresses|default:"(sin destinatario)"|truncatechars:48 }}
-                                </small>
-
-                                <i
-                                    class="fas fa-file-alt text-secondary opacity-50 ms-1 flex-shrink-0"
-                                    style="font-size: 0.75rem;"
-                                    aria-hidden="true"
-                                ></i>
-
-                            </div>
+                            </span>
 
                         </button>
 
                         {% empty %}
 
-                        <div class="text-center p-5 text-muted">
+                        <div class="comm-gm-empty">
 
-                            <i class="fas fa-file-alt fa-3x mb-3 text-secondary opacity-50"></i>
+                            <i class="fas fa-file-alt"></i>
 
                             <p>No hay borradores.</p>
 
@@ -237,124 +331,80 @@
 
                         {% for em in email_rows %}
 
+                            {% ifchanged em.day_group %}
+
+                            <div class="comm-gm-datehead">{{ em.day_group }}</div>
+
+                            {% endifchanged %}
+
                         <button
                             type="button"
-                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item"
+                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start comm-email-inbox-item comm-gm-item {% if em.message.direction == 'inbound' and not em.message.is_read %}unread{% else %}read{% endif %}"
                             data-id="{{ em.id }}"
                             data-conversation-id="{% if em.message.conversation %}{{ em.message.conversation.id }}{% endif %}"
                             data-contact-name="{% if em.message.conversation %}{{ em.message.conversation.get_display_name }}{% else %}Email{% endif %}"
                             onclick="loadEmailMessage(this, '{{ em.id }}')"
                         >
 
-                            <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <span class="comm-gm-avatar" aria-hidden="true">
 
-                                <div class="d-flex justify-content-between align-items-center">
+                                {% if em.message.direction == 'inbound' %}
+                                    {{ em.message.sender_name|default:em.from_address|default:"?"|slice:":1"|upper }}
+                                {% else %}
+                                    {{ em.email_account.email_address|default:"?"|slice:":1"|upper }}
+                                {% endif %}
 
-                                    <small
-                                        class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
-                                    >
-                                        De:
-                                        {{ em.message.sender_name|default:em.from_address|default:"-"|decode_email_subject }}
-                                    </small>
+                            </span>
 
-                                </div>
+                            <span class="comm-gm-item-body">
 
+                                <span class="comm-gm-item-top">
 
-                                <div
-                                    class="d-flex align-items-start text-truncate flex-grow-1 gap-2"
-                                    style="min-width: 0;"
-                                >
+                                    <span class="comm-gm-item-from">
 
-                                    <span
-                                        class="comm-email-subject text-truncate small {% if em.message.direction == 'inbound' and not em.message.is_read %}unread fw-bolder{% else %}fw-normal text-secondary{% endif %}"
-                                    >
-                                        {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:56 }}
+                                        {% if em.message.direction == 'inbound' %}
+                                            {{ em.message.sender_name|default:em.from_address|default:"-"|decode_email_subject|truncatechars:34 }}
+                                        {% else %}
+                                            Para: {{ em.recipients.0|default:em.email_account.email_address|default:"-"|truncatechars:34 }}
+                                        {% endif %}
+
                                     </span>
 
-                                </div>
+                                    <span class="comm-gm-item-flags">
 
+                                        {% if em.has_attachments or em.message.file %}
+                                        <i class="fas fa-paperclip" title="Tiene adjuntos" aria-label="Tiene adjuntos"></i>
+                                        {% endif %}
 
-                                <small
-                                    class="text-nowrap flex-shrink-0 {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
-                                >
-                                    {{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y H:i" }}
-                                </small>
+                                    </span>
 
-                            </div>
-
-
-                            <div class="d-flex justify-content-between align-items-center">
-
-                                {% with joined=em.recipients_joined recipients=em.recipients %}
-
-                                    {% if recipients|length > 1 %}
-
-                                    <div class="d-flex align-items-center gap-1 w-100">
-
-                                        <span
-                                            class="text-truncate recipient-summary {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
-                                            title="Para: {{ joined }}"
-                                        >
-                                            Para:
-                                            {{ recipients.0|default:em.email_account.email_address|default:"-" }}
-                                        </span>
-
-                                        <span
-                                            class="recipient-badge text-primary small flex-shrink-0"
-                                            title="{{ joined }}"
-                                        >
-                                            +{{ recipients|length|add:"-1" }} más
-                                            <i class="fas fa-chevron-right"></i>
-                                        </span>
-
-                                    </div>
-
-                                    {% else %}
-
-                                    <small
-                                        class="text-truncate {% if em.message.direction == 'inbound' and not em.message.is_read %}text-dark fw-bolder{% else %}text-secondary{% endif %}"
-                                        style="min-width:0;"
-                                        title="{{ joined }}"
-                                    >
-                                        Para:
-                                        {{ joined|default:em.email_account.email_address|default:"-"|truncatechars:40 }}
-                                    </small>
-
-                                    {% endif %}
-
-                                {% endwith %}
-
-
-                                <span class="d-inline-flex align-items-center gap-1 ms-1 flex-shrink-0">
-
-                                    {% if em.has_attachments or em.message.file %}
-
-                                    <i
-                                        class="fas fa-paperclip text-secondary"
-                                        style="font-size: 0.75rem;"
-                                        title="Tiene adjuntos"
-                                        aria-label="Tiene adjuntos"
-                                    ></i>
-
-                                    {% endif %}
-
-                                    <i
-                                        class="fas fa-envelope text-secondary opacity-50"
-                                        style="font-size: 0.75rem;"
-                                        aria-hidden="true"
-                                    ></i>
+                                    <span class="comm-gm-item-time">
+                                        {% if em.is_today %}
+                                            {{ em.email_date|default_if_none:em.message.created_at|date:"H:i" }}
+                                        {% else %}
+                                            {{ em.email_date|default_if_none:em.message.created_at|date:"d/m/Y" }}
+                                        {% endif %}
+                                    </span>
 
                                 </span>
 
-                            </div>
+                                <span class="comm-gm-item-subject">
+                                    {{ em.subject|default:"(Sin asunto)"|decode_email_subject|truncatechars:64 }}
+                                </span>
+
+                                <span class="comm-gm-item-snippet">
+                                    {{ em.plain_body|default:em.message.content|default:""|striptags|truncatechars:80 }}
+                                </span>
+
+                            </span>
 
                         </button>
 
                         {% empty %}
 
-                        <div class="text-center p-5 text-muted">
+                        <div class="comm-gm-empty">
 
-                            <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-50"></i>
+                            <i class="fas fa-inbox"></i>
 
                             <p>No hay emails en esta vista.</p>
 

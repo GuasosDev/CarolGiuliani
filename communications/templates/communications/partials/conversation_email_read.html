@@ -1,26 +1,32 @@
 {% load comm_mail %}
-{% comment %}Lectura tipo webmail: asunto + fecha; contacto/tel en franja superior; acciones en iconos en la barra.{% endcomment %}
-<div class="email-read-pane overflow-auto w-100">
-    <header class="email-read-pane-header mb-4">
-        <div class="email-read-subject-row d-flex align-items-baseline justify-content-between gap-3">
-            <h1 class="email-read-subject text-dark mb-0 lh-sm flex-grow-1" style="min-width:0;">{{ conversation.subject|default:"(Sin asunto)"|decode_email_subject }}</h1>
-            {% if latest_message %}
-                <time class="email-read-sent-at flex-shrink-0" datetime="{{ latest_message.created_at|date:'c' }}">{{ latest_message.created_at|date:"d/m/Y H:i" }}</time>
-            {% endif %}
+{% comment %}Lectura tipo webmail: asunto + acciones; franja de remitente; cuerpo y adjuntos.{% endcomment %}
+<div class="email-read-pane comm-gm-read overflow-auto w-100">
+    <header class="email-read-pane-header comm-gm-read-head">
+        <h1 class="email-read-subject comm-gm-read-subject text-dark mb-0 lh-sm" style="min-width:0;">{{ conversation.subject|default:"(Sin asunto)"|decode_email_subject }}</h1>
+        <div class="comm-gm-read-actions">
+            <button type="button" class="comm-gm-icon-btn" title="Responder" onclick="commMailCompose('reply')">
+                <i class="fas fa-reply" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="comm-gm-icon-btn" title="Responder a todos" onclick="commMailCompose('reply-all')">
+                <i class="fas fa-reply-all" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="comm-gm-icon-btn" title="Reenviar" onclick="commMailCompose('forward')">
+                <i class="fas fa-share" aria-hidden="true"></i>
+            </button>
         </div>
     </header>
 
     {% if latest_message %}
         <!-- CORREGIDO: Añadido data-message-id para mapear el último mensaje con la barra superior -->
         <article class="email-thread-message" data-message-id="{{ latest_message.id }}">
-            
+
             <!-- CABECERA INVISIBLE PARA EL CONTENIDO DEL SCRIPT -->
             <div class="msg-header d-none">
                 Asunto: {{ conversation.subject|default:"(Sin asunto)"|decode_email_subject }} | Fecha: {{ latest_message.created_at|date:"d/m/Y H:i" }}
             </div>
 
-            <div class="d-flex align-items-start gap-3 mb-3">
-                <div class="email-thread-avatar">
+            <div class="comm-gm-sender-row">
+                <span class="comm-gm-avatar" aria-hidden="true">
                     {% if latest_message.direction == 'outbound' %}
                         {{ request.user.username|slice:":1"|upper|default:"T" }}
                     {% else %}
@@ -30,27 +36,30 @@
                             {{ latest_message.sender_name|default:"R"|slice:":1"|upper }}
                         {% endif %}
                     {% endif %}
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
-                        <div>
-                            <span class="fw-semibold">
-                                {% if latest_message.direction == 'outbound' %}
-                                    Tú
-                                {% else %}
-                                    {% if conversation.contact.client %}{{ conversation.contact.client.name|decode_email_subject }}{% else %}{{ latest_message.sender_name|default:"Remitente"|decode_email_subject }}{% endif %}
-                                {% endif %}
-                            </span>
-                            <span class="text-muted small">· {{ latest_message.created_at|date:"d/m/Y H:i" }}</span>
-                        </div>
-                        <span class="badge bg-light text-muted small">{{ latest_message.direction|capfirst }}</span>
+                </span>
+                <div class="comm-gm-sender-info">
+                    <div class="comm-gm-sender-name">
+                        {% if latest_message.direction == 'outbound' %}
+                            Tú
+                        {% else %}
+                            {% if conversation.contact.client %}{{ conversation.contact.client.name|decode_email_subject }}{% else %}{{ latest_message.sender_name|default:"Remitente"|decode_email_subject }}{% endif %}
+                        {% endif %}
+                        &lt;<a href="mailto:{% if latest_message.direction == 'outbound' %}{{ email_account.email_address|default:'' }}{% else %}{{ latest_message.email_data.from_address|default:latest_message.sender_name|default:'' }}{% endif %}">{% if latest_message.direction == 'outbound' %}{{ email_account.email_address|default:"—" }}{% else %}{{ latest_message.email_data.from_address|default:latest_message.sender_name|default:"—" }}{% endif %}</a>&gt;
                     </div>
-                    
-                    <!-- CORREGIDO: Añadida la clase email-body para la compatibilidad del JS extractor -->
-                    <div class="email-read-body email-body text-break">
-                        {{ latest_message.render_content|safe }}
+                    <div class="comm-gm-sender-meta">
+                        {% if latest_message.direction == 'outbound' %}
+                            Para: {{ email_view_to|default:"—" }}
+                        {% else %}
+                            Para: mí
+                        {% endif %}
                     </div>
                 </div>
+                <time class="comm-gm-sender-time" datetime="{{ latest_message.created_at|date:'c' }}">{{ latest_message.created_at|date:"d/m/Y H:i" }}</time>
+            </div>
+
+            <!-- CORREGIDO: Añadida la clase email-body para la compatibilidad del JS extractor -->
+            <div class="email-read-body email-body text-break">
+                {{ latest_message.render_content|safe }}
             </div>
 
             {% if latest_message.file %}
@@ -116,7 +125,7 @@
                 {% for m in previous_messages %}
                 <!-- CORREGIDO: Mapeamos también cada correo antiguo individualmente por si quieres agregarles botones de descarga propios a futuro -->
                 <article class="email-read-archive-item py-3 border-bottom" data-message-id="{{ m.id }}">
-                    
+
                     <div class="msg-header d-none">
                         Historial - Fecha: {{ m.created_at|date:"d/m/Y H:i" }}
                     </div>
@@ -137,7 +146,7 @@
                             <div class="small text-muted mb-2">
                                 {{ m.created_at|date:"d/m/Y H:i" }} · {% if m.direction == 'inbound' %}{% if conversation.contact.client %}{{ conversation.contact.client.name }}{% else %}{{ m.sender_name|default:"—" }}{% endif %}{% else %}Tú{% endif %}
                             </div>
-                            
+
                             <!-- CORREGIDO: Agregada la clase email-body para mantener simetría con el JS extractor -->
                             <div class="text-break small email-body">{{ m.render_content|safe }}</div>
                             {% if m.email_data %}
