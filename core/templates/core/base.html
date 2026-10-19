@@ -104,22 +104,30 @@
     <header class="topbar">
         <div class="topbar-left">
             <a class="topbar-brand" href="{% url 'dashboard' %}">
-                <img class="topbar-brand-img" src="{% static 'communications/images/logo-completo1.jpeg' %}" alt="Logo"style="height: 60px; width: auto;">
+                <img class="topbar-brand-img" src="{% static 'communications/images/logo-completo1.jpeg' %}" alt="Logo"style="height: 56px; width: auto;">
             </a>
-        </div>
-        <div class="topbar-center d-none d-md-flex">
-            <div class="topbar-search position-relative">
-                <i class="fas fa-search topbar-search-icon"></i>
-                <input type="search" name="q" class="topbar-search-input form-control form-control-sm"
-                    placeholder="Buscar..."
-                    hx-get="{% url 'global_search' %}"
-                    hx-trigger="keyup changed delay:800ms, search"
-                    hx-target="#modal-body"
-                    hx-on:htmx:after-request="if(event.detail.successful) openModal()"
-                    autocomplete="off">
-            </div>
+            <button class="navbar-toggler" id="navbar-toggler" aria-label="Toggle navigation">
+                <i class="fas fa-bars"></i>
+            </button>
+            <ul class="nav-links" id="nav-links">
+                <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.view_name == 'dashboard' or request.resolver_match.view_name == 'communications:role_dashboard' or request.resolver_match.view_name == 'communications:supervisor_dashboard' or request.resolver_match.view_name == 'communications:agent_dashboard' %}active{% endif %}">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li><a href="{% url 'client_list' %}" class="{% if 'clients' in request.path %}active{% endif %}">
+                        <i class="fas fa-users"></i> Contactos
+                    </a></li>
+
+
+                <li><a href="{% url 'communications:dashboard' %}"
+                        class="{% if request.resolver_match.view_name == 'communications:dashboard' %}active{% endif %}">
+                        <i class="fas fa-comments"></i> Communications
+                    </a></li>
+            </ul>
         </div>
         <div class="topbar-right">
+            <!-- Navbar Tools Block -->
+            <div class="navbar-tools d-none d-md-flex align-items-center ms-auto px-3" style="overflow: visible;">
+                {% block navbar_tools %}{% endblock %}
+            </div>
             <div class="user-menu">
                 {% if user.is_authenticated %}
                 <div class="dropdown" style="display: inline-block;">
@@ -176,32 +184,6 @@
             </div>
         </div>
     </header>
-
-    <nav class="navbar">
-        <button class="navbar-toggler" id="navbar-toggler" aria-label="Toggle navigation">
-            <i class="fas fa-bars"></i>
-        </button>
-        <ul class="nav-links" id="nav-links">
-            <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.view_name == 'dashboard' or request.resolver_match.view_name == 'communications:role_dashboard' or request.resolver_match.view_name == 'communications:supervisor_dashboard' or request.resolver_match.view_name == 'communications:agent_dashboard' %}active{% endif %}">
-                <i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-            <li><a href="{% url 'client_list' %}" class="{% if 'clients' in request.path %}active{% endif %}">
-                    <i class="fas fa-users"></i> Contactos
-                </a></li>
-
-
-            <li><a href="{% url 'communications:dashboard' %}"
-                    class="{% if request.resolver_match.view_name == 'communications:dashboard' %}active{% endif %}">
-                    <i class="fas fa-comments"></i> Communications
-                </a></li>
-
-                
-        </ul>
-
-        <!-- Navbar Tools Block -->
-        <div class="navbar-tools d-none d-md-flex align-items-center ms-auto px-4" style="overflow: visible;">
-            {% block navbar_tools %}{% endblock %}
-        </div>
-    </nav>
 
     <main id="main-content">
         {% if messages %}
