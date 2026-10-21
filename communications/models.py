@@ -22,6 +22,10 @@ class Contact(models.Model):
     )
     tags = models.JSONField(default=list, blank=True, verbose_name="Etiquetas")
     notes = models.TextField(blank=True, null=True, verbose_name="Notas")
+    force_welcome_menu = models.BooleanField(
+        default=False,
+        verbose_name="Forzar menú de bienvenida",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -167,10 +171,13 @@ class Conversation(models.Model):
         return result
 
     def close(self):
-        """Close the conversation"""
+        """Cierra la conversación. En WhatsApp, el próximo texto del cliente abre el menú."""
         self.status = 'closed'
         self.closed_at = timezone.now()
         self.save()
+        if self.channel == 'whatsapp' and self.contact_id:
+            from .whatsapp_handler import _arm_welcome_menu_on_manual_close
+            _arm_welcome_menu_on_manual_close(self)
 
     def assign_to(self, user, *, allow_reassign=False, assigned_by=None):
         """

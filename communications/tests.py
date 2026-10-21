@@ -12,10 +12,13 @@ from communications.assignment_system import (
 from communications.email_handler import EmailHandler
 from communications.models import (
     Contact,
+    ContactMenuState,
     Conversation,
     EmailAccount,
     EmailMessage,
     Message,
+    WelcomeMenu,
+    WelcomeMenuItem,
     WhatsAppAccount,
 )
 from communications.utils.email_threading import (
@@ -433,3 +436,222 @@ class InboundReplyAfterTransferTests(TestCase):
         self.assertFalse(
             Message.objects.filter(conversation__contact=shadow_contact, direction='inbound').exists()
         )
+
+
+class ForceWelcomeMenuOnManualCloseTests(TestCase):
+    def setUp(self):
+        self.agent = User.objects.create_user('agente_menu', 'agente_menu@example.com', 'pass')
+        self.other = User.objects.create_user('ventas_menu', 'ventas_menu@example.com', 'pass')
+        self.contact = Contact.objects.create(
+            whatsapp_number='5491112345678',
+            preferred_channel='whatsapp',
+        )
+        self.conversation = Conversation.objects.create(
+            contact=self.contact,
+            channel='whatsapp',
+            status='normal',
+            assigned_to=self.agent,
+        )
+        self.menu = WelcomeMenu.objects.create(
+            name='Inicio',
+            is_active=True,
+            greeting_text='Hola, bienvenido',
+            footer_text='Responda con el número',
+        )
+        WelcomeMenuItem.objects.create(
+            menu=self.menu,
+            number=2,
+            label='Ventas',
+            assigned_user=self.other,
+        )
+        self.account = WhatsAppAccount.objects.create(
+            name='WA menu',
+            phone_number='5491100000099',
+            phone_number_id='phone-menu',
+            business_account_id='biz-menu',
+            access_token='token',
+            webhook_verify_token='verify',
+        )
+
+    def test_manual_close_marks_contact_and_clears_menu_state(self):
+        ContactMenuState.objects.create(contact=self.contact, menu=self.menu)
+
+        self.conversation.close()
+
+        self.contact.refresh_from_db()
+        self.conversation.refresh_from_db()
+        self.assertTrue(self.contact.force_welcome_menu)
+        self.assertEqual(self.conversation.status, 'closed')
+        self.assertFalse(ContactMenuState.objects.filter(contact=self.contact).exists())
+
+    def test_manual_close_marks_contact_that_shares_the_phone(self):
+        owner = Contact.objects.create(preferred_channel='whatsapp')
+        shadow = Contact.objects.create(
+            whatsapp_number='5491188887777',
+            preferred_channel='whatsapp',
+        )
+        conversation = Conversation.objects.create(
+            contact=owner,
+            channel='whatsapp',
+            status='normal',
+        )
+        Message.objects.create(
+            conversation=conversation,
+            message_type='whatsapp',
+            direction='outbound',
+            content='📄 Plantilla: inicio',
+            metadata={'to': '5491188887777', 'template_name': 'inicio'},
+        )
+
+        conversation.close()
+
+        owner.refresh_from_db()
+        shadow.refresh_from_db()
+        self.assertTrue(owner.force_welcome_menu)
+        self.assertTrue(shadow.force_welcome_menu)
+
+    def test_email_close_does_not_arm_flag(self):
+        email_conversation = Conversation.objects.create(
+            contact=self.contact,
+            channel='email',
+            status='normal',
+            subject='Consulta',
+        )
+
+        email_conversation.close()
+
+        self.contact.refresh_from_db()
+        self.assertFalse(self.contact.force_welcome_menu)
+        self.assertEqual(email_conversation.status, 'closed')
+
+    def test_automatic_close_does_not_arm_flag(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from communications.tasks import close_inactive_conversations
+
+        Conversation.objects.filter(pk=self.conversation.pk).update(
+            status='pending',
+            updated_at=timezone.now() - timedelta(minutes=5),
+        )
+
+        close_inactive_conversations()
+
+        self.conversation.refresh_from_db()
+        self.contact.refresh_from_db()
+        self.assertEqual(self.conversation.status, 'closed')
+        self.assertFalse(self.contact.force_welcome_menu)
+
+    @patch('communications.websocket_utils.broadcast_new_message')
+    @patch('communications.whatsapp_handler.WhatsAppHandler.mark_message_as_read', return_value=True)
+    @patch('communications.whatsapp_handler.requests.post')
+    def test_client_text_same_day_forces_welcome_menu(self, post, _mark_read, _broadcast):
+        from communications.whatsapp_handler import process_incoming_message
+
+        post.return_value = Mock(
+            status_code=200,
+            json=Mock(return_value={'messages': [{'id': 'wamid.menu.nuevo'}]}),
+            raise_for_status=Mock(),
+        )
+        Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='outbound',
+            content='Hola, bienvenido',
+            metadata={
+                'welcome_menu': True,
+                'welcome_menu_id': self.menu.id,
+                'to': '5491112345678',
+            },
+        )
+        Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='outbound',
+            content='📄 Plantilla: inicio_conversacion',
+            sender=self.agent,
+            metadata={'to': '5491112345678', 'template_name': 'inicio_conversacion'},
+        )
+        ContactMenuState.objects.create(contact=self.contact, menu=self.menu)
+        self.conversation.close()
+
+        handled = process_incoming_message(
+            self.account,
+            {
+                'from': '5491112345678',
+                'id': 'wamid.cliente.2',
+                'timestamp': '1710000000',
+                'type': 'text',
+                'text': {'body': '2'},
+            },
+            {'contacts': [{'profile': {'name': 'Cliente'}}]},
+        )
+
+        self.contact.refresh_from_db()
+        self.conversation.refresh_from_db()
+        welcome_messages = Message.objects.filter(
+            direction='outbound',
+            metadata__welcome_menu=True,
+        )
+        self.assertTrue(handled)
+        self.assertEqual(welcome_messages.count(), 2)
+        self.assertFalse(self.contact.force_welcome_menu)
+        self.assertEqual(self.conversation.assigned_to_id, self.agent.id)
+        self.assertFalse(
+            Message.objects.filter(content__icontains='Te hemos conectado').exists()
+        )
+        self.assertFalse(
+            Message.objects.filter(content__icontains='Opción no válida').exists()
+        )
+        self.assertTrue(ContactMenuState.objects.filter(contact=self.contact, menu=self.menu).exists())
+
+    @patch('communications.whatsapp_handler.requests.post')
+    def test_template_after_close_does_not_force_menu(self, post):
+        from communications.whatsapp_handler import WhatsAppHandler, _handle_welcome_menu
+
+        post.return_value = Mock(
+            status_code=200,
+            json=Mock(return_value={'messages': [{'id': 'wamid.plantilla'}]}),
+            raise_for_status=Mock(),
+        )
+        self.conversation.close()
+        self.contact.refresh_from_db()
+        self.assertTrue(self.contact.force_welcome_menu)
+
+        sent, _message_id = WhatsAppHandler(self.account).send_template_message(
+            to_number='5491112345678',
+            template_name='inicio_conversacion',
+            language_code='es_AR',
+            conversation=self.conversation,
+            sender_user=self.agent,
+        )
+        self.contact.refresh_from_db()
+        inbound = Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='inbound',
+            content='hola',
+        )
+
+        class RecordingHandler:
+            def __init__(self):
+                self.sent = []
+
+            def send_text_message(self, to_number, message_text, conversation=None, sender_user=None, metadata=None):
+                self.sent.append(message_text)
+                return True, 'wamid.no-debe'
+
+        handler = RecordingHandler()
+        _handle_welcome_menu(
+            handler,
+            self.contact,
+            self.conversation,
+            'hola',
+            inbound,
+            force_show=True,
+        )
+
+        self.assertTrue(sent)
+        self.assertFalse(self.contact.force_welcome_menu)
+        self.assertEqual(handler.sent, [])
