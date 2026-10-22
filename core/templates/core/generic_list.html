@@ -4,30 +4,51 @@
 {% block content %}
 <style>
 .comm-list-card {
-    overflow-x: auto;
+    overflow: visible;
+}
+#datatable.comm-list-table {
+    width: 100% !important;
+    table-layout: auto;
+}
+#datatable.comm-list-table td,
+#datatable.comm-list-table th {
+    vertical-align: middle;
+}
+#datatable.comm-list-table td.comm-list-text-cell {
+    max-width: 12rem;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 .comm-client-actions-toolbar {
     display: inline-flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 0.35rem;
+    justify-content: flex-start;
+    gap: 0.15rem;
     white-space: nowrap;
 }
 .comm-client-actions-toolbar .comm-client-action-tile {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.25rem;
-    width: 2.25rem;
-    height: 2.25rem;
+    min-width: 1.7rem;
+    width: 1.7rem;
+    height: 1.7rem;
     padding: 0;
+    margin: 0;
     flex: 0 0 auto;
+    border-radius: 0.35rem;
 }
-.comm-client-actions-toolbar .comm-client-action-tile > i { font-size: 1.05rem; line-height: 1; }
-#datatable td.comm-list-actions-cell {
-    white-space: nowrap;
+.comm-client-actions-toolbar .comm-client-action-tile > i {
+    font-size: 0.88rem;
+    line-height: 1;
+}
+#datatable td.comm-list-actions-cell,
+#datatable th.comm-list-actions-head {
     width: 1%;
-    min-width: {% if action_toolbar_inline %}280px{% else %}80px{% endif %};
+    min-width: 9.5rem;
+    white-space: nowrap;
 }
 </style>
 <div class="container">
@@ -45,20 +66,20 @@
             {% endif %}
         </div>
 
-        <table id="datatable" class="display dt-responsive nowrap" style="width:100%">
+        <table id="datatable" class="display dt-responsive comm-list-table" style="width:100%">
             <thead>
                 <tr>
                     {% for header in headers %}
                     <th>{{ header }}</th>
                     {% endfor %}
-                    <th style="min-width: {% if action_toolbar_inline %}280px{% else %}80px{% endif %};">Acciones</th>
+                    <th class="comm-list-actions-head">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for obj in object_list %}
                 <tr>
                     {% for field in fields %}
-                    <td>{{ obj|get_attr:field }}</td>
+                    <td class="comm-list-text-cell">{{ obj|get_attr:field }}</td>
                     {% endfor %}
                     <td class="comm-list-actions-cell {% if action_toolbar_inline %}align-middle{% endif %}">
                         {% if action_toolbar_inline %}
@@ -155,7 +176,8 @@
         $('#datatable').DataTable({
             dom: 'Bfrtip',
             autoWidth: false,
-            scrollX: true,
+            scrollX: false,
+            responsive: true,
             buttons: [
                 'copy', 'csv', 'excel', 'pdf', 'print'
             ],
@@ -171,7 +193,8 @@
                     targets: -1,
                     orderable: false,
                     searchable: false,
-                    width: '{% if action_toolbar_inline %}280px{% else %}80px{% endif %}'
+                    className: 'comm-list-actions-cell',
+                    width: '9.5rem'
                 }
             ],
             drawCallback: function () {
