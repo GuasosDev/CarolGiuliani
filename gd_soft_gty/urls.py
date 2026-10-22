@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 from core.views import (
     DashboardView, CompanySettingsUpdateView, UserProfileUpdateView, GlobalSearchView,
     PrivacyPolicyView, TermsOfServiceView, DataDeletionView, update_personalization,
@@ -30,6 +31,11 @@ from core.views import (
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
     path('search/', GlobalSearchView.as_view(), name='global_search'),
+    path(
+        'favicon.ico',
+        RedirectView.as_view(url=settings.STATIC_URL + 'core/images/favicon.ico', permanent=True),
+        name='favicon',
+    ),
     path('admin/', admin.site.urls),
     path('clients/', include('clients.urls')),
     path('communications/', include('communications.urls')),
