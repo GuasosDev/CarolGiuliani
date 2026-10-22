@@ -3,6 +3,16 @@
 
 {% block content %}
 <style>
+.comm-list-card {
+    overflow-x: auto;
+}
+.comm-client-actions-toolbar {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
 .comm-client-actions-toolbar .comm-client-action-tile {
     display: inline-flex;
     align-items: center;
@@ -11,15 +21,21 @@
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
+    flex: 0 0 auto;
 }
 .comm-client-actions-toolbar .comm-client-action-tile > i { font-size: 1.05rem; line-height: 1; }
+#datatable td.comm-list-actions-cell {
+    white-space: nowrap;
+    width: 1%;
+    min-width: {% if action_toolbar_inline %}280px{% else %}80px{% endif %};
+}
 </style>
 <div class="container">
     <div class="page-header">
         <h1 class="page-title">{{ title }}</h1>
     </div>
 
-    <div class="card-box">
+    <div class="card-box comm-list-card">
         <div class="header-actions" style="margin-bottom: 20px; text-align: right;">
             {% if create_url %}
             <button hx-get="{{ create_url }}" hx-target="#modal-body" hx-trigger="click" onclick="openModal()"
@@ -35,7 +51,7 @@
                     {% for header in headers %}
                     <th>{{ header }}</th>
                     {% endfor %}
-                    <th style="min-width: {% if action_toolbar_inline %}220px{% else %}80px{% endif %};">Acciones</th>
+                    <th style="min-width: {% if action_toolbar_inline %}280px{% else %}80px{% endif %};">Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -44,9 +60,9 @@
                     {% for field in fields %}
                     <td>{{ obj|get_attr:field }}</td>
                     {% endfor %}
-                    <td class="{% if action_toolbar_inline %}align-middle{% endif %}">
+                    <td class="comm-list-actions-cell {% if action_toolbar_inline %}align-middle{% endif %}">
                         {% if action_toolbar_inline %}
-                        <div class="d-flex flex-wrap align-items-stretch gap-1 comm-client-actions-toolbar">
+                        <div class="comm-client-actions-toolbar">
                             {% if action_template_name %}
                             {% include action_template_name %}
                             {% endif %}
@@ -138,6 +154,8 @@
         }
         $('#datatable').DataTable({
             dom: 'Bfrtip',
+            autoWidth: false,
+            scrollX: true,
             buttons: [
                 'copy', 'csv', 'excel', 'pdf', 'print'
             ],
@@ -148,6 +166,14 @@
                     next: ">"
                 }
             },
+            columnDefs: [
+                {
+                    targets: -1,
+                    orderable: false,
+                    searchable: false,
+                    width: '{% if action_toolbar_inline %}280px{% else %}80px{% endif %}'
+                }
+            ],
             drawCallback: function () {
                 // Re-initialize dropdowns if needed provided by bootstrap bundle
                 var dropdownTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'))

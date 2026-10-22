@@ -2,6 +2,15 @@ from django import template
 
 register = template.Library()
 
+def _display_value(value):
+    """Vacío / None → guión tipográfico para listados."""
+    if value is None:
+        return "—"
+    if isinstance(value, str) and value.strip() in ("", "None", "none"):
+        return "—"
+    return value
+
+
 @register.filter
 def get_attr(obj, attr_name):
     """
@@ -10,8 +19,8 @@ def get_attr(obj, attr_name):
     Usage: {{ obj|get_attr:attr_name }}
     """
     if not obj:
-        return ""
-        
+        return "—"
+
     # Handle nested attributes (django style __)
     if "__" in attr_name:
         parts = attr_name.split("__")
@@ -21,13 +30,15 @@ def get_attr(obj, attr_name):
                 res = getattr(res, part)
                 if callable(res):
                     res = res()
+                if res is None:
+                    return "—"
             else:
-                return ""
-        return res
-        
+                return "—"
+        return _display_value(res)
+
     if hasattr(obj, attr_name):
         value = getattr(obj, attr_name)
         if callable(value):
-            return value()
-        return value
-    return ""
+            value = value()
+        return _display_value(value)
+    return "—"
