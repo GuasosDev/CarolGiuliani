@@ -24,6 +24,13 @@ class Migration(migrations.Migration):
             )
             return
 
+        if vendor == 'sqlite':
+            schema_editor.execute(f'DROP INDEX {qn(old_name)}')
+            schema_editor.execute(
+                f'CREATE INDEX {qn(new_name)} ON {qn(table_name)} ({qn("created_at")})'
+            )
+            return
+
         schema_editor.execute(
             f'ALTER INDEX {qn(old_name)} RENAME TO {qn(new_name)}'
         )
@@ -42,6 +49,13 @@ class Migration(migrations.Migration):
         if vendor == 'mysql':
             schema_editor.execute(
                 f'ALTER TABLE {qn(table_name)} RENAME INDEX {qn(new_name)} TO {qn(old_name)}'
+            )
+            return
+
+        if vendor == 'sqlite':
+            schema_editor.execute(f'DROP INDEX {qn(new_name)}')
+            schema_editor.execute(
+                f'CREATE INDEX {qn(old_name)} ON {qn(table_name)} ({qn("created_at")})'
             )
             return
 

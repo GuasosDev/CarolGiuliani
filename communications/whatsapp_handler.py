@@ -345,6 +345,11 @@ class WhatsAppHandler:
                 )
             
             logger.info(f"WhatsApp template message sent: {message_id}")
+            _clear_forced_welcome_menu(
+                conversation.contact if conversation is not None and conversation.contact_id else None,
+                conversation,
+                to_number,
+            )
             return True, message_id
             
         except requests.exceptions.HTTPError as e:
@@ -873,6 +878,104 @@ def _has_unanswered_template(conversation, inbound_message):
     return template_messages.exists()
 
 
+def _contact_ids_for_welcome_flag(contact, conversation=None):
+    ids = set()
+    if contact is not None and getattr(contact, 'pk', None):
+        ids.add(contact.pk)
+        for related in _related_whatsapp_contacts(contact):
+            ids.add(related.pk)
+    if conversation is not None and conversation.contact_id:
+        ids.add(conversation.contact_id)
+        conv_contact = conversation.contact
+        if conv_contact is not None and conv_contact.pk != getattr(contact, 'pk', None):
+            for related in _related_whatsapp_contacts(conv_contact):
+                ids.add(related.pk)
+    return ids
+
+
+def _phone_contact_ids(number):
+    normalized = normalize_phone_number(number)
+    if not normalized or len(normalized) < 10:
+        return set()
+    suffix = normalized[-10:]
+    return set(
+        Contact.objects.filter(whatsapp_number__endswith=suffix).values_list('pk', flat=True)
+    )
+
+
+def _arm_welcome_menu_on_manual_close(conversation):
+    """Marca el contacto para que su próximo texto abra el menú de bienvenida."""
+    if conversation.channel != 'whatsapp' or not conversation.contact_id:
+        return
+    ids = _contact_ids_for_welcome_flag(conversation.contact, conversation)
+    if conversation.contact.whatsapp_number:
+        ids.update(_phone_contact_ids(conversation.contact.whatsapp_number))
+    recent_meta = (
+        Message.objects.filter(conversation=conversation, message_type='whatsapp')
+        .order_by('-created_at', '-id')
+        .values_list('metadata', flat=True)[:8]
+    )
+    for meta in recent_meta:
+        if not isinstance(meta, dict):
+            continue
+        for key in ('to', 'from'):
+            if meta.get(key):
+                ids.update(_phone_contact_ids(meta[key]))
+    if not ids:
+        return
+    Contact.objects.filter(pk__in=ids).update(force_welcome_menu=True)
+    ContactMenuState.objects.filter(contact_id__in=ids).delete()
+
+
+def _welcome_menu_is_forced(contact, conversation=None):
+    ids = _contact_ids_for_welcome_flag(contact, conversation)
+    if contact is not None and getattr(contact, 'whatsapp_number', None):
+        ids.update(_phone_contact_ids(contact.whatsapp_number))
+    if not ids:
+        return False
+    return Contact.objects.filter(pk__in=ids, force_welcome_menu=True).exists()
+
+
+def _clear_forced_welcome_menu(contact=None, conversation=None, number=None):
+    ids = _contact_ids_for_welcome_flag(contact, conversation)
+    if number:
+        ids.update(_phone_contact_ids(number))
+    if contact is not None and getattr(contact, 'whatsapp_number', None):
+        ids.update(_phone_contact_ids(contact.whatsapp_number))
+    if ids:
+        Contact.objects.filter(pk__in=ids, force_welcome_menu=True).update(force_welcome_menu=False)
+
+
+def _discard_pending_menu_state(contact, conversation=None):
+    ids = _contact_ids_for_welcome_flag(contact, conversation)
+    if contact is not None and getattr(contact, 'whatsapp_number', None):
+        ids.update(_phone_contact_ids(contact.whatsapp_number))
+    if ids:
+        ContactMenuState.objects.filter(contact_id__in=ids).delete()
+
+
+def _deliver_welcome_menu(handler, contact, conversation, active_menu):
+    sent, _detail = handler.send_text_message(
+        contact.whatsapp_number,
+        active_menu.build_message_text(),
+        conversation=conversation,
+        metadata={'welcome_menu': True, 'welcome_menu_id': active_menu.id},
+    )
+    if not sent:
+        logger.error(
+            "Failed to send welcome menu '%s' to contact %s",
+            active_menu.name,
+            contact.pk,
+        )
+        return False
+    ContactMenuState.objects.update_or_create(
+        contact=contact,
+        defaults={'menu': active_menu},
+    )
+    logger.info(f"Sent welcome menu '{active_menu.name}' to contact {contact.pk}")
+    return True
+
+
 def _handle_welcome_menu(
     handler,
     contact,
@@ -886,9 +989,24 @@ def _handle_welcome_menu(
     suppressed until the next day (00:00 local time), unless forced.
 
     No mostrar si la conversación la inició el equipo (plantilla / outbound).
+    Un cierre manual deja force_welcome_menu y el próximo texto sí lo abre.
     """
     text_stripped = text.strip().lower()
     if not text_stripped:
+        return
+
+    if _welcome_menu_is_forced(contact, conversation):
+        _discard_pending_menu_state(contact, conversation)
+        active_menu = WelcomeMenu.objects.filter(is_active=True).first()
+        if active_menu is None:
+            _clear_forced_welcome_menu(
+                contact, conversation, getattr(contact, 'whatsapp_number', None)
+            )
+            return
+        if _deliver_welcome_menu(handler, contact, conversation, active_menu):
+            _clear_forced_welcome_menu(
+                contact, conversation, getattr(contact, 'whatsapp_number', None)
+            )
         return
 
     from django.utils import timezone
@@ -965,19 +1083,7 @@ def _handle_welcome_menu(
         if already_shown_today:
             return
 
-    menu_text = active_menu.build_message_text()
-    handler.send_text_message(
-        contact.whatsapp_number,
-        menu_text,
-        conversation=conversation,
-        metadata={'welcome_menu': True, 'welcome_menu_id': active_menu.id}
-    )
-    # Save state so we know this contact is expecting a selection
-    ContactMenuState.objects.update_or_create(
-        contact=contact,
-        defaults={'menu': active_menu}
-    )
-    logger.info(f"Sent welcome menu '{active_menu.name}' to contact {contact.pk}")
+    _deliver_welcome_menu(handler, contact, conversation, active_menu)
 
 
 def process_status_update(status_data):
