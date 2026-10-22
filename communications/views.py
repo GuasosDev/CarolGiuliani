@@ -28,6 +28,7 @@ import csv
 import io
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.utils.html import format_html
 from .models import Conversation, Contact, Message, WhatsAppAccount, EmailAccount, QuickReply, WelcomeMenu, WelcomeMenuItem,EmailMessage, EmailAttachment, InternalNote, EmailTemplate, EmailSignature, EmailDraft
 from .models import InternalChatMessage, InternalChatReadState
 from .forms import QuickReplyForm, ConversationReportForm, ClientQuickCreateForm
@@ -1000,8 +1001,26 @@ def open_client_whatsapp(request, client_id, channel='whatsapp'):
             assigned_agent_name = assigned_agent.get_full_name() or assigned_agent.username
             messages.warning(
                 request,
-                f'La conversación de {client.name} está asignada a '
-                f'{assigned_agent_name}; contactá a esa persona para solicitar acceso.'
+                format_html(
+                    '<div class="comm-lock-msg">'
+                    '<div class="comm-lock-msg__icon" aria-hidden="true">'
+                    '<i class="fas fa-user-lock"></i>'
+                    '</div>'
+                    '<div class="comm-lock-msg__body">'
+                    '<strong class="comm-lock-msg__title">Conversación no disponible</strong>'
+                    '<p class="comm-lock-msg__text">'
+                    'El chat de <strong>{}</strong> lo está atendiendo '
+                    '<strong>{}</strong>.'
+                    '</p>'
+                    '<p class="comm-lock-msg__hint">'
+                    'Contactala para pedir acceso o que te lo transfiera.'
+                    '</p>'
+                    '</div>'
+                    '</div>',
+                    client.name,
+                    assigned_agent_name,
+                ),
+                extra_tags='comm-access-locked',
             )
             url = reverse('communications:dashboard')
             return redirect(f'{url}?channel={channel}')
