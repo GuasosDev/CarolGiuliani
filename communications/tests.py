@@ -828,3 +828,73 @@ class ForceWelcomeMenuOnManualCloseTests(TestCase):
         self.assertTrue(sent)
         self.assertFalse(self.contact.force_welcome_menu)
         self.assertEqual(handler.sent, [])
+
+    @patch('communications.websocket_utils.broadcast_new_message')
+    @patch('communications.whatsapp_handler.WhatsAppHandler.mark_message_as_read', return_value=True)
+    @patch('communications.whatsapp_handler.requests.post')
+    def test_inbound_image_triggers_welcome_menu_as_contact_attempt(self, post, _mark_read, _broadcast):
+        """Una imagen nueva solo marca inicio de contacto: se guarda y abre el menú."""
+        from communications.whatsapp_handler import process_incoming_message
+
+        post.return_value = Mock(
+            status_code=200,
+            json=Mock(return_value={'messages': [{'id': 'wamid.menu.img'}]}),
+            raise_for_status=Mock(),
+        )
+        # Conversación nueva sin outreach previo (cliente inicia con imagen).
+        self.conversation.assigned_to = None
+        self.conversation.save(update_fields=['assigned_to'])
+
+        handled = process_incoming_message(
+            self.account,
+            {
+                'from': '5491112345678',
+                'id': 'wamid.cliente.img',
+                'timestamp': '1710000000',
+                'type': 'image',
+                'image': {'mime_type': 'image/jpeg'},
+            },
+            {'contacts': [{'profile': {'name': 'Cliente Img'}}]},
+        )
+
+        self.assertTrue(handled)
+        inbound = Message.objects.get(direction='inbound', whatsapp_data__whatsapp_message_id='wamid.cliente.img')
+        self.assertIn('[IMAGE]', inbound.content)
+        welcome = Message.objects.filter(
+            direction='outbound',
+            metadata__welcome_menu=True,
+        )
+        self.assertEqual(welcome.count(), 1)
+        self.assertTrue(ContactMenuState.objects.filter(contact=self.contact, menu=self.menu).exists())
+
+    @patch('communications.whatsapp_handler.requests.post')
+    def test_media_while_waiting_menu_does_not_count_as_selection(self, post):
+        from communications.whatsapp_handler import _handle_welcome_menu
+
+        ContactMenuState.objects.create(contact=self.contact, menu=self.menu)
+        inbound = Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='inbound',
+            content='[IMAGE]',
+        )
+
+        class RecordingHandler:
+            def __init__(self):
+                self.sent = []
+
+            def send_text_message(self, to_number, message_text, conversation=None, sender_user=None, metadata=None):
+                self.sent.append(message_text)
+                return True, 'wamid.x'
+
+        handler = RecordingHandler()
+        _handle_welcome_menu(
+            handler,
+            self.contact,
+            self.conversation,
+            'inicio',
+            inbound,
+            media_contact_attempt=True,
+        )
+        self.assertEqual(handler.sent, [])
+        self.assertTrue(ContactMenuState.objects.filter(contact=self.contact).exists())

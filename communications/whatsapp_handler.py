@@ -621,7 +621,10 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         handler = WhatsAppHandler(whatsapp_account)
         handler.mark_message_as_read(message_id)
 
-        # ── Welcome Menu Logic (only for text messages) ──────────────────────
+        # ── Welcome Menu Logic ───────────────────────────────────────────────
+        # Texto: menú + selección por número.
+        # Imagen/archivo/audio/video/sticker: solo disparan "intento de contacto"
+        # (se guarda el adjunto y se abre el menú; no se interpretan como opción).
         if message_type == 'text':
             _handle_welcome_menu(
                 handler,
@@ -630,6 +633,16 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                 content,
                 inbound_message=message,
                 force_show=was_closed,
+            )
+        elif message_type in ('image', 'document', 'audio', 'video', 'sticker'):
+            _handle_welcome_menu(
+                handler,
+                contact,
+                conversation,
+                'inicio',
+                inbound_message=message,
+                force_show=was_closed,
+                media_contact_attempt=True,
             )
         # ─────────────────────────────────────────────────────────────────────
 
@@ -983,16 +996,20 @@ def _handle_welcome_menu(
     text,
     inbound_message,
     force_show=False,
+    media_contact_attempt=False,
 ):
     """
-    Show the welcome menu on the first inbound text of the day, then keep it
-    suppressed until the next day (00:00 local time), unless forced.
+    Show the welcome menu on the first inbound contact attempt of the day, then
+    keep it suppressed until the next day (00:00 local time), unless forced.
 
     No mostrar si la conversación la inició el equipo (plantilla / outbound).
-    Un cierre manual deja force_welcome_menu y el próximo texto sí lo abre.
+    Un cierre manual deja force_welcome_menu y el próximo contacto sí lo abre.
+
+    media_contact_attempt=True: el cliente mandó imagen/archivo/etc. Solo marca
+    inicio de contacto; no se interpreta como opción del menú.
     """
-    text_stripped = text.strip().lower()
-    if not text_stripped:
+    text_stripped = (text or '').strip().lower()
+    if not text_stripped and not media_contact_attempt:
         return
 
     if _welcome_menu_is_forced(contact, conversation):
@@ -1024,6 +1041,9 @@ def _handle_welcome_menu(
             menu_state.delete()
             menu_state = None
         else:
+            # Un archivo/imagen mientras espera opción no cuenta como selección.
+            if media_contact_attempt:
+                return
             # Try to parse as a number
             try:
                 chosen_number = int(text_stripped)
