@@ -749,50 +749,41 @@
         if (!preview) return;
         preview.innerHTML = '';
         var fileArr = Array.from(files || []);
+        if (!fileArr.length) return;
+
+        var list = document.createElement('div');
+        list.className = 'comm-attach-preview-list';
+        list.setAttribute('role', 'list');
+        list.setAttribute('aria-label', fileArr.length + ' archivo(s) adjunto(s)');
+
         fileArr.forEach(function (file, index) {
-            var fileItem = document.createElement('div');
-            fileItem.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-1';
+            var chip = document.createElement('div');
+            chip.className = 'comm-attach-chip';
+            chip.setAttribute('role', 'listitem');
+            chip.title = (file.name || 'archivo') + ' · ' + formatFileSize(file.size);
 
-            var info = document.createElement('div');
-            info.className = 'd-flex align-items-center flex-grow-1';
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-file text-secondary';
+            if (file.type && file.type.indexOf('image/') === 0) icon.className = 'fas fa-file-image text-primary';
+            else if (file.type && file.type.indexOf('pdf') !== -1) icon.className = 'fas fa-file-pdf text-danger';
+            else if (file.type && (file.type.indexOf('word') !== -1 || file.type.indexOf('document') !== -1)) icon.className = 'fas fa-file-word text-primary';
+            else if (file.type && (file.type.indexOf('excel') !== -1 || file.type.indexOf('spreadsheet') !== -1)) icon.className = 'fas fa-file-excel text-success';
+            icon.setAttribute('aria-hidden', 'true');
 
-            if (file.type && file.type.indexOf('image/') === 0) {
-                var img = document.createElement('img');
-                img.className = 'me-2';
-                img.style.cssText = 'width:40px;height:40px;object-fit:cover;border-radius:4px;';
-                info.appendChild(img);
-                var reader = new FileReader();
-                reader.onload = function (e) { img.src = e.target.result; };
-                try { reader.readAsDataURL(file); } catch (err) {}
-            } else {
-                var icon = document.createElement('i');
-                icon.className = 'fas fa-file text-secondary me-2';
-                if (file.type && file.type.indexOf('pdf') !== -1) icon.className = 'fas fa-file-pdf text-danger me-2';
-                else if (file.type && (file.type.indexOf('word') !== -1 || file.type.indexOf('document') !== -1)) icon.className = 'fas fa-file-word text-primary me-2';
-                else if (file.type && (file.type.indexOf('excel') !== -1 || file.type.indexOf('spreadsheet') !== -1)) icon.className = 'fas fa-file-excel text-success me-2';
-                info.appendChild(icon);
-            }
-
-            var textWrap = document.createElement('div');
-            var nameEl = document.createElement('div');
-            nameEl.className = 'small fw-bold';
+            var nameEl = document.createElement('span');
+            nameEl.className = 'comm-attach-chip-name';
             nameEl.textContent = file.name || 'archivo';
-            var sizeEl = document.createElement('div');
-            sizeEl.className = 'text-muted';
-            sizeEl.style.fontSize = '0.7rem';
-            sizeEl.textContent = formatFileSize(file.size);
-            textWrap.appendChild(nameEl);
-            textWrap.appendChild(sizeEl);
-            info.appendChild(textWrap);
 
-            var actions = document.createElement('div');
-            actions.className = 'd-flex gap-1 flex-shrink-0';
+            var sizeEl = document.createElement('span');
+            sizeEl.className = 'comm-attach-chip-size';
+            sizeEl.textContent = formatFileSize(file.size);
 
             var eyeBtn = document.createElement('button');
             eyeBtn.type = 'button';
-            eyeBtn.className = 'btn btn-sm btn-outline-primary';
+            eyeBtn.className = 'comm-attach-chip-btn';
             eyeBtn.title = 'Vista previa';
-            eyeBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            eyeBtn.setAttribute('aria-label', 'Vista previa de ' + (file.name || 'archivo'));
+            eyeBtn.innerHTML = '<i class="fas fa-eye" aria-hidden="true"></i>';
             eyeBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 openUploadPreview(file, index);
@@ -800,19 +791,24 @@
 
             var delBtn = document.createElement('button');
             delBtn.type = 'button';
-            delBtn.className = 'btn btn-sm btn-outline-danger';
-            delBtn.innerHTML = '<i class="fas fa-times"></i>';
+            delBtn.className = 'comm-attach-chip-btn comm-attach-chip-btn-danger';
+            delBtn.title = 'Quitar';
+            delBtn.setAttribute('aria-label', 'Quitar ' + (file.name || 'archivo'));
+            delBtn.innerHTML = '<i class="fas fa-times" aria-hidden="true"></i>';
             delBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 removeEmailFile(index);
             });
 
-            actions.appendChild(eyeBtn);
-            actions.appendChild(delBtn);
-            fileItem.appendChild(info);
-            fileItem.appendChild(actions);
-            preview.appendChild(fileItem);
+            chip.appendChild(icon);
+            chip.appendChild(nameEl);
+            chip.appendChild(sizeEl);
+            chip.appendChild(eyeBtn);
+            chip.appendChild(delBtn);
+            list.appendChild(chip);
         });
+
+        preview.appendChild(list);
     }
 
     window.removeEmailFile = function (index) {

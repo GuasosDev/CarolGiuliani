@@ -334,22 +334,81 @@
     flex-shrink: 0;
 }
 #emailFilePreviewGlobal,
-#emailFilePreview {
+#emailFilePreview,
+#emailFilePreviewInline {
     flex-shrink: 0;
     min-height: 0;
 }
 #emailFilePreviewGlobal:not(:empty),
-#emailFilePreview:not(:empty) {
-    max-height: 160px;
+#emailFilePreview:not(:empty),
+#emailFilePreviewInline:not(:empty) {
+    max-height: 4.75rem;
     overflow-y: auto;
 }
-#emailFilePreviewGlobal .btn,
-#emailFilePreview .btn {
-    min-width: 2rem;
-    min-height: 2rem;
+.comm-attach-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+}
+.comm-attach-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: min(100%, 16rem);
+    padding: 0.15rem 0.35rem 0.15rem 0.45rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    min-height: 1.65rem;
+}
+.comm-attach-chip > i {
+    flex-shrink: 0;
+    font-size: 0.85rem;
+}
+.comm-attach-chip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #1f2937;
+    max-width: 8.5rem;
+}
+.comm-attach-chip-size {
+    flex-shrink: 0;
+    color: #64748b;
+    font-size: 0.65rem;
+    white-space: nowrap;
+}
+.comm-attach-chip-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #475569;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.comm-attach-chip-btn:hover {
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+}
+.comm-attach-chip-btn-danger:hover {
+    background: rgba(220, 53, 69, 0.12);
+    color: #dc3545;
+}
+.comm-attach-chip-btn i {
+    font-size: 0.7rem;
 }
 .comm-attach-btn-wrap {
     position: relative;
