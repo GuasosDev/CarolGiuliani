@@ -1787,7 +1787,10 @@ def conversation_detail(request, pk):
         # Check if it's an HTMX request (using both standard header and META for robustness)
         # Also check for explicit partial parameter to force partial rendering
         if request.headers.get('HX-Request') or request.META.get('HTTP_HX_REQUEST') or 'partial' in request.GET:
-            return render(request, 'communications/partials/conversation_content.html', context)
+            response = render(request, 'communications/partials/conversation_content.html', context)
+            # Al abrir el hilo ya quedó leído: pedir refresh de la lista (quita "Nuevo"/negrita)
+            response['HX-Trigger'] = json.dumps({'commRefreshConversationList': True})
+            return response
         
         return render(request, 'communications/conversation_detail.html', context)
     except Exception as e:

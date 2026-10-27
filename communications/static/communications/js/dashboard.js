@@ -145,46 +145,116 @@
         ].join('');
     }
 
+    function csrfToken() {
+        var m = document.cookie.match('(^|;) ?csrftoken=([^;]*)(;|$)');
+        return m ? m[2] : '';
+    }
+
+    function clearUnreadStyles(el) {
+        if (!el) return;
+        el.classList.remove('has-unread');
+        el.querySelectorAll('.comm-unread-pill').forEach(function (pill) {
+            try { pill.remove(); } catch (e) {}
+        });
+        el.querySelectorAll('.comm-conv-name.is-unread').forEach(function (nameEl) {
+            nameEl.classList.remove('is-unread');
+        });
+        // Fecha / preview vienen con fw-bold/fw-semibold en el HTML; hay que normalizarlos
+        el.querySelectorAll('.fw-bold, .fw-semibold').forEach(function (node) {
+            node.classList.remove('fw-bold', 'fw-semibold', 'text-dark');
+            if (!node.classList.contains('text-muted') && !node.classList.contains('text-secondary')) {
+                node.classList.add('text-muted');
+            }
+        });
+    }
+
+    function markListItemReadVisual(conversationId) {
+        var el = null;
+        if (conversationId) {
+            el = document.querySelector('.conversation-item[data-id="' + conversationId + '"]');
+        }
+        if (!el) {
+            el = document.querySelector('.conversation-item.active');
+        }
+        if (!el) {
+            try {
+                var fromUrl = new URLSearchParams(window.location.search).get('conversation');
+                if (fromUrl) {
+                    el = document.querySelector('.conversation-item[data-id="' + fromUrl + '"]');
+                }
+            } catch (e) {}
+        }
+        clearUnreadStyles(el);
+    }
+
+    function postMarkConversationRead(id) {
+        if (!id) return;
+        fetch('/communications/conversation/' + id + '/mark-read/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': csrfToken(),
+                'HX-Request': 'true'
+            }
+        }).then(function (r) {
+            if (!r.ok) return;
+            markListItemReadVisual(id);
+            refreshConversationList();
+        }).catch(function () {});
+    }
+
     function requestDetail(url, loadingMessage, errorTitle, errorMessage, retryCall) {
         renderLoadingState(loadingMessage);
         setDetailOpen(true);
 
+        var isConversationDetail = url.indexOf('/communications/conversation/') !== -1;
+
         if (typeof htmx !== 'undefined') {
             // htmx.ajax no siempre devuelve Promise; no usar .catch directo
             var settled = false;
+            function cleanup() {
+                document.body.removeEventListener('htmx:afterSwap', onOk);
+                document.body.removeEventListener('htmx:afterSettle', onOk);
+                document.body.removeEventListener('htmx:responseError', onHtmxError);
+                document.body.removeEventListener('htmx:sendError', onHtmxError);
+            }
             function onHtmxError(event) {
                 if (settled) return;
                 var detail = event && event.detail;
                 var xhr = detail && detail.xhr;
                 var path = (detail && (detail.pathInfo && detail.pathInfo.requestPath)) || (xhr && xhr.responseURL) || '';
                 if (path && path.indexOf(url.split('?')[0]) === -1 && url.indexOf(path) === -1) {
-                    // otra request; no mezclar errores
+                    return;
                 }
                 settled = true;
-                document.body.removeEventListener('htmx:responseError', onHtmxError);
-                document.body.removeEventListener('htmx:sendError', onHtmxError);
+                cleanup();
                 console.error('HTMX Error:', detail || event);
                 renderErrorState(errorTitle, errorMessage, retryCall);
             }
+            function onOk(event) {
+                if (!event.detail || !event.detail.target || event.detail.target.id !== 'conversation-detail-panel') {
+                    return;
+                }
+                if (settled) return;
+                settled = true;
+                cleanup();
+                if (isConversationDetail) {
+                    markListItemReadVisual();
+                    // Diferir un tick: el servidor ya marcó leído en esta respuesta
+                    window.setTimeout(function () {
+                        markListItemReadVisual();
+                        refreshConversationList();
+                    }, 50);
+                }
+            }
+            // Registrar ANTES de ajax: si no, afterSwap puede dispararse sin listener
+            document.body.addEventListener('htmx:afterSwap', onOk);
+            document.body.addEventListener('htmx:afterSettle', onOk);
             document.body.addEventListener('htmx:responseError', onHtmxError);
             document.body.addEventListener('htmx:sendError', onHtmxError);
             htmx.ajax('GET', url, {
                 target: '#conversation-detail-panel',
                 swap: 'innerHTML'
-            });
-            // Si el swap sale bien, soltar listeners y refrescar lista (quita "Nuevo"/negrita)
-            document.body.addEventListener('htmx:afterSwap', function onOk(event) {
-                if (!event.detail || !event.detail.target || event.detail.target.id !== 'conversation-detail-panel') {
-                    return;
-                }
-                settled = true;
-                document.body.removeEventListener('htmx:afterSwap', onOk);
-                document.body.removeEventListener('htmx:responseError', onHtmxError);
-                document.body.removeEventListener('htmx:sendError', onHtmxError);
-                if (url.indexOf('/communications/conversation/') !== -1) {
-                    markListItemReadVisual();
-                    refreshConversationList();
-                }
             });
             return;
         }
@@ -205,7 +275,7 @@
                 if (detailPanel) {
                     detailPanel.innerHTML = html;
                 }
-                if (url.indexOf('/communications/conversation/') !== -1) {
+                if (isConversationDetail) {
                     markListItemReadVisual();
                     refreshConversationList();
                 }
@@ -215,18 +285,6 @@
             });
     }
 
-    function markListItemReadVisual() {
-        var active = document.querySelector('.conversation-item.active');
-        if (!active) return;
-        active.classList.remove('has-unread');
-        active.querySelectorAll('.comm-unread-pill').forEach(function (el) {
-            try { el.remove(); } catch (e) {}
-        });
-        active.querySelectorAll('.comm-conv-name.is-unread').forEach(function (el) {
-            el.classList.remove('is-unread');
-        });
-    }
-
     function loadConversation(element, id) {
         if (window.conversationPollInterval) {
             clearInterval(window.conversationPollInterval);
@@ -234,16 +292,10 @@
         }
 
         selectConversation(element, id);
-        // Feedback inmediato en la lista
-        if (element) {
-            element.classList.remove('has-unread');
-            element.querySelectorAll('.comm-unread-pill').forEach(function (el) {
-                try { el.remove(); } catch (e) {}
-            });
-            element.querySelectorAll('.comm-conv-name.is-unread').forEach(function (el) {
-                el.classList.remove('is-unread');
-            });
-        }
+        var item = element || document.querySelector('.conversation-item[data-id="' + id + '"]');
+        clearUnreadStyles(item);
+        // Marca leído ya (no depender solo del GET del detalle + refresh)
+        postMarkConversationRead(id);
         requestDetail(
             '/communications/conversation/' + id + '/?partial=true',
             'Cargando conversacion...',
@@ -284,7 +336,9 @@
             return;
         }
 
-        const path = window.location.pathname + window.location.search;
+        var path = window.location.pathname + window.location.search;
+        var sep = path.indexOf('?') === -1 ? '?' : '&';
+        path = path + sep + '_ts=' + Date.now();
         htmx.ajax('GET', path, {
             source: container,
             target: '#dashboard-conversations-container',
@@ -426,11 +480,16 @@
 
         if (event.detail.target.id === 'dashboard-conversations-container') {
             restoreSelectionFromUrl(false);
+            // Por si el HTML vino con "no leído" viejo: el chat abierto ya está leído
+            markListItemReadVisual();
             return;
         }
 
         if (event.detail.target.id === 'conversation-detail-panel') {
             setDetailOpen(true);
+            markListItemReadVisual();
+            // HX-Trigger del detalle también dispara refresh; blindaje visual extra
+            window.setTimeout(function () { markListItemReadVisual(); }, 80);
         }
     });
 
