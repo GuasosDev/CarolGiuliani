@@ -469,7 +469,7 @@ def get_agent_conversations(user):
     ).distinct()
 
 
-@login_required
+"""@login_required
 def dashboard(request):
     """Main communication dashboard"""
     # Get user's conversations
@@ -860,6 +860,395 @@ def dashboard(request):
                 whatsapp_percent += (100 - (whatsapp_percent + email_percent))
             else:
                 email_percent += (100 - (whatsapp_percent + email_percent))
+    else:
+        whatsapp_percent = 0
+        email_percent = 0
+    
+    context = {
+        'conversations': conversations,
+        'grouped_conversations': grouped_conversations,
+        'email_rows': email_rows,
+        'email_drafts': email_drafts,
+        'email_account': _get_user_email_account(request.user),
+        'whatsapp_percent': whatsapp_percent,
+        'email_percent': email_percent,
+        'current_status': status_filter,
+        'current_folder': folder_filter,
+        'current_channel': channel_filter,
+        'current_user': user_filter,
+        'available_users': available_users,
+        'clients': clients,
+        'search_q': search_q,
+        'search_scope': search_scope,
+        'user_email_signature': EmailSignature.get_default_for(request.user),
+        **counts 
+    }
+
+    return render(request, 'communications/dashboard.html', context)"""
+
+from django.core.cache import cache
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db.models import Q, Exists, OuterRef, Prefetch, Subquery
+from django.db.models.functions import Coalesce
+
+@login_required
+def dashboard(request):
+    """Main communication dashboard"""
+    # Get user's conversations
+    folder_filter = request.GET.get('folder')
+    status_filter = request.GET.get('status')
+    channel_filter = request.GET.get('channel')
+    user_filter = request.GET.get('user')
+    search_q = (request.GET.get('q') or '').strip()
+    search_scope = (request.GET.get('search_scope') or '').strip().lower()
+
+    # Si se hizo una búsqueda con scope concreto (no "all"), sobrescribimos folder_filter para filtrar solo en ese ámbito.
+    if search_q and search_scope and search_scope != 'all':
+        if search_scope in ('inbox', 'sent', 'drafts', 'trash'):
+            folder_filter = search_scope
+
+    email_rows = None
+    email_drafts = None
+    
+    base_qs = get_agent_conversations(request.user).select_related(
+        "contact__client"
+    )
+    user_email_account = _get_user_email_account(request.user)
+
+    # Email: solo conversaciones con mensajes de SU casilla (Gise ≠ Nati).
+    if user_email_account:
+        allowed_email_conversations = EmailMessage.objects.filter(
+            email_account=user_email_account
+        ).values_list('message__conversation_id', flat=True)
+
+        base_qs = base_qs.filter(
+            Q(channel='email', id__in=allowed_email_conversations)
+            | ~Q(channel='email')
+        ).distinct()
+    else:
+        base_qs = base_qs.exclude(channel='email')
+
+    # Base filtering
+    conversations = base_qs
+    
+    # Filter by specific user (only for supervisors/admins)
+    if user_filter and (request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists()):
+        conversations = conversations.filter(assigned_to_id=user_filter)
+    
+    # -------------------------------------------------------------------------
+    # OPTIMIZACIÓN DE CONTADORES CON CACHÉ
+    # Guarda los contadores por 60 segundos por usuario para evitar re-consultar en cada click.
+    # Para probar rendimiento 100% sin contadores, podés reemplazar esto temporalmente por:
+    # counts = {'whatsapp_count': 0, 'email_count': 0, 'total_channel_count': 0}
+    # -------------------------------------------------------------------------
+    cache_key = f"conv_counts_{request.user.id}_{channel_filter or 'all'}"
+    counts = cache.get(cache_key)
+    if counts is None:
+        counts = _get_conversation_counts(request.user, channel_filter) or {}
+        cache.set(cache_key, counts, 60)  # Caché de 60 segundos
+    # -------------------------------------------------------------------------
+
+    if channel_filter:
+        if channel_filter != 'multichannel':
+            conversations = conversations.filter(channel=channel_filter)
+        
+        # If filtering by channel, we generally want to see all unless specific status is requested
+        if status_filter and status_filter != 'all':
+            conversations = conversations.filter(status=status_filter)
+
+        if channel_filter == 'email' and search_q:
+            conversations = conversations.filter(
+                Q(subject__icontains=search_q)
+                | Q(contact_clientname_icontains=search_q)
+                | Q(contact_clientemail_icontains=search_q)
+                | Q(contact_clientphone_icontains=search_q)
+                | Q(last_message_preview__icontains=search_q)
+                | Q(messages_content_icontains=search_q)
+                | Q(messages_sender_name_icontains=search_q)
+                | Q(messages_email_datasubject_icontains=search_q)
+                | Q(messages_email_datafrom_address_icontains=search_q)
+                | Q(messages_email_datato_addresses_icontains=search_q)
+                | Q(messages_email_datacc_addresses_icontains=search_q)
+                | Q(messages_email_databcc_addresses_icontains=search_q)
+                | Q(messages_email_dataplain_body_icontains=search_q)
+                | Q(messages_email_datahtml_body_icontains=search_q)
+            ).distinct()
+        if channel_filter == 'email' and status_filter == 'inbox':
+            status_filter = 'all'
+        # Enviados no debe ocultar hilos cerrados/transferidos: se listan por EmailMessage.
+        if (
+            channel_filter == 'email'
+            and (not status_filter or status_filter == 'all')
+            and folder_filter not in ('sent', 'drafts')
+        ):
+            conversations = conversations.exclude(status='closed')
+    else:
+        # Default behavior (no channel filter)
+        if not status_filter:
+            status_filter = 'pending'
+            
+        if status_filter == 'inbox':
+            pass 
+        elif status_filter == 'pending':
+            conversations = conversations.filter(status='pending')
+        elif status_filter == 'unread':
+            conversations = conversations.filter(
+                messages__direction='inbound',
+                messages__is_read=False
+            ).distinct()
+        elif status_filter != 'all':
+            conversations = conversations.filter(status=status_filter)
+        
+    if status_filter == 'inbox':
+        # Group conversations by client in Python
+        from collections import defaultdict
+        client_groups = defaultdict(list)
+        
+        unread_subq_inbox = Message.objects.filter(
+            conversation_id=OuterRef('pk'),
+            direction='inbound',
+            is_read=False,
+        )
+        inbox_qs = (
+            base_qs.select_related('contact__client')
+            .prefetch_related(Prefetch(
+                    'messages',
+                    queryset=Message.objects.order_by('-email_date')[:1],
+                    to_attr='latest_message'
+                )
+            )
+            .annotate(has_unread_inbound=Exists(unread_subq_inbox))
+            .order_by('-last_message_at', '-updated_at')[:200]  # Se redujo de 1000 a 200 para mejorar velocidad
+        )
+        
+        for conv in inbox_qs:
+            if conv.contact and conv.contact.client:
+                client = conv.contact.client
+                client_groups[client].append(conv)
+            
+        grouped_conversations = []
+        for client, convs in client_groups.items():
+            grouped_conversations.append({
+                'client': client,
+                'conversations': convs,
+                'latest_update': convs[0].updated_at if convs else None
+            })
+            
+        grouped_conversations.sort(key=lambda x: x['latest_update'] or '', reverse=True)
+    else:
+        unread_subq = Message.objects.filter(
+            conversation_id=OuterRef('pk'),
+            direction='inbound',
+            is_read=False,
+        )
+
+        email_rows = None
+
+        conversations = conversations.annotate(
+            has_unread_inbound=Exists(unread_subq)
+        )
+
+        page_number = request.GET.get('page')
+
+        # =====================================================
+        # EMAIL VIEW
+        # =====================================================
+        if channel_filter == 'email':
+
+            user_email_account = _get_user_email_account(request.user)
+
+            email_select_related = (
+                'message',
+                'message__conversation',
+                'message_conversation_contact',
+                'message_conversationcontact_client',
+                'email_account',
+                'message__sender',
+            )
+
+            # ==========================================
+            # FOLDERS
+            # ==========================================
+            if folder_filter == 'drafts':
+                drafts_qs = EmailDraft.objects.filter(
+                    user=request.user,
+                    email_account=user_email_account,
+                ).order_by('-updated_at')
+                if search_q:
+                    drafts_qs = drafts_qs.filter(
+                        Q(subject__icontains=search_q)
+                        | Q(to_addresses__icontains=search_q)
+                        | Q(cc_addresses__icontains=search_q)
+                    )
+                paginator = Paginator(drafts_qs, 15)
+                email_drafts = paginator.get_page(page_number)
+                email_rows = []
+
+            elif folder_filter == 'sent':
+                email_rows_qs = (
+                    EmailMessage.objects.select_related(*email_select_related)
+                    .filter(
+                        email_account=user_email_account,
+                        message__direction='outbound',
+                    )
+                    .order_by(
+                        Coalesce('email_date', 'message__created_at').desc(),
+                        '-message__created_at',
+                    )
+                )
+
+            else:
+                email_conversation_ids = EmailMessage.objects.filter(
+                    email_account=user_email_account
+                ).values_list('message__conversation_id', flat=True)
+
+                conversations = conversations.filter(
+                    id__in=email_conversation_ids
+                ).distinct()
+
+                if search_q:
+                    email_rows_qs = (
+                        EmailMessage.objects.select_related(*email_select_related)
+                        .filter(
+                            message_conversation_in=conversations,
+                            email_account=user_email_account,
+                        )
+                    )
+                else:
+                    if (
+                        request.user.is_superuser
+                        or request.user.groups.filter(name='Supervisor').exists()
+                    ):
+                        vis_qs = Conversation.objects.all()
+                    else:
+                        vis_qs = Conversation.objects.filter(
+                            Q(assigned_to=request.user)
+                            | Q(assigned_to__isnull=True)
+                        )
+                    vis_qs = vis_qs.filter(channel='email')
+                    if status_filter and status_filter not in ('all', 'inbox'):
+                        vis_qs = vis_qs.filter(status=status_filter)
+                    elif folder_filter not in ('sent', 'drafts'):
+                        vis_qs = vis_qs.exclude(status='closed')
+
+                    visible_conv_pk = Subquery(
+                        vis_qs.filter(
+                            pk=OuterRef('message__conversation_id')
+                        ).values('pk').order_by()[:1]
+                    )
+
+                    email_rows_qs = (
+                        EmailMessage.objects.select_related(*email_select_related)
+                        .filter(email_account=user_email_account)
+                        .annotate(_visible_conv_pk=visible_conv_pk)
+                        .filter(visible_conv_pk_isnull=False)
+                    )
+
+                if folder_filter == 'trash':
+                    email_rows_qs = email_rows_qs.filter(
+                        message_conversation_status='closed'
+                    )
+                else:
+                    email_rows_qs = email_rows_qs.filter(
+                        message__direction='inbound'
+                    )
+
+            if folder_filter != 'drafts':
+                if search_q:
+                    email_rows_qs = email_rows_qs.filter(
+                        Q(subject__icontains=search_q)
+                        | Q(from_address__icontains=search_q)
+                        | Q(to_addresses__icontains=search_q)
+                        | Q(cc_addresses__icontains=search_q)
+                        | Q(bcc_addresses__icontains=search_q)
+                        | Q(plain_body__icontains=search_q)
+                        | Q(html_body__icontains=search_q)
+                        | Q(message_content_icontains=search_q)
+                        | Q(message_sender_name_icontains=search_q)
+                        | Q(message_conversationcontactclientname_icontains=search_q)
+                        | Q(message_conversationcontactclientemail_icontains=search_q)
+                        | Q(message_conversationcontactclientphone_icontains=search_q)
+                    ).distinct()
+
+                if folder_filter != 'sent':
+                    email_rows_qs = email_rows_qs.order_by('-email_date')
+
+                email_rows_qs = email_rows_qs.annotate(
+                    has_attachments=Exists(
+                        EmailAttachment.objects.filter(email_message_id=OuterRef('pk'))
+                    )
+                )
+
+                paginator = Paginator(email_rows_qs, 15)
+
+                email_rows = paginator.get_page(page_number)
+                for em in email_rows:
+                    recipients = em.to_addresses or []
+                    cc_recipients = em.cc_addresses or []
+
+                    if isinstance(recipients, str):
+                        recipients = [r.strip() for r in recipients.split(',') if r.strip()]
+                    if isinstance(cc_recipients, str):
+                        cc_recipients = [r.strip() for r in cc_recipients.split(',') if r.strip()]
+
+                    combined = list(recipients)
+                    for cc in cc_recipients:
+                        if cc not in combined:
+                            combined.append(cc)
+
+                    em.recipients = combined
+                    em.recipients_joined = ', '.join(combined)
+                    em.recipients_count = len(combined)
+
+                    my_email = (
+                        em.email_account.email_address.lower()
+                        if em.email_account and em.email_account.email_address
+                        else ''
+                    )
+
+                    em.is_me_recipient = any(
+                        r.lower() == my_email
+                        for r in recipients
+                    )
+
+            conversations = conversations.order_by(
+                '-last_message_at',
+                '-updated_at'
+            )
+
+        # =====================================================
+        # NORMAL / MULTICHANNEL VIEW
+        # =====================================================
+        else:
+            conversations = conversations.order_by('-updated_at')
+            paginator = Paginator(conversations, 15)
+            conversations = paginator.get_page(page_number)
+
+        grouped_conversations = None
+
+    clients = Client.objects.all().order_by('name')[:200]
+    
+    # Get users for filtering (only for supervisors/admins)
+    from django.contrib.auth.models import User
+    available_users = []
+    if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
+        available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    
+    # Calculate percentages for donut chart (Corregido)
+    whatsapp_count = counts.get('whatsapp_count', 0)
+    email_count = counts.get('email_count', 0)
+    total_channel_count = counts.get('total_channel_count', 0)
+    
+    if total_channel_count > 0:
+        whatsapp_percent = int((whatsapp_count / total_channel_count) * 100)
+        email_percent = int((email_count / total_channel_count) * 100)
+        if whatsapp_percent + email_percent < 100:
+            if whatsapp_count >= email_count:
+                whatsapp_percent += 100 - (whatsapp_percent + email_percent)
+            else:
+                email_percent += 100 - (whatsapp_percent + email_percent)
     else:
         whatsapp_percent = 0
         email_percent = 0
