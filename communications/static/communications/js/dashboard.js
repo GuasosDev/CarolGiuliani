@@ -150,12 +150,37 @@
         setDetailOpen(true);
 
         if (typeof htmx !== 'undefined') {
+            // htmx.ajax no siempre devuelve Promise; no usar .catch directo
+            var settled = false;
+            function onHtmxError(event) {
+                if (settled) return;
+                var detail = event && event.detail;
+                var xhr = detail && detail.xhr;
+                var path = (detail && (detail.pathInfo && detail.pathInfo.requestPath)) || (xhr && xhr.responseURL) || '';
+                if (path && path.indexOf(url.split('?')[0]) === -1 && url.indexOf(path) === -1) {
+                    // otra request; no mezclar errores
+                }
+                settled = true;
+                document.body.removeEventListener('htmx:responseError', onHtmxError);
+                document.body.removeEventListener('htmx:sendError', onHtmxError);
+                console.error('HTMX Error:', detail || event);
+                renderErrorState(errorTitle, errorMessage, retryCall);
+            }
+            document.body.addEventListener('htmx:responseError', onHtmxError);
+            document.body.addEventListener('htmx:sendError', onHtmxError);
             htmx.ajax('GET', url, {
                 target: '#conversation-detail-panel',
                 swap: 'innerHTML'
-            }).catch(function (error) {
-                console.error('HTMX Error:', error);
-                renderErrorState(errorTitle, errorMessage, retryCall);
+            });
+            // Si el swap sale bien, soltar listeners
+            document.body.addEventListener('htmx:afterSwap', function onOk(event) {
+                if (!event.detail || !event.detail.target || event.detail.target.id !== 'conversation-detail-panel') {
+                    return;
+                }
+                settled = true;
+                document.body.removeEventListener('htmx:afterSwap', onOk);
+                document.body.removeEventListener('htmx:responseError', onHtmxError);
+                document.body.removeEventListener('htmx:sendError', onHtmxError);
             });
             return;
         }
