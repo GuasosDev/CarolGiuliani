@@ -1857,10 +1857,34 @@
 
     window.openConversationModal = function () {
         var originalChat = document.getElementById('chatMessagesArea');
+        var modalEl = document.getElementById('conversationModal');
         var modalArea = document.getElementById('modalMessagesArea');
-        if (!originalChat || !modalArea) return;
+        if (!originalChat || !modalEl || !modalArea || typeof bootstrap === 'undefined') return;
+
+        // Sacarlo del panel (overflow) para que el backdrop/cierre funcionen bien
+        ensureBootstrapModalRoot(modalEl);
         modalArea.innerHTML = originalChat.innerHTML;
-        new bootstrap.Modal(document.getElementById('conversationModal')).show();
+
+        var inst = bootstrap.Modal.getOrCreateInstance(modalEl, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        if (!modalEl.dataset.commExpandBound) {
+            modalEl.dataset.commExpandBound = '1';
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                if (modalArea) modalArea.innerHTML = '';
+                setTimeout(function () {
+                    document.querySelectorAll('.modal-backdrop').forEach(function (b) {
+                        try { b.remove(); } catch (e) {}
+                    });
+                    document.body.classList.remove('modal-open');
+                    document.body.style.removeProperty('padding-right');
+                    document.body.style.removeProperty('overflow');
+                }, 0);
+            });
+        }
+        inst.show();
     };
 
     function bindFileInputs() {

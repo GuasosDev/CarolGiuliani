@@ -1318,6 +1318,38 @@ html, body {
     border-left: 10px solid #dc3545 !important; /* Rojo */
 }
 
+/* WhatsApp / chats: mensajes nuevos (no leídos) */
+.conversation-item.has-unread {
+    background: linear-gradient(90deg, rgba(37, 211, 102, 0.14), rgba(37, 211, 102, 0.04) 42%, #fff 100%) !important;
+    box-shadow: inset 3px 0 0 #25d366;
+}
+.conversation-item.has-unread:hover {
+    background: linear-gradient(90deg, rgba(37, 211, 102, 0.2), rgba(37, 211, 102, 0.07) 42%, #f8fafc 100%) !important;
+}
+.conversation-item .comm-conv-name {
+    font-weight: 600;
+    color: #1f2937;
+}
+.conversation-item.has-unread .comm-conv-name,
+.conversation-item .comm-conv-name.is-unread {
+    font-weight: 800 !important;
+    color: #0f172a !important;
+}
+.comm-unread-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #fff;
+    background: #25d366;
+    line-height: 1.2;
+}
+
 /* User Avatar */
 .omni-avatar {
     width: 40px;

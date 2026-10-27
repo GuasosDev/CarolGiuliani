@@ -349,7 +349,20 @@
         setDetailOpen(hasSelection);
     }
 
+    function closeConversationDetail() {
+        clearSelection();
+        resetDetailPanel();
+        setDetailOpen(false);
+        try {
+            var url = new URL(window.location.href);
+            url.searchParams.delete('conversation');
+            var next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
+            window.history.replaceState({}, '', next);
+        } catch (e) {}
+    }
+
     document.body.addEventListener('commRefreshConversationList', refreshConversationList);
+    document.body.addEventListener('commCloseConversationDetail', closeConversationDetail);
 
     document.body.addEventListener('htmx:afterSwap', function (event) {
         if (!event.detail || !event.detail.target) {

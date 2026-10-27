@@ -83,8 +83,17 @@
                 </div>
             </div>
 
-            <div class="chat-header-actions d-flex">
+            <div class="chat-header-actions d-flex align-items-center">
                 {% if conversation.channel == 'whatsapp' %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary me-2"
+                        title="Marcar como no leído"
+                        aria-label="Marcar conversación como no leída"
+                        hx-post="{% url 'communications:mark_conversation_unread' conversation.id %}"
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                        hx-swap="none">
+                    <i class="fas fa-comment-dots" aria-hidden="true"></i>
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="toggleSelectBtn"
                     onclick="toggleChatSelectMode()" title="Seleccionar mensajes">
                     <i class="fas fa-check-square"></i>
@@ -821,7 +830,7 @@
 {% if email_account %}
 <script src="{% static 'communications/js/email_recipient_suggest.js' %}?v=api-suggest-1"></script>
 {% endif %}
-<script src="{% static 'communications/js/conversation_content.js' %}?v=attach-chips-1"></script>
+<script src="{% static 'communications/js/conversation_content.js' %}?v=wa-expand-modal-1"></script>
 
 <!-- Modal de vista previa de adjuntos -->
 <div class="modal fade" id="attachmentPreviewModal" tabindex="-1" aria-labelledby="attachmentPreviewModalLabel" aria-hidden="true">
@@ -850,20 +859,23 @@
 {# uploadPreviewModal vive en communications_base.html (también para Redactar) #}
 <div class="modal fade"
      id="conversationModal"
-     tabindex="-1">
+     tabindex="-1"
+     aria-labelledby="conversationModalLabel"
+     aria-hidden="true">
 
-    <div class="modal-dialog custom-conversation-modal">
+    <div class="modal-dialog custom-conversation-modal modal-dialog-centered">
 
         <div class="modal-content">
 
             <div class="modal-header">
-                <h5 class="modal-title">
+                <h5 class="modal-title" id="conversationModalLabel">
                     Conversación ampliada
                 </h5>
 
                 <button type="button"
                         class="btn-close"
-                        data-bs-dismiss="modal">
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar ampliación">
                 </button>
             </div>
 
@@ -873,6 +885,15 @@
                      class="p-3">
                 </div>
 
+            </div>
+
+            <div class="modal-footer border-top py-2 px-3">
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        data-bs-dismiss="modal">
+                    <i class="fas fa-compress-alt me-1" aria-hidden="true"></i>
+                    Cerrar ampliación
+                </button>
             </div>
 
         </div>

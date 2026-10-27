@@ -355,7 +355,7 @@
 
                         <button
                             type="button"
-                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                            class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if conv.channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}{% if conv.marked_unread or conv.has_unread_inbound %} has-unread{% endif %}"
                             data-id="{{ conv.id }}"
                             data-contact-name="{{ conv.get_display_name }}"
                             onclick="loadConversation(this, '{{ conv.id }}')"
@@ -445,15 +445,18 @@
                                     {% endif %}
 
 
-                                    <span class="fw-bold text-dark text-truncate">
+                                    <span class="comm-conv-name text-truncate {% if conv.marked_unread or conv.has_unread_inbound %}is-unread{% endif %}">
                                         {{ conv.get_display_name }}
                                     </span>
+                                    {% if conv.marked_unread or conv.has_unread_inbound %}
+                                    <span class="comm-unread-pill ms-2 flex-shrink-0">Nuevo</span>
+                                    {% endif %}
 
                                 </div>
 
 
-                                <small class="text-muted">
-                                    {{ conv.updated_at|date:"H:i" }}
+                                <small class="{% if conv.marked_unread or conv.has_unread_inbound %}text-dark fw-bold{% else %}text-muted{% endif %}">
+                                    {{ conv.last_message_at|default:conv.updated_at|date:"H:i" }}
                                 </small>
 
                             </div>
@@ -462,25 +465,21 @@
                             <div class="d-flex justify-content-between align-items-center">
 
                                 <small
-                                    class="text-muted text-truncate d-block"
+                                    class="text-truncate d-block {% if conv.marked_unread or conv.has_unread_inbound %}text-dark fw-semibold{% else %}text-muted{% endif %}"
                                     style="max-width: 100%; font-size: 0.75rem;"
                                 >
 
-                                    {% with last_msg=conv.latest_message.0 %}
-
-                                        {% if last_msg %}
-
-                                            {{ last_msg.content|truncatechars:50 }}
-
-                                        {% else %}
-
-                                            <span class="fst-italic text-muted">
-                                                Sin mensajes...
-                                            </span>
-
-                                        {% endif %}
-
-                                    {% endwith %}
+                                    {% if conv.last_message_preview %}
+                                        {{ conv.last_message_preview|striptags|truncatechars:50 }}
+                                    {% else %}
+                                        {% with last_msg=conv.latest_message.0 %}
+                                            {% if last_msg %}
+                                                {{ last_msg.content|truncatechars:50 }}
+                                            {% else %}
+                                                <span class="fst-italic text-muted">Sin mensajes...</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
 
                                 </small>
 
@@ -512,7 +511,7 @@
 
                     <button
                         type="button"
-                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if current_channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}"
+                        class="list-group-item list-group-item-action border-bottom p-2 conversation-item text-start {% if current_channel == 'email' %}comm-email-inbox-item{% elif conv.status == 'normal' or conv.status == 'assigned' or conv.status == 'open' %}status-normal{% elif conv.status == 'pending' %}status-pending{% elif conv.status == 'closed' %}status-closed{% endif %}{% if conv.marked_unread or conv.has_unread_inbound %} has-unread{% endif %}"
                         data-id="{{ conv.id }}"
                         data-contact-name="{{ conv.get_display_name }}"
                         onclick="loadConversation(this, '{{ conv.id }}')"
@@ -602,15 +601,18 @@
                                 {% endif %}
 
 
-                                <span class="fw-bold text-dark text-truncate">
+                                <span class="comm-conv-name text-truncate {% if conv.marked_unread or conv.has_unread_inbound %}is-unread{% endif %}">
                                     {{ conv.get_display_name }}
                                 </span>
+                                {% if conv.marked_unread or conv.has_unread_inbound %}
+                                <span class="comm-unread-pill ms-2 flex-shrink-0">Nuevo</span>
+                                {% endif %}
 
                             </div>
 
 
-                            <small class="text-muted">
-                                {{ conv.updated_at|date:"H:i" }}
+                            <small class="{% if conv.marked_unread or conv.has_unread_inbound %}text-dark fw-bold{% else %}text-muted{% endif %}">
+                                {{ conv.last_message_at|default:conv.updated_at|date:"H:i" }}
                             </small>
 
                         </div>
@@ -619,33 +621,25 @@
                         <div class="d-flex justify-content-between align-items-center">
 
                             <small
-                                class="text-muted text-truncate d-block"
+                                class="text-truncate d-block {% if conv.marked_unread or conv.has_unread_inbound %}text-dark fw-semibold{% else %}text-muted{% endif %}"
                                 style="max-width: 100%;"
                             >
 
-                                {% with last_msg=conv.messages.last %}
-
-                                    {% if last_msg %}
-
-                                        {% if last_msg.email_data.plain_body %}
-
-                                            {{ last_msg.email_data.plain_body|striptags|truncatechars:50 }}
-
+                                {% if conv.last_message_preview %}
+                                    {{ conv.last_message_preview|striptags|truncatechars:50 }}
+                                {% else %}
+                                    {% with last_msg=conv.messages.last %}
+                                        {% if last_msg %}
+                                            {% if last_msg.email_data.plain_body %}
+                                                {{ last_msg.email_data.plain_body|striptags|truncatechars:50 }}
+                                            {% else %}
+                                                {{ last_msg.content|striptags|truncatechars:50 }}
+                                            {% endif %}
                                         {% else %}
-
-                                            {{ last_msg.content|striptags|truncatechars:50 }}
-
+                                            <span class="fst-italic text-muted">Sin mensajes...</span>
                                         {% endif %}
-
-                                    {% else %}
-
-                                        <span class="fst-italic text-muted">
-                                            Sin mensajes...
-                                        </span>
-
-                                    {% endif %}
-
-                                {% endwith %}
+                                    {% endwith %}
+                                {% endif %}
 
                             </small>
 
@@ -1074,7 +1068,7 @@
                             type="text"
                             class="form-control"
                             id="whatsappClientSearch"
-                            placeholder="Buscar cliente..."
+                            placeholder="Buscar por nombre, email o teléfono..."
                             autocomplete="off"
                         >
 
@@ -1103,7 +1097,7 @@
                     <i class="fas fa-users fa-2x mb-2 opacity-50"></i>
 
                     <div>
-                        Escribí el nombre del cliente
+                        Buscá por nombre, email o teléfono
                     </div>
 
                     <small>
@@ -1539,14 +1533,19 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
 
 
-                        <div class="flex-grow-1">
+                        <div class="flex-grow-1 min-w-0">
 
-                            <div class="fw-semibold">
+                            <div class="fw-semibold text-truncate">
                                 ${escapeHtml(client.name)}
                             </div>
 
-                            <small class="text-muted">
-                                Iniciar conversación por WhatsApp
+                            <small class="text-muted text-truncate d-block">
+                                ${escapeHtml(
+                                    [client.email, client.phone]
+                                        .filter(Boolean)
+                                        .join(' · ')
+                                    || 'Iniciar conversación por WhatsApp'
+                                )}
                             </small>
 
                         </div>
@@ -1620,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 {% block comm_js %}
 
-<script src="{% static 'communications/js/dashboard.js' %}"></script>
+<script src="{% static 'communications/js/dashboard.js' %}?v=wa-unread-bold-2"></script>
 
 {# communications_base.js ya se carga en communications_base.html #}
 {# conversation_content.js se carga con el partial de la conversación #}

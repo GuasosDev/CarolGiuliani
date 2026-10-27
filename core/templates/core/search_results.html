@@ -6,7 +6,7 @@
                 {% if has_query %}
                     {{ total_results }} resultado{{ total_results|pluralize:"s" }} para “{{ query }}”
                 {% else %}
-                    Escribí al menos 2 caracteres
+                    Nombre, email, teléfono o una palabra del chat · mín. 2 caracteres
                 {% endif %}
             </div>
         </div>
@@ -29,7 +29,10 @@
     {% if not has_query %}
         <div class="text-center py-4">
             <i class="fas fa-magnifying-glass fa-3x text-muted mb-3 opacity-50"></i>
-            <p class="text-muted mb-0">Escribí una palabra o parte de ella para buscar en todo el sistema.</p>
+            <p class="text-muted mb-0">
+                Buscá por <strong>nombre</strong>, <strong>email</strong>, <strong>teléfono</strong>
+                o una <strong>palabra</strong> que aparezca en conversaciones o mensajes.
+            </p>
         </div>
     {% else %}
         {% if total_results == 0 %}

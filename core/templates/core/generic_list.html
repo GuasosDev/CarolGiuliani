@@ -57,7 +57,28 @@
     </div>
 
     <div class="card-box comm-list-card">
-        <div class="header-actions" style="margin-bottom: 20px; text-align: right;">
+        <div class="header-actions d-flex flex-wrap align-items-center justify-content-between gap-2" style="margin-bottom: 20px;">
+            {% if list_search_placeholder %}
+            <form method="get" class="d-flex flex-grow-1 gap-2" style="max-width: 28rem;" role="search">
+                <input type="search"
+                       name="q"
+                       value="{{ search_q|default:'' }}"
+                       class="form-control form-control-sm"
+                       placeholder="{{ list_search_placeholder }}"
+                       autocomplete="off"
+                       aria-label="Buscar en el listado">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Buscar">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                </button>
+                {% if search_q %}
+                <a href="?" class="btn btn-sm btn-outline-secondary" title="Limpiar búsqueda">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+            </form>
+            {% else %}
+            <div></div>
+            {% endif %}
             {% if create_url %}
             <button hx-get="{{ create_url }}" hx-target="#modal-body" hx-trigger="click" onclick="openModal()"
                 class="btn btn-primary">
@@ -181,8 +202,15 @@
             buttons: [
                 'copy', 'csv', 'excel', 'pdf', 'print'
             ],
+            search: {
+                // Mejor para emails (evita romper por @ . y espacios raros)
+                smart: {% if list_email_friendly_search %}false{% else %}true{% endif %},
+                regex: false,
+                caseInsensitive: true
+            },
             language: {
-                search: "Buscar:",
+                search: "Filtrar:",
+                searchPlaceholder: "{{ list_search_placeholder|default:'Buscar…'|escapejs }}",
                 paginate: {
                     previous: "<",
                     next: ">"

@@ -162,6 +162,10 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
         import re
 
         query = (self.request.GET.get('q') or '').strip()
+        # Teléfonos suelen guardarse solo con dígitos (ej. 54911…); si buscan con
+        # espacios/guiones/+54, también matcheamos por la secuencia numérica.
+        phone_digits = re.sub(r'\D+', '', query)
+        phone_lookup = phone_digits if len(phone_digits) >= 4 else ''
 
         def highlight(text):
             if not text:
@@ -183,6 +187,15 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                 raw = raw[:limit].rstrip() + "…"
             return highlight(raw)
 
+        def phone_q(*field_names):
+            """OR de icontains sobre campos de teléfono, con texto y dígitos."""
+            q_obj = Q()
+            for field in field_names:
+                q_obj |= Q(**{f'{field}__icontains': query})
+                if phone_lookup and phone_lookup != query:
+                    q_obj |= Q(**{f'{field}__icontains': phone_lookup})
+            return q_obj
+
         results = []
 
         if len(query) >= 2:
@@ -192,19 +205,29 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
             from communications.views import _get_user_email_account
             from django.db.models.functions import Coalesce
 
-            clients_qs = Client.objects.filter(
-                Q(name__icontains=query) |
-                Q(email__icontains=query) |
-                Q(phone__icontains=query) |
-                Q(business_name__icontains=query) |
-                Q(cuit__icontains=query) |
-                Q(address__icontains=query) |
-                Q(fiscal_address__icontains=query) |
-                Q(job_title__icontains=query) |
-                Q(additional_info__icontains=query) |
-                Q(internal_notes__icontains=query) |
-                Q(tags__name__icontains=query)
-            ).distinct().prefetch_related('tags')[:12]
+            clients_filter = (
+                Q(name__icontains=query)
+                | Q(email__icontains=query)
+                | phone_q('phone')
+                | Q(communication_contact__whatsapp_number__icontains=query)
+                | Q(business_name__icontains=query)
+                | Q(cuit__icontains=query)
+                | Q(address__icontains=query)
+                | Q(fiscal_address__icontains=query)
+                | Q(job_title__icontains=query)
+                | Q(additional_info__icontains=query)
+                | Q(internal_notes__icontains=query)
+                | Q(tags__name__icontains=query)
+            )
+            if phone_lookup and phone_lookup != query:
+                clients_filter |= Q(
+                    communication_contact__whatsapp_number__icontains=phone_lookup
+                )
+            clients_qs = (
+                Client.objects.filter(clients_filter)
+                .distinct()
+                .prefetch_related('tags')[:12]
+            )
 
             email_account = _get_user_email_account(self.request.user)
             can_view_all_email_conversations = (
@@ -283,11 +306,10 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                 })
 
             contacts_qs = Contact.objects.filter(
-                Q(whatsapp_number__icontains=query) |
+                phone_q('whatsapp_number', 'client__phone') |
                 Q(notes__icontains=query) |
                 Q(client__name__icontains=query) |
-                Q(client__email__icontains=query) |
-                Q(client__phone__icontains=query)
+                Q(client__email__icontains=query)
             ).select_related('client')[:10]
 
             contact_items = []
@@ -320,8 +342,7 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
                 Q(subject__icontains=query) |
                 Q(contact__client__name__icontains=query) |
                 Q(contact__client__email__icontains=query) |
-                Q(contact__client__phone__icontains=query) |
-                Q(contact__whatsapp_number__icontains=query) |
+                phone_q('contact__client__phone', 'contact__whatsapp_number') |
                 Q(last_message_preview__icontains=query) |
                 Q(messages__content__icontains=query) |
                 Q(messages__sender_name__icontains=query) |

@@ -127,6 +127,8 @@ class Conversation(models.Model):
     # For tracking last message
     last_message_at = models.DateTimeField(null=True, blank=True)
     last_message_preview = models.TextField(blank=True, null=True)
+    # Marcado manual como no leído (bandeja), aunque el hilo esté abierto
+    marked_unread = models.BooleanField(default=False, verbose_name="Marcada como no leída")
 
     class Meta:
         verbose_name = "Conversación"
@@ -143,29 +145,50 @@ class Conversation(models.Model):
 
     def get_display_name(self):
         """Returns a human-readable name for the conversation, with fallbacks.
-        Cached per-instance to avoid N+1 queries when called repeatedly in templates."""
+        Cached per-instance to avoid N+1 queries when called repeatedly in templates.
+
+        Preferencia: nombre de cliente → nombre de perfil WhatsApp → teléfono.
+        """
         cached = getattr(self, '_display_name_cache', None)
         if cached is not None:
             return cached
 
         from .utils.email_headers import decode_mime_header
 
+        def _digits(value):
+            return "".join(ch for ch in str(value or "") if ch.isdigit())
+
         result = "Desconocido"
+        phone = ""
         if self.contact_id:
-            # Use cached related objects if available via select_related/prefetch
             contact = self.contact
             if contact:
                 client = getattr(contact, 'client', None)
                 if client and client.name:
                     result = decode_mime_header(client.name) or client.name
-                elif contact.whatsapp_number:
-                    result = contact.whatsapp_number
+                    self._display_name_cache = result
+                    return result
+                phone = (contact.whatsapp_number or getattr(client, 'phone', None) or "").strip()
 
-        if result == "Desconocido":
-            # Look for sender_name in messages if no client linked
-            msg = self.messages.filter(direction='inbound').order_by('-created_at').first()
-            if msg and msg.sender_name:
-                result = decode_mime_header(msg.sender_name) or msg.sender_name
+        # Nombre de perfil que manda Meta (sender_name), si no es el mismo número
+        msg = (
+            self.messages.filter(direction='inbound')
+            .exclude(sender_name__isnull=True)
+            .exclude(sender_name='')
+            .order_by('-created_at')
+            .only('sender_name')
+            .first()
+        )
+        profile = (msg.sender_name or "").strip() if msg else ""
+        if profile:
+            decoded = decode_mime_header(profile) or profile
+            if _digits(decoded) != _digits(phone) and decoded != phone:
+                result = decoded
+            elif result == "Desconocido":
+                result = decoded
+
+        if result == "Desconocido" and phone:
+            result = phone
 
         self._display_name_cache = result
         return result

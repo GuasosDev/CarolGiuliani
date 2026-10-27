@@ -4,6 +4,7 @@ from django.urls import reverse_lazy
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
 from django.http import HttpResponse
 from django import forms
 
@@ -17,6 +18,28 @@ class ClientListView(GenericListView):
     delete_url_name = 'client_delete'
     action_template_name = 'clients/client_list_actions.html'
     action_toolbar_inline = True
+
+    def get_queryset(self):
+        qs = super().get_queryset().prefetch_related('tags')
+        q = (self.request.GET.get('q') or '').strip()
+        if len(q) >= 2:
+            qs = qs.filter(
+                Q(name__icontains=q)
+                | Q(email__icontains=q)
+                | Q(phone__icontains=q)
+                | Q(business_name__icontains=q)
+                | Q(cuit__icontains=q)
+                | Q(job_title__icontains=q)
+                | Q(tags__name__icontains=q)
+            ).distinct()
+        return qs.order_by('name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_q'] = (self.request.GET.get('q') or '').strip()
+        context['list_search_placeholder'] = 'Buscar por nombre, email, teléfono…'
+        context['list_email_friendly_search'] = True
+        return context
 
 class ClientCreateView(GenericCreateView):
     model = Client
