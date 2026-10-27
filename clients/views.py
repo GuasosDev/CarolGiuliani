@@ -10,6 +10,7 @@ from django import forms
 
 class ClientListView(GenericListView):
     model = Client
+    template_name = 'clients/client_list.html'
     list_fields = ['name', 'business_name', 'email', 'phone', 'tags_display']
     list_headers = ['Nombre', 'Razón Social', 'Email', 'Teléfono', 'Etiquetas']
     title = "Listado de Contactos"
