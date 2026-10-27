@@ -26,7 +26,15 @@
         mark{padding:0 .15em;border-radius:.2em}
     </style>
 
-    {% if not has_query %}
+    {% if search_disabled %}
+        <div class="text-center py-4">
+            <i class="fas fa-info-circle fa-3x text-muted mb-3 opacity-50"></i>
+            <p class="text-muted mb-2">El buscador general está desactivado.</p>
+            <p class="text-muted mb-0 small">
+                Usá la búsqueda de la bandeja de <strong>Email</strong> o de <strong>WhatsApp</strong>.
+            </p>
+        </div>
+    {% elif not has_query %}
         <div class="text-center py-4">
             <i class="fas fa-magnifying-glass fa-3x text-muted mb-3 opacity-50"></i>
             <p class="text-muted mb-0">

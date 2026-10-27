@@ -18,6 +18,7 @@ class ClientListView(GenericListView):
     delete_url_name = 'client_delete'
     action_template_name = 'clients/client_list_actions.html'
     action_toolbar_inline = True
+    paginate_by = 50
 
     def get_queryset(self):
         qs = super().get_queryset().prefetch_related('tags')

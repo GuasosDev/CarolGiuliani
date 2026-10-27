@@ -185,6 +185,42 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if is_paginated %}
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 px-1">
+            <small class="text-muted">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                · {{ page_obj.paginator.count }} contacto{{ page_obj.paginator.count|pluralize:"s" }}
+            </small>
+            <nav aria-label="Paginación del listado">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">Anterior</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if num == page_obj.number %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">Siguiente</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -195,10 +231,13 @@
             $('#datatable').DataTable().destroy();
         }
         $('#datatable').DataTable({
-            dom: 'Bfrtip',
+            dom: '{% if is_paginated %}Bfrt{% else %}Bfrtip{% endif %}',
             autoWidth: false,
             scrollX: false,
             responsive: true,
+            // Con paginación de servidor, no volver a paginar en el cliente
+            paging: {% if is_paginated %}false{% else %}true{% endif %},
+            info: {% if is_paginated %}false{% else %}true{% endif %},
             buttons: [
                 'copy', 'csv', 'excel', 'pdf', 'print'
             ],
@@ -209,7 +248,7 @@
                 caseInsensitive: true
             },
             language: {
-                search: "Filtrar:",
+                search: "Filtrar página:",
                 searchPlaceholder: "{{ list_search_placeholder|default:'Buscar…'|escapejs }}",
                 paginate: {
                     previous: "<",

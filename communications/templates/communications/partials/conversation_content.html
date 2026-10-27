@@ -822,6 +822,7 @@
      data-conversation-id="{{ conversation.id }}"
      data-channel="{{ conversation.channel }}"
      data-conversation-detail-url="{% url 'communications:conversation_detail' conversation.id %}?partial=true"
+     data-conversation-poll-url="{% url 'communications:conversation_poll' conversation.id %}"
      data-clients-search-url="{% url 'communications:clients_search' %}"
      data-display-name="{{ conversation.get_display_name|default:''|escape }}"
      data-to-number="{{ conversation.contact.get_display_phone|default:''|escape }}"
@@ -830,7 +831,7 @@
 {% if email_account %}
 <script src="{% static 'communications/js/email_recipient_suggest.js' %}?v=api-suggest-1"></script>
 {% endif %}
-<script src="{% static 'communications/js/conversation_content.js' %}?v=wa-expand-modal-1"></script>
+<script src="{% static 'communications/js/conversation_content.js' %}?v=wa-poll-lite-1"></script>
 
 <!-- Modal de vista previa de adjuntos -->
 <div class="modal fade" id="attachmentPreviewModal" tabindex="-1" aria-labelledby="attachmentPreviewModalLabel" aria-hidden="true">

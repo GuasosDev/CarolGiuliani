@@ -25,6 +25,7 @@ urlpatterns = [
     ),
     path('client/<int:client_id>/whatsapp/', open_client_whatsapp, {'channel': 'whatsapp'}, name='open_client_whatsapp_legacy'),
     path('conversation/<int:pk>/', views.conversation_detail, name='conversation_detail'),
+    path('conversation/<int:pk>/poll/', views.conversation_poll, name='conversation_poll'),
     path('conversation/<int:conversation_id>/download-attachments/', views.download_attachments, name='download_attachments'),
     path('email-message/<int:pk>/', views.email_message_detail, name='email_message_detail'),
     path('email/drafts/save/', views.email_draft_save, name='email_draft_save'),

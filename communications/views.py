@@ -552,6 +552,25 @@ def dashboard(request):
                 | Q(messages__email_data__plain_body__icontains=search_q)
                 | Q(messages__email_data__html_body__icontains=search_q)
             ).distinct()
+        elif channel_filter == 'whatsapp' and search_q:
+            # Búsqueda liviana: nombre, teléfono, preview y texto de mensajes (sin HTML de mail)
+            phone_digits = re.sub(r'\D+', '', search_q)
+            wa_search = (
+                Q(contact__client__name__icontains=search_q)
+                | Q(contact__client__email__icontains=search_q)
+                | Q(contact__client__phone__icontains=search_q)
+                | Q(contact__whatsapp_number__icontains=search_q)
+                | Q(last_message_preview__icontains=search_q)
+                | Q(subject__icontains=search_q)
+                | Q(messages__content__icontains=search_q)
+                | Q(messages__sender_name__icontains=search_q)
+            )
+            if phone_digits and len(phone_digits) >= 4 and phone_digits != search_q:
+                wa_search |= (
+                    Q(contact__whatsapp_number__icontains=phone_digits)
+                    | Q(contact__client__phone__icontains=phone_digits)
+                )
+            conversations = conversations.filter(wa_search).distinct()
         if channel_filter == 'email' and status_filter == 'inbox':
             status_filter = 'all'
         # Enviados no debe ocultar hilos cerrados/transferidos: se listan por EmailMessage.
@@ -1778,6 +1797,46 @@ def conversation_detail(request, pk):
                     # Return 200 even for error so HTMX displays the message
                     return HttpResponse(f'<div class="alert alert-danger m-3">Error al cargar la conversación: {str(e)}</div>', status=200)
                 raise
+
+
+@login_required
+@require_http_methods(["GET"])
+def conversation_poll(request, pk):
+    """
+    Polling liviano: solo IDs de últimos mensajes (sin rearmar el HTML del chat).
+    El front solo pide el partial completo si hay novedad.
+    """
+    conversation = get_object_or_404(
+        Conversation.objects.only('id', 'assigned_to_id', 'channel'),
+        pk=pk,
+    )
+    if not (
+        request.user.is_superuser
+        or request.user.groups.filter(name='Supervisor').exists()
+        or conversation.assigned_to_id == request.user.id
+        or get_agent_conversations(request.user).filter(pk=pk).exists()
+    ):
+        return JsonResponse({'ok': False, 'error': 'unauthorized'}, status=403)
+
+    last_message_id = (
+        Message.objects.filter(conversation_id=pk)
+        .order_by('-id')
+        .values_list('id', flat=True)
+        .first()
+    ) or 0
+    last_inbound_id = (
+        Message.objects.filter(conversation_id=pk, direction='inbound')
+        .order_by('-id')
+        .values_list('id', flat=True)
+        .first()
+    ) or 0
+
+    return JsonResponse({
+        'ok': True,
+        'conversation_id': pk,
+        'last_message_id': int(last_message_id),
+        'last_inbound_id': int(last_inbound_id),
+    })
 
 
 @login_required

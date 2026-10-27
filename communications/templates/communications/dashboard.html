@@ -69,9 +69,35 @@
             </a>
 
            {% if current_channel == 'whatsapp' %}
+            <form method="get"
+                  action="{% url 'communications:dashboard' %}"
+                  class="comm-wa-search d-flex align-items-center gap-1 ms-auto"
+                  role="search">
+                <input type="hidden" name="channel" value="whatsapp">
+                {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
+                <input type="search"
+                       name="q"
+                       value="{{ search_q|default:'' }}"
+                       class="form-control form-control-sm py-0"
+                       placeholder="Buscar chat, nombre o teléfono…"
+                       title="Busca en conversaciones de WhatsApp"
+                       style="width: 12rem; max-width: 28vw; height: 28px;"
+                       autocomplete="off">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Buscar" style="height: 28px;">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                </button>
+                {% if search_q %}
+                <a href="?channel=whatsapp{% if current_status %}&status={{ current_status }}{% endif %}"
+                   class="btn btn-sm btn-outline-secondary"
+                   title="Limpiar búsqueda"
+                   style="height: 28px;">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+            </form>
             <button
                 type="button"
-                class="btn btn-success btn-sm d-flex align-items-center gap-2 ms-auto"
+                class="btn btn-success btn-sm d-flex align-items-center gap-2"
                 id="btnNewWhatsappConversation"
                 title="Nueva conversación de WhatsApp">
 

@@ -1699,6 +1699,48 @@
         return { id: Number.isFinite(id) ? id : 0, kind: 'whatsapp' };
     }
 
+    function getLastMessageId(chatArea) {
+        if (!chatArea) return 0;
+        var maxId = 0;
+        chatArea.querySelectorAll('[data-message-id]').forEach(function (el) {
+            var id = parseInt(el.getAttribute('data-message-id'), 10);
+            if (Number.isFinite(id) && id > maxId) maxId = id;
+        });
+        return maxId;
+    }
+
+    function refreshChatPartial(chatArea, prevInboundMeta) {
+        var url = cfg('conversationDetailUrl');
+        if (!url || !chatArea) return;
+        var openState = getDetailsOpenState(chatArea);
+        var previousScrollTop = chatArea.scrollTop;
+        var isAtBottom = chatArea.scrollHeight - chatArea.scrollTop <= chatArea.clientHeight + 100;
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (response) { return response.text(); })
+            .then(function (html) {
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
+                var newContent = doc.getElementById('chatMessagesArea');
+                if (!newContent || !chatArea) return;
+                var nextMeta = getLastInboundMeta(newContent);
+                chatArea.innerHTML = newContent.innerHTML;
+                restoreDetailsOpenState(chatArea, openState);
+                if (isAtBottom) {
+                    chatArea.scrollTop = chatArea.scrollHeight;
+                } else {
+                    chatArea.scrollTop = Math.min(previousScrollTop, chatArea.scrollHeight - chatArea.clientHeight);
+                }
+                requestAnimationFrame(updateMoreMessagesIndicator);
+                setTimeout(updateMoreMessagesIndicator, 50);
+                if (nextMeta.id && nextMeta.id > (prevInboundMeta && prevInboundMeta.id ? prevInboundMeta.id : 0)) {
+                    if (window.commNotify && typeof window.commNotify.playDing === 'function') {
+                        window.commNotify.playDing(nextMeta.kind);
+                    }
+                }
+            })
+            .catch(function (err) { console.error('Polling refresh error:', err); });
+    }
+
     function initPolling() {
         if (window.conversationPollInterval) {
             clearInterval(window.conversationPollInterval);
@@ -1709,42 +1751,56 @@
             var chatArea = document.getElementById('chatMessagesArea');
             if (chatArea) chatArea.scrollTop = chatArea.scrollHeight;
         }, 100);
+
+        var pollUrl = cfg('conversationPollUrl');
         window.conversationPollInterval = setInterval(function () {
             var chatArea = document.getElementById('chatMessagesArea');
             if (!chatArea) {
                 clearInterval(window.conversationPollInterval);
+                window.conversationPollInterval = null;
                 return;
             }
-            var prevMeta = getLastInboundMeta(chatArea);
-            var url = cfg('conversationDetailUrl');
-            var openState = getDetailsOpenState(chatArea);
-            var previousScrollTop = chatArea.scrollTop;
-            var isAtBottom = chatArea.scrollHeight - chatArea.scrollTop <= chatArea.clientHeight + 100;
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(function (response) { return response.text(); })
-                .then(function (html) {
-                    var parser = new DOMParser();
-                    var doc = parser.parseFromString(html, 'text/html');
-                    var newContent = doc.getElementById('chatMessagesArea');
-                    if (!newContent || !chatArea) return;
-                    var nextMeta = getLastInboundMeta(newContent);
-                    chatArea.innerHTML = newContent.innerHTML;
-                    restoreDetailsOpenState(chatArea, openState);
-                    if (isAtBottom) {
-                        chatArea.scrollTop = chatArea.scrollHeight;
-                    } else {
-                        chatArea.scrollTop = Math.min(previousScrollTop, chatArea.scrollHeight - chatArea.clientHeight);
-                    }
-                    requestAnimationFrame(updateMoreMessagesIndicator);
-                    setTimeout(updateMoreMessagesIndicator, 50);
-                    if (nextMeta.id && nextMeta.id > prevMeta.id) {
-                        if (window.commNotify && typeof window.commNotify.playDing === 'function') {
-                            window.commNotify.playDing(nextMeta.kind);
-                        }
-                    }
+            // Si salimos de comunicaciones (otra página), cortar el poll
+            if (!document.getElementById('conversationContentConfig')) {
+                clearInterval(window.conversationPollInterval);
+                window.conversationPollInterval = null;
+                return;
+            }
+
+            var prevInbound = getLastInboundMeta(chatArea);
+            var prevLastId = getLastMessageId(chatArea);
+
+            if (pollUrl) {
+                fetch(pollUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                    credentials: 'same-origin'
                 })
-                .catch(function (err) { console.error('Polling error:', err); });
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data || !data.ok) return;
+                        var remoteLast = Number(data.last_message_id) || 0;
+                        if (remoteLast > prevLastId) {
+                            refreshChatPartial(chatArea, prevInbound);
+                        }
+                    })
+                    .catch(function (err) { console.error('Polling error:', err); });
+                return;
+            }
+
+            // Fallback: comportamiento anterior si no hay URL de poll
+            refreshChatPartial(chatArea, prevInbound);
         }, 10000);
+
+        // Cortar poll al salir de la página (p. ej. ir a Contactos)
+        if (!window._commPollUnloadBound) {
+            window._commPollUnloadBound = true;
+            window.addEventListener('pagehide', function () {
+                if (window.conversationPollInterval) {
+                    clearInterval(window.conversationPollInterval);
+                    window.conversationPollInterval = null;
+                }
+            });
+        }
     }
 
     if (typeof window.chatSelectMode === 'undefined') window.chatSelectMode = false;
