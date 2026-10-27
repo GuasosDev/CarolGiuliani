@@ -172,7 +172,7 @@
                 target: '#conversation-detail-panel',
                 swap: 'innerHTML'
             });
-            // Si el swap sale bien, soltar listeners
+            // Si el swap sale bien, soltar listeners y refrescar lista (quita "Nuevo"/negrita)
             document.body.addEventListener('htmx:afterSwap', function onOk(event) {
                 if (!event.detail || !event.detail.target || event.detail.target.id !== 'conversation-detail-panel') {
                     return;
@@ -181,6 +181,10 @@
                 document.body.removeEventListener('htmx:afterSwap', onOk);
                 document.body.removeEventListener('htmx:responseError', onHtmxError);
                 document.body.removeEventListener('htmx:sendError', onHtmxError);
+                if (url.indexOf('/communications/conversation/') !== -1) {
+                    markListItemReadVisual();
+                    refreshConversationList();
+                }
             });
             return;
         }
@@ -201,10 +205,26 @@
                 if (detailPanel) {
                     detailPanel.innerHTML = html;
                 }
+                if (url.indexOf('/communications/conversation/') !== -1) {
+                    markListItemReadVisual();
+                    refreshConversationList();
+                }
             })
             .catch(function (error) {
                 renderErrorState(errorTitle, 'No se pudo cargar el detalle. ' + error.message, retryCall);
             });
+    }
+
+    function markListItemReadVisual() {
+        var active = document.querySelector('.conversation-item.active');
+        if (!active) return;
+        active.classList.remove('has-unread');
+        active.querySelectorAll('.comm-unread-pill').forEach(function (el) {
+            try { el.remove(); } catch (e) {}
+        });
+        active.querySelectorAll('.comm-conv-name.is-unread').forEach(function (el) {
+            el.classList.remove('is-unread');
+        });
     }
 
     function loadConversation(element, id) {
@@ -214,6 +234,16 @@
         }
 
         selectConversation(element, id);
+        // Feedback inmediato en la lista
+        if (element) {
+            element.classList.remove('has-unread');
+            element.querySelectorAll('.comm-unread-pill').forEach(function (el) {
+                try { el.remove(); } catch (e) {}
+            });
+            element.querySelectorAll('.comm-conv-name.is-unread').forEach(function (el) {
+                el.classList.remove('is-unread');
+            });
+        }
         requestDetail(
             '/communications/conversation/' + id + '/?partial=true',
             'Cargando conversacion...',

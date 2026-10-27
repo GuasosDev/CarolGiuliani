@@ -1585,13 +1585,12 @@ def conversation_detail(request, pk):
                          # Return 200 even for error so HTMX displays the message
                          return HttpResponse('<div class="alert alert-danger m-3">No tienes permiso para ver esta conversación.</div>', status=200)
                 
-        # Al abrir el hilo: queda leído (mensajes + flag manual)
+        # Al abrir el hilo: queda leído (mensajes + flag manual de "no leído")
         conversation.messages.filter(direction='inbound', is_read=False).update(
             is_read=True, read_at=timezone.now()
         )
-        if conversation.marked_unread:
-            Conversation.objects.filter(pk=conversation.pk).update(marked_unread=False)
-            conversation.marked_unread = False
+        Conversation.objects.filter(pk=conversation.pk).update(marked_unread=False)
+        conversation.marked_unread = False
 
         messages = list(
             conversation.messages.select_related('sender', 'email_data')
