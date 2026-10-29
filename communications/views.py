@@ -1,7 +1,7 @@
 """
 Django views for communications web interface
 """
-from django.contrib.auth.models import User
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, FileResponse
@@ -19,14 +19,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.utils import timezone
 from django.template.loader import get_template
-from django.utils.html import escape
-from django.core.cache import cache
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db.models import Q, Exists, OuterRef, Prefetch, Subquery
-from django.db.models.functions import Coalesce    
-from .utils.email_headers import decode_mime_header
 # from xhtml2pdf import pisa
 import json
 import logging
@@ -313,7 +305,8 @@ def _email_header_recipients(email_msg):
 def _email_reply_quote_html(email_msg, body=None):
     """Cita HTML editable del mensaje original para Responder / Responder a todos.
     body: HTML limpio ya calculado (evita relimpiar el mismo mensaje)."""
-   
+    from django.utils.html import escape
+    from .utils.email_headers import decode_mime_header
 
     if body is None:
         body = _email_message_body_html(email_msg)
@@ -476,8 +469,6 @@ def get_agent_conversations(user):
     ).distinct()
 
 from django.core.cache import cache
-
-
 
 @login_required
 def dashboard(request):
@@ -836,7 +827,7 @@ def dashboard(request):
     clients = Client.objects.all().order_by('name')[:200]
     
     # Get users for filtering (only for supervisors/admins)
-  
+    from django.contrib.auth.models import User
     available_users = []
     if request.user.is_superuser or request.user.groups.filter(name='Supervisor').exists():
         available_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
@@ -879,6 +870,7 @@ def dashboard(request):
     }
 
     return render(request, 'communications/dashboard.html', context)
+
 
 def _get_conversation_counts(user, channel=None):
     """Helper to get conversation counts for the sidebar and filters"""

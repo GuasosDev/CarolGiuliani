@@ -236,12 +236,10 @@ class EmailHandler:
 
             fetched_emails = []
             max_uid = last_uid
-            failed_uids = []
 
             for uid in reversed(email_uids):
 
                 uid_str = uid.decode()
-                uid_int = None
 
                 # Avanzar el marcador de progreso (UIDs IMAP son numéricos y
                 # monótonos crecientes dentro de la carpeta).
@@ -281,8 +279,6 @@ class EmailHandler:
                             f"UID={uid_str} FETCH FAILED "
                             f"status={status}"
                         )
-                        if uid_int is not None:
-                            failed_uids.append(uid_int)
                         continue
 
                     logger.debug(
@@ -295,8 +291,6 @@ class EmailHandler:
                             f"[{self.account.email_address}] "
                             f"UID={uid_str} EMPTY FETCH"
                         )
-                        if uid_int is not None:
-                            failed_uids.append(uid_int)
                         continue
 
                     raw_email = msg_data[0][1]
@@ -306,8 +300,6 @@ class EmailHandler:
                             f"[{self.account.email_address}] "
                             f"UID={uid_str} EMPTY RFC822"
                         )
-                        if uid_int is not None:
-                            failed_uids.append(uid_int)
                         continue
 
                     email_message = email.message_from_bytes(raw_email)
@@ -358,22 +350,12 @@ class EmailHandler:
                             f"[{self.account.email_address}] "
                             f"UID={uid_str} NOT PROCESSED"
                         )
-                        if (
-                            uid_int is not None
-                            and not EmailMessage.objects.filter(
-                                email_account=self.account,
-                                imap_uid=uid_str
-                            ).exists()
-                        ):
-                            failed_uids.append(uid_int)
 
                 except Exception:
                     logger.exception(
                         f"[{self.account.email_address}] "
                         f"UID={uid_str} FAILED"
                     )
-                    if uid_int is not None:
-                        failed_uids.append(uid_int)
                     continue
 
             logger.info(
@@ -382,13 +364,11 @@ class EmailHandler:
             )
 
             # Persistir el progreso del sync incremental.
-            # Retomar desde el primer UID no guardado en la próxima sincronización.
-            synced_uid = min(failed_uids) - 1 if failed_uids else max_uid
-            if synced_uid > (self.account.last_synced_uid or 0):
+            if max_uid > (self.account.last_synced_uid or 0):
                 EmailAccount.objects.filter(pk=self.account.pk).update(
-                    last_synced_uid=synced_uid
+                    last_synced_uid=max_uid
                 )
-                self.account.last_synced_uid = synced_uid
+                self.account.last_synced_uid = max_uid
 
             return fetched_emails
 

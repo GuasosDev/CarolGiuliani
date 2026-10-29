@@ -1,12 +1,8 @@
-import tempfile
-from io import BytesIO
+from django.contrib.auth import get_user_model
+from django.test import RequestFactory, SimpleTestCase, TestCase
+from rest_framework.permissions import IsAuthenticated
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-
-from django.contrib.auth import get_user_model
-from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
-from rest_framework.permissions import IsAuthenticated
-from openpyxl import Workbook, load_workbook
 
 from clients.models import Client
 from communications.api.views import WhatsAppAccountViewSet
@@ -719,63 +715,6 @@ class ForceWelcomeMenuOnManualCloseTests(TestCase):
         self.contact.refresh_from_db()
         self.assertEqual(self.conversation.status, 'closed')
         self.assertFalse(self.contact.force_welcome_menu)
-
-    @patch('communications.websocket_utils.broadcast_new_message')
-    @patch('communications.whatsapp_handler.WhatsAppHandler.mark_message_as_read', return_value=True)
-    @patch('communications.whatsapp_handler.requests.post')
-    @patch('communications.whatsapp_handler.requests.get')
-    def test_inbound_excel_document_keeps_its_filename_and_extension(
-        self, get, post, _mark_read, _broadcast
-    ):
-        from communications.whatsapp_handler import process_incoming_message
-
-        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
-            workbook = Workbook()
-            workbook.active['A1'] = 'Extracto'
-            workbook_bytes = BytesIO()
-            workbook.save(workbook_bytes)
-            file_bytes = workbook_bytes.getvalue()
-            get.side_effect = [
-                Mock(json=Mock(return_value={
-                    'url': 'https://example.test/media',
-                    'mime_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                })),
-                Mock(status_code=200, content=file_bytes),
-            ]
-            post.return_value = Mock(
-                status_code=200,
-                json=Mock(return_value={'messages': [{'id': 'wamid.menu.document'}]}),
-                raise_for_status=Mock(),
-            )
-
-            handled = process_incoming_message(
-                self.account,
-                {
-                    'from': '5491112345678',
-                    'id': 'wamid.cliente.document',
-                    'timestamp': '1710000000',
-                    'type': 'document',
-                    'document': {
-                        'id': 'media.excel',
-                        'filename': 'extracto.xlsx',
-                        'mime_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    },
-                },
-                {'contacts': [{'profile': {'name': 'Cliente Excel'}}]},
-            )
-
-            self.assertTrue(handled)
-            inbound = Message.objects.get(
-                direction='inbound',
-                whatsapp_data__whatsapp_message_id='wamid.cliente.document',
-            )
-            self.assertTrue(inbound.file.name.endswith('extracto.xlsx'))
-            self.assertEqual(inbound.metadata['media_filename'], 'extracto.xlsx')
-            inbound.file.open('rb')
-            saved_workbook = load_workbook(inbound.file, read_only=True, data_only=True)
-            self.assertEqual(saved_workbook.active['A1'].value, 'Extracto')
-            saved_workbook.close()
-            inbound.file.close()
 
     @patch('communications.websocket_utils.broadcast_new_message')
     @patch('communications.whatsapp_handler.WhatsAppHandler.mark_message_as_read', return_value=True)

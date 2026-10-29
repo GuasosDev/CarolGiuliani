@@ -92,9 +92,6 @@ if DB_ENGINE == 'django.db.backends.sqlite3':
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
-            'OPTIONS': {
-                'timeout': 30,
-            },
         }
     }
 else:
@@ -252,3 +249,4 @@ WHATSAPP_API_URL = 'https://graph.facebook.com'
 #WHATSAPP_BUSINESS_ACCOUNT_ID = '878482468292463'
 #WHATSAPP_BUSINESS_ACCESS_TOKEN = 'EAA8WnFukJkkBQrRGEZAbpDNrV5O0pM4ClBw0CRT8fDUflA5JEAjYIg8qdDlyqxgflDKyWyuJDcqgkQZAEnI8pQJC5Jc6k0PZAiyGNFw30k5ihMHb7zlikXZAn41rfDtFTR91r719CCjfc6g9BfCkk7uKN2ZAdxKxTvHKHOwVZCGVYq0KOz5xxGDUgvSEmeiLokkZABzbTGZCV0XcVY7MZCnxmb1GCIIeII8xCEmymCaNYRQN4ZAJWqUTIHVKKSBDSkQJZACQKRA9mnj8PNGwlI0wovkUylrq3wH7ZAJwH7Lz9AZDZD'
 #WHATSAPP_BUSINESS_WEBHOOK_VERIFY_TOKEN = 'GDSoftWebhookTest_2025'
+
