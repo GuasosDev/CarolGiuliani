@@ -8,7 +8,9 @@ from django.core.files.base import ContentFile
 import json
 import logging
 import io
+import mimetypes
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -22,6 +24,72 @@ from .models import (
 from .assignment_system import assign_conversation_to_agent
 
 logger = logging.getLogger(__name__)
+
+# MIME → extensión real. NO usar el subtipo tras "/" (Excel llega como
+# ...spreadsheetml.sheet → ".sheet" y Excel no lo abre).
+_MIME_EXTENSION_OVERRIDES = {
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'm4a',
+    'audio/ogg': 'ogg',
+    'audio/opus': 'opus',
+    'audio/webm': 'webm',
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'video/mp4': 'mp4',
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.ms-powerpoint': 'ppt',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+    'text/plain': 'txt',
+    'text/csv': 'csv',
+}
+
+
+def extension_from_mime(mime_type):
+    """Devuelve extensión sin punto a partir del MIME de Meta/WhatsApp."""
+    normalized = (mime_type or '').split(';', 1)[0].strip().lower()
+    if not normalized:
+        return 'bin'
+    if normalized in _MIME_EXTENSION_OVERRIDES:
+        return _MIME_EXTENSION_OVERRIDES[normalized]
+    guessed = mimetypes.guess_extension(normalized)
+    if guessed:
+        return guessed.lstrip('.')
+    if '/' in normalized:
+        subtype = normalized.rsplit('/', 1)[-1]
+        # Solo aceptar subtipos cortos tipo "pdf", "jpeg" — no "sheet" ni "vnd.*"
+        if subtype and len(subtype) <= 5 and subtype.isalnum():
+            return subtype
+    return 'bin'
+
+
+def safe_inbound_filename(raw_name, message_id, mime_type):
+    """
+    Nombre seguro para guardar el adjunto entrante.
+    Prioriza el filename de Meta; corrige extensión según MIME.
+    """
+    ext = extension_from_mime(mime_type)
+    bad_exts = {
+        'bin', 'sheet', 'document', 'msword', 'octet-stream',
+        'vnd.ms-excel', 'vnd.ms-powerpoint', 'plain',
+    }
+    base = os.path.basename((raw_name or '').strip()) if raw_name else ''
+    if base:
+        base = re.sub(r'[^\w.\- ()áéíóúÁÉÍÓÚüÜñÑ]+', '_', base, flags=re.UNICODE).strip(' ._')
+    if base and base not in ('.', '..'):
+        root, current_ext = os.path.splitext(base)
+        current_ext = current_ext.lstrip('.').lower()
+        if not root:
+            root = f'wa_{message_id}'
+        if not current_ext or current_ext in bad_exts:
+            return f'{root}.{ext}'[:180]
+        return f'{root}.{current_ext}'[:180]
+    return f'wa_{message_id}.{ext}'[:180]
 
 
 def normalize_phone_number(number):
@@ -456,6 +524,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         caption = None
         resolved_mime_type = None
         mime_type = None
+        original_filename = None
         
         if message_type == 'text':
             content = msg_data.get('text', {}).get('body', '')
@@ -465,6 +534,9 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             caption = media_data.get('caption', '')
             mime_type = media_data.get('mime_type')
             resolved_mime_type = mime_type
+            # Meta envía el nombre real en documentos (ej. extracto.xlsx)
+            if message_type == 'document':
+                original_filename = media_data.get('filename') or None
             content = caption or f"[{message_type.upper()}]"
         elif message_type == 'location':
             location = msg_data.get('location', {})
@@ -566,21 +638,14 @@ def process_incoming_message(whatsapp_account, msg_data, value):
 
                 if media_url:
                     # 2. Descargar archivo
-                    file_response = requests.get(media_url, headers=headers)
+                    file_response = requests.get(media_url, headers=headers, timeout=60)
 
                     if file_response.status_code == 200:
-                        extension = "bin"
-                        if normalized_mime:
-                            if normalized_mime == "audio/mpeg":
-                                extension = "mp3"
-                            elif normalized_mime == "audio/mp4":
-                                extension = "m4a"
-                            elif "/" in normalized_mime:
-                                extension = normalized_mime.split("/")[-1] or "bin"
+                        filename = safe_inbound_filename(
+                            original_filename, message_id, resolved_mime_type or normalized_mime
+                        )
 
-                        filename = f"wa_{message_id}.{extension}"
-
-                        # 3. Guardar en el modelo (ajustar campo si no es 'file')
+                        # 3. Guardar en el modelo
                         message.file.save(
                             filename,
                             ContentFile(file_response.content),
@@ -588,7 +653,24 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                         )
                         message.metadata['media_mime_type'] = resolved_mime_type or normalized_mime
                         message.metadata['media_url'] = media_url
+                        if original_filename:
+                            message.metadata['original_filename'] = os.path.basename(original_filename)
+                        else:
+                            message.metadata['original_filename'] = filename
                         message.save(update_fields=['metadata'])
+                    else:
+                        logger.error(
+                            "WhatsApp media download failed: status=%s media_id=%s",
+                            file_response.status_code,
+                            media_id,
+                        )
+                else:
+                    logger.error(
+                        "WhatsApp media URL missing for media_id=%s status=%s body=%s",
+                        media_id,
+                        media_response.status_code,
+                        str(media_json)[:300],
+                    )
 
             except Exception as e:
                 logger.error(f"Error downloading media: {str(e)}")

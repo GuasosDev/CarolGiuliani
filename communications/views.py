@@ -2030,10 +2030,22 @@ def download_attachments(request, conversation_id):
                     m.file.open('rb')
                     data = m.file.read()
                     m.file.close()
-                    fname = os.path.basename(getattr(m.file, 'name', '') or f'message_{m.id}_file')
-                    arcname = fname
+                    meta = m.metadata or {}
+                    fname = (
+                        meta.get('original_filename')
+                        or os.path.basename(getattr(m.file, 'name', '') or '')
+                        or f'message_{m.id}_file'
+                    )
+                    # Corregir extensiones rotas de Excel/Office (ej. .sheet)
+                    from .whatsapp_handler import extension_from_mime, safe_inbound_filename
+                    mime = meta.get('media_mime_type') or ''
+                    root, ext = os.path.splitext(fname)
+                    bad = {'.sheet', '.vnd.ms-excel', '.document', '.bin', '.msword'}
+                    if ext.lower() in bad and mime:
+                        fname = safe_inbound_filename(fname, m.id, mime)
+                    arcname = os.path.basename(fname)
                     if arcname in zf.namelist():
-                        arcname = f"message_{m.id}_{fname}"
+                        arcname = f"message_{m.id}_{arcname}"
                     zf.writestr(arcname, data)
                 except Exception:
                     continue
