@@ -224,7 +224,7 @@ class WhatsAppHandler:
                     conversation=conversation,
                     message_type='whatsapp',
                     direction='outbound',
-                    content=caption or f"[{media_type.upper()}]",
+                    content=(caption or '').strip(),
                     sender=sender_user,
                     metadata={'to': to_number, 'media_type': media_type}
                 )
@@ -537,7 +537,8 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             # Meta envía el nombre real en documentos (ej. extracto.xlsx)
             if message_type == 'document':
                 original_filename = media_data.get('filename') or None
-            content = caption or f"[{message_type.upper()}]"
+            # Sin caption: no guardar "[DOCUMENT]" (queda feo junto al adjunto)
+            content = (caption or '').strip()
         elif message_type == 'location':
             location = msg_data.get('location', {})
             content = f"Location: {location.get('latitude')}, {location.get('longitude')}"

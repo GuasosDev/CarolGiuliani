@@ -187,12 +187,22 @@
 
                             {% else %}
 
+                            {# Ocultar placeholders tipo [DOCUMENT]/[IMAGE] si ya hay adjunto #}
+                            {% if m.render_content and m.render_content != "[DOCUMENT]" and m.render_content != "[IMAGE]" and m.render_content != "[AUDIO]" and m.render_content != "[VIDEO]" and m.render_content != "[STICKER]" %}
                             <div class="msg-bubble text-break pt-1 d-inline-block text-start"
                                 onclick="onChatMessageClick(event, {{ m.id }})">
 
                                 {{ m.render_content|safe }}
 
                             </div>
+                            {% elif not m.file %}
+                            <div class="msg-bubble text-break pt-1 d-inline-block text-start"
+                                onclick="onChatMessageClick(event, {{ m.id }})">
+
+                                {{ m.render_content|safe }}
+
+                            </div>
+                            {% endif %}
 
                             {% endif %}
                                       
