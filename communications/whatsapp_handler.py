@@ -456,6 +456,7 @@ def process_incoming_message(whatsapp_account, msg_data, value):
         caption = None
         resolved_mime_type = None
         mime_type = None
+        original_filename = None
         
         if message_type == 'text':
             content = msg_data.get('text', {}).get('body', '')
@@ -465,6 +466,10 @@ def process_incoming_message(whatsapp_account, msg_data, value):
             caption = media_data.get('caption', '')
             mime_type = media_data.get('mime_type')
             resolved_mime_type = mime_type
+            if message_type == 'document':
+                original_filename = os.path.basename(
+                    str(media_data.get('filename') or '').replace('\\', '/')
+                ).strip()
             content = caption or f"[{message_type.upper()}]"
         elif message_type == 'location':
             location = msg_data.get('location', {})
@@ -571,14 +576,18 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                     if file_response.status_code == 200:
                         extension = "bin"
                         if normalized_mime:
-                            if normalized_mime == "audio/mpeg":
+                            if normalized_mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                                extension = "xlsx"
+                            elif normalized_mime == "application/vnd.ms-excel":
+                                extension = "xls"
+                            elif normalized_mime == "audio/mpeg":
                                 extension = "mp3"
                             elif normalized_mime == "audio/mp4":
                                 extension = "m4a"
                             elif "/" in normalized_mime:
                                 extension = normalized_mime.split("/")[-1] or "bin"
 
-                        filename = f"wa_{message_id}.{extension}"
+                        filename = original_filename or f"wa_{message_id}.{extension}"
 
                         # 3. Guardar en el modelo (ajustar campo si no es 'file')
                         message.file.save(
@@ -588,6 +597,10 @@ def process_incoming_message(whatsapp_account, msg_data, value):
                         )
                         message.metadata['media_mime_type'] = resolved_mime_type or normalized_mime
                         message.metadata['media_url'] = media_url
+                        if original_filename:
+                            message.metadata['media_filename'] = os.path.basename(
+                                str(message.file.name).replace('\\', '/')
+                            )
                         message.save(update_fields=['metadata'])
 
             except Exception as e:

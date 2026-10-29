@@ -1,3 +1,6 @@
+from email.message import Message as MIMEMessage
+from unittest.mock import Mock, patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -145,6 +148,37 @@ class MailboxAssignmentTest(TestCase):
         self.assertEqual(result.id, conv.id)
         result.refresh_from_db()
         self.assertEqual(result.assigned_to_id, self.user_a.id)
+
+    def test_sync_cursor_stops_before_an_email_that_failed_to_save(self):
+        self.account_a.last_synced_uid = 10
+        self.account_a.save(update_fields=['last_synced_uid'])
+
+        imap_connection = Mock()
+        imap_connection.list.return_value = ('OK', [])
+        imap_connection.select.return_value = ('OK', [])
+        imap_connection.uid.side_effect = [
+            ('OK', [b'11 12 13']),
+            ('OK', [(b'13 FETCH', b'raw email')]),
+            ('OK', [(b'12 FETCH', b'raw email')]),
+            ('OK', [(b'11 FETCH', b'raw email')]),
+        ]
+
+        with patch.object(self.handler, 'connect_imap', return_value=True):
+            with patch.object(self.handler, 'disconnect'):
+                with patch(
+                    'communications.email_handler.email.message_from_bytes',
+                    return_value=MIMEMessage(),
+                ):
+                    with patch.object(
+                        self.handler,
+                        'process_incoming_email',
+                        side_effect=[object(), None, object()],
+                    ):
+                        self.handler.imap_connection = imap_connection
+                        self.handler.fetch_new_emails()
+
+        self.account_a.refresh_from_db()
+        self.assertEqual(self.account_a.last_synced_uid, 11)
 
     def test_manual_derive_still_works(self):
         conv = Conversation.objects.create(
