@@ -27,7 +27,8 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = False
+#EBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = ['carolgiuliani.online', 'localhost', '127.0.0.1']
 
@@ -95,7 +96,7 @@ if DB_ENGINE == 'django.db.backends.sqlite3':
         }
     }
 else:
-    DATABASES = {
+    """DATABASES = {
         'default': {
             'ENGINE': DB_ENGINE,
             'NAME': os.environ.get('DB_NAME', ''),
@@ -104,8 +105,17 @@ else:
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '5432'),
         }
+    }"""
+        DATABASES = {
+        'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'gd360db',
+        'USER': 'django-admin-360',
+        'PASSWORD': 'Mastodon/2026',
+        'HOST': 'localhost',
+        'PORT': '3306',
     }
-
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
