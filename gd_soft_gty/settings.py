@@ -27,7 +27,7 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 #EBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = ['carolgiuliani.online', 'localhost', '127.0.0.1']
@@ -106,7 +106,7 @@ else:
             'PORT': os.environ.get('DB_PORT', '5432'),
         }
     }"""
-        DATABASES = {
+    DATABASES = {
         'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'gd360db',

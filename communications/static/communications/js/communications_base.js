@@ -131,6 +131,9 @@
         }).then(function (r) {
             if (!r.ok) { alert('No se pudo marcar como no leido.'); return; }
             commMailRefreshList();
+            if (typeof window.commRefreshUnreadDots === 'function') {
+                window.commRefreshUnreadDots();
+            }
         }).catch(function () { alert('Error de red.'); });
     };
 
@@ -144,8 +147,54 @@
         }).then(function (r) {
             if (!r.ok) { alert('No se pudo marcar como leido.'); return; }
             commMailRefreshList();
+            if (typeof window.commRefreshUnreadDots === 'function') {
+                window.commRefreshUnreadDots();
+            }
         }).catch(function () { alert('Error de red.'); });
     };
+})();
+
+(function () {
+    /** Punto rojo WP/Mail: solo booleano, poll liviano cada 60s */
+    var pollTimer = null;
+
+    function flagsUrl() {
+        var el = document.getElementById('comm-mail-config');
+        return el ? (el.dataset.unreadFlagsUrl || '') : '';
+    }
+
+    function applyFlags(data) {
+        if (!data) return;
+        var wa = document.querySelector('[data-comm-unread-dot="whatsapp"]');
+        var em = document.querySelector('[data-comm-unread-dot="email"]');
+        if (wa) wa.classList.toggle('is-on', !!data.whatsapp_has_unread);
+        if (em) em.classList.toggle('is-on', !!data.email_has_unread);
+    }
+
+    function refreshUnreadDots() {
+        var url = flagsUrl();
+        if (!url) return;
+        fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(applyFlags)
+            .catch(function () {});
+    }
+
+    window.commRefreshUnreadDots = refreshUnreadDots;
+
+    function startPoll() {
+        if (pollTimer) return;
+        pollTimer = window.setInterval(refreshUnreadDots, 60000);
+    }
+
+    document.body.addEventListener('commRefreshUnreadDots', refreshUnreadDots);
+
+    if (document.querySelector('[data-comm-unread-dot]')) {
+        startPoll();
+    }
 })();
 
 (function () {

@@ -17,6 +17,7 @@ urlpatterns = [
     
     # Web interface URLs
     path('', views.dashboard, name='dashboard'),
+    path('unread-flags/', views.unread_channel_flags, name='unread_channel_flags'),
     path('client/<int:client_id>/whatsapp/<str:channel>/', open_client_whatsapp, name='open_client_whatsapp'),
     path(
     'search-clients-whatsapp/',

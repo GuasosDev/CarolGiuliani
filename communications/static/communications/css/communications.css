@@ -308,6 +308,24 @@ body {
     color: #333;
 }
 
+.sidebar-icon-btn .sidebar-unread-dot {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #dc3545;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.25);
+    display: none;
+    pointer-events: none;
+}
+
+.sidebar-icon-btn .sidebar-unread-dot.is-on {
+    display: block;
+}
+
 .sidebar-icon-btn:hover {
     background-color: #f8f9fa;
     border-color: #adb5bd;

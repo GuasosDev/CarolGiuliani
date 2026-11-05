@@ -866,10 +866,64 @@ def dashboard(request):
         'search_q': search_q,
         'search_scope': search_scope,
         'user_email_signature': EmailSignature.get_default_for(request.user),
-        **counts 
+        **counts,
+        **_get_unread_channel_flags(request.user),
     }
 
     return render(request, 'communications/dashboard.html', context)
+
+
+def _clear_unread_channel_flags_cache(user):
+    """Invalida el cache del punto rojo (WP/Mail) para este usuario."""
+    try:
+        cache.delete(f'unread_flags_{user.id}')
+    except Exception:
+        pass
+
+
+def _get_unread_channel_flags(user):
+    """
+    Flags livianos: ¿hay al menos 1 sin leer en WP / Mail?
+    Usa EXISTS (no COUNT) + cache corto para no reintroducir lentitud.
+    """
+    cache_key = f'unread_flags_{user.id}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    base_qs = get_agent_conversations(user)
+    user_email_account = _get_user_email_account(user)
+
+    unread_msg = Message.objects.filter(
+        conversation_id=OuterRef('pk'),
+        direction='inbound',
+        is_read=False,
+    )
+
+    wa_qs = base_qs.filter(channel='whatsapp').filter(
+        Q(marked_unread=True) | Exists(unread_msg)
+    )
+
+    if user_email_account:
+        allowed_email_ids = EmailMessage.objects.filter(
+            email_account=user_email_account
+        ).values_list('message__conversation_id', flat=True)
+        email_qs = base_qs.filter(
+            channel='email',
+            id__in=allowed_email_ids,
+        ).filter(
+            Q(marked_unread=True) | Exists(unread_msg)
+        )
+        email_has_unread = email_qs.exists()
+    else:
+        email_has_unread = False
+
+    flags = {
+        'whatsapp_has_unread': wa_qs.exists(),
+        'email_has_unread': email_has_unread,
+    }
+    cache.set(cache_key, flags, 45)
+    return flags
 
 
 def _get_conversation_counts(user, channel=None):
@@ -1205,6 +1259,7 @@ def internal_chat(request):
     mention_users = [_internal_chat_mention_user(user) for user in users]
     return render(request, 'communications/internal_chat.html', {
         **counts,
+        **_get_unread_channel_flags(request.user),
         'current_channel': 'internal',
         'mention_users': mention_users,
     })
@@ -1523,12 +1578,21 @@ def mark_conversation_unread(request, pk):
             return HttpResponse('Unauthorized', status=403)
     conversation.messages.filter(direction='inbound').update(is_read=False, read_at=None)
     Conversation.objects.filter(pk=conversation.pk).update(marked_unread=True)
+    _clear_unread_channel_flags_cache(request.user)
     response = HttpResponse(status=204)
     response['HX-Trigger'] = json.dumps({
         'commRefreshConversationList': True,
         'commCloseConversationDetail': True,
+        'commRefreshUnreadDots': True,
     })
     return response
+
+
+@login_required
+@require_http_methods(["GET"])
+def unread_channel_flags(request):
+    """JSON liviano para el punto rojo del sidebar (WP / Mail)."""
+    return JsonResponse(_get_unread_channel_flags(request.user))
 
 
 @login_required
@@ -1547,8 +1611,12 @@ def mark_conversation_read(request, pk):
             return HttpResponse('Unauthorized', status=403)
     conversation.messages.filter(direction='inbound').update(is_read=True, read_at=timezone.now())
     Conversation.objects.filter(pk=conversation.pk).update(marked_unread=False)
+    _clear_unread_channel_flags_cache(request.user)
     response = HttpResponse(status=204)
-    response['HX-Trigger'] = json.dumps({'commRefreshConversationList': True})
+    response['HX-Trigger'] = json.dumps({
+        'commRefreshConversationList': True,
+        'commRefreshUnreadDots': True,
+    })
     return response
 
 
@@ -1591,6 +1659,7 @@ def conversation_detail(request, pk):
         )
         Conversation.objects.filter(pk=conversation.pk).update(marked_unread=False)
         conversation.marked_unread = False
+        _clear_unread_channel_flags_cache(request.user)
 
         messages = list(
             conversation.messages.select_related('sender', 'email_data')
@@ -1789,7 +1858,10 @@ def conversation_detail(request, pk):
         if request.headers.get('HX-Request') or request.META.get('HTTP_HX_REQUEST') or 'partial' in request.GET:
             response = render(request, 'communications/partials/conversation_content.html', context)
             # Al abrir el hilo ya quedó leído: pedir refresh de la lista (quita "Nuevo"/negrita)
-            response['HX-Trigger'] = json.dumps({'commRefreshConversationList': True})
+            response['HX-Trigger'] = json.dumps({
+                'commRefreshConversationList': True,
+                'commRefreshUnreadDots': True,
+            })
             return response
         
         return render(request, 'communications/conversation_detail.html', context)
@@ -1871,6 +1943,7 @@ def email_message_detail(request, pk):
 
     if email_message.message.direction == 'inbound' and not email_message.message.is_read:
         Message.objects.filter(pk=email_message.message.pk).update(is_read=True, read_at=timezone.now())
+        _clear_unread_channel_flags_cache(request.user)
 
     conversation.subject = email_message.subject
 
@@ -1981,7 +2054,12 @@ def email_message_detail(request, pk):
          #**counts,
     }
 
-    return render(request, 'communications/partials/conversation_content.html', context)
+    response = render(request, 'communications/partials/conversation_content.html', context)
+    response['HX-Trigger'] = json.dumps({
+        'commRefreshConversationList': True,
+        'commRefreshUnreadDots': True,
+    })
+    return response
 
 
 @login_required

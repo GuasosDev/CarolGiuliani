@@ -10,6 +10,7 @@
      data-change-status-template="{% url 'communications:change_conversation_status' 999999 %}"
      data-mark-unread-template="{% url 'communications:mark_conversation_unread' 999999 %}"
      data-mark-read-template="{% url 'communications:mark_conversation_read' 999999 %}"
+     data-unread-flags-url="{% url 'communications:unread_channel_flags' %}"
      data-draft-save-url="{% url 'communications:email_draft_save' %}"
      data-draft-current-url="{% url 'communications:email_draft_current' %}"
      data-draft-detail-template="{% url 'communications:email_draft_detail' 999999 %}"
@@ -92,7 +93,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}?v=wa-search-1">
+<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}?v=unread-dot-1">
 <link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}?v=wa-expand-modal-1">
 {% block comm_css %}{% endblock %}
 {% endblock %}
@@ -135,22 +136,28 @@
 
         <!-- WhatsApp -->
         <a href="{% url 'communications:dashboard' %}?channel=whatsapp" 
-           class="sidebar-icon-btn {% if current_channel == 'whatsapp' %}active{% endif %}" title="WhatsApp">
+           class="sidebar-icon-btn {% if current_channel == 'whatsapp' %}active{% endif %}"
+           data-comm-channel="whatsapp"
+           title="WhatsApp">
             <i class="fab fa-whatsapp" style="color: #25D366;"></i>
             <span>WhatsApp</span>
-            {% if whatsapp_count > 0 %}
-            <span class="sidebar-badge">{{ whatsapp_count }}</span>
-            {% endif %}
+            <span class="sidebar-unread-dot{% if whatsapp_has_unread %} is-on{% endif %}"
+                  data-comm-unread-dot="whatsapp"
+                  title="Hay conversaciones sin leer"
+                  aria-hidden="true"></span>
         </a>
 
         <!-- Email -->
         <a href="{% url 'communications:dashboard' %}?channel=email" 
-           class="sidebar-icon-btn {% if current_channel == 'email' %}active{% endif %}" title="Email">
+           class="sidebar-icon-btn {% if current_channel == 'email' %}active{% endif %}"
+           data-comm-channel="email"
+           title="Email">
             <i class="fas fa-envelope" style="color: #0d6efd;"></i>
             <span>Email</span>
-            {% if email_count > 0 %}
-            <span class="sidebar-badge">{{ email_count }}</span>
-            {% endif %}
+            <span class="sidebar-unread-dot{% if email_has_unread %} is-on{% endif %}"
+                  data-comm-unread-dot="email"
+                  title="Hay correos sin leer"
+                  aria-hidden="true"></span>
         </a>
 
         <!-- Multicanal -->
@@ -384,7 +391,7 @@
 <script src="{% static 'communications/js/email_global_attach.js' %}?v=attach-chips-1"></script>
 <script src="{% static 'communications/js/email_drafts.js' %}?v=4"></script>
 <script src="{% static 'communications/js/comm_notify.js' %}?v=notify-tones-4"></script>
-<script src="{% static 'communications/js/communications_base.js' %}?v=notify-tones-4"></script>
+<script src="{% static 'communications/js/communications_base.js' %}?v=unread-dot-1"></script>
 
 {% block comm_js %}{% endblock %}
 {% endblock %}
