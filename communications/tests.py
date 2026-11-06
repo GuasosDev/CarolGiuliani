@@ -30,7 +30,7 @@ from communications.utils.email_threading import (
 )
 from communications.utils.html_cleaner import email_html_to_text, limpiar_email_html
 from communications.whatsapp_handler import _has_unanswered_template
-from communications.views import _render_internal_chat_content
+from communications.views import _render_internal_chat_content, _unread_flags_for_dashboard
 
 User = get_user_model()
 
@@ -899,3 +899,39 @@ class ForceWelcomeMenuOnManualCloseTests(TestCase):
         )
         self.assertEqual(handler.sent, [])
         self.assertTrue(ContactMenuState.objects.filter(contact=self.contact).exists())
+
+
+class SidebarUnreadDotTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('admin_dot', 'admin_dot@example.com', 'pass')
+        self.client_obj = Client.objects.create(name='Martin', email='martin@example.com')
+        self.contact = Contact.objects.create(
+            client=self.client_obj,
+            preferred_channel='whatsapp',
+            whatsapp_number='5491112345678',
+        )
+        self.conversation = Conversation.objects.create(
+            contact=self.contact,
+            channel='whatsapp',
+            status='normal',
+        )
+        Message.objects.create(
+            conversation=self.conversation,
+            message_type='whatsapp',
+            direction='inbound',
+            content='Hola',
+            is_read=False,
+        )
+
+    def test_whatsapp_dashboard_renders_red_dot_when_list_shows_nuevo(self):
+        self.client.force_login(self.admin)
+        response = self.client.get('/communications/?channel=whatsapp')
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('comm-unread-pill', html)
+        self.assertIn('has-channel-unread', html)
+        self.assertIn('data-comm-unread-dot="whatsapp"', html)
+        self.assertIn('background:#e11d48', html)
+        self.assertIn('syncUnreadDotsFromList', html)
+        flags = _unread_flags_for_dashboard(self.admin, 'whatsapp', response.context['conversations'])
+        self.assertTrue(flags['whatsapp_has_unread'])

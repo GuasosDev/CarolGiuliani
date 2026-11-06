@@ -93,7 +93,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}?v=unread-dot-4">
+<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}?v=unread-dot-5">
 <link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}?v=wa-expand-modal-1">
 {% block comm_css %}{% endblock %}
 {% endblock %}
@@ -143,7 +143,7 @@
             <span>WhatsApp</span>
             <span class="sidebar-unread-dot{% if whatsapp_has_unread %} is-on{% endif %}"
                   data-comm-unread-dot="whatsapp"
-                  {% if whatsapp_has_unread %}style="display:block;position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;background:#e11d48;border:2px solid #fff;z-index:30;"{% endif %}
+                  {% if whatsapp_has_unread %}style="display:block !important;position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;background:#e11d48;border:2px solid #fff;z-index:80;"{% endif %}
                   title="Hay conversaciones sin leer"
                   aria-hidden="true"></span>
         </a>
@@ -157,7 +157,7 @@
             <span>Email</span>
             <span class="sidebar-unread-dot{% if email_has_unread %} is-on{% endif %}"
                   data-comm-unread-dot="email"
-                  {% if email_has_unread %}style="display:block;position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;background:#e11d48;border:2px solid #fff;z-index:30;"{% endif %}
+                  {% if email_has_unread %}style="display:block !important;position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;background:#e11d48;border:2px solid #fff;z-index:80;"{% endif %}
                   title="Hay correos sin leer"
                   aria-hidden="true"></span>
         </a>
@@ -393,7 +393,50 @@
 <script src="{% static 'communications/js/email_global_attach.js' %}?v=attach-chips-1"></script>
 <script src="{% static 'communications/js/email_drafts.js' %}?v=4"></script>
 <script src="{% static 'communications/js/comm_notify.js' %}?v=notify-tones-4"></script>
-<script src="{% static 'communications/js/communications_base.js' %}?v=unread-dot-4"></script>
+<script src="{% static 'communications/js/communications_base.js' %}?v=unread-dot-5"></script>
+<script>
+(function () {
+    function paintChannelDot(channel) {
+        var el = document.querySelector('[data-comm-unread-dot="' + channel + '"]');
+        if (!el) return;
+        el.classList.add('is-on');
+        var btn = el.closest('.sidebar-icon-btn');
+        if (btn) btn.classList.add('has-channel-unread');
+        ['display', 'position', 'top', 'right', 'width', 'height', 'border-radius', 'background', 'border', 'z-index', 'pointer-events'].forEach(function (prop) {
+            var values = {
+                display: 'block',
+                position: 'absolute',
+                top: '3px',
+                right: '3px',
+                width: '14px',
+                height: '14px',
+                'border-radius': '50%',
+                background: '#e11d48',
+                border: '2px solid #fff',
+                'z-index': '80',
+                'pointer-events': 'none'
+            };
+            el.style.setProperty(prop, values[prop], 'important');
+        });
+    }
+    function syncUnreadDotsFromList() {
+        var dash = document.querySelector('[data-comm-dashboard]');
+        var channel = dash ? (dash.getAttribute('data-current-channel') || '') : '';
+        if (channel !== 'whatsapp' && channel !== 'email') return;
+        var unread = document.querySelector(
+            '#dashboard-conversations-container .comm-unread-pill, #dashboard-conversations-container .conversation-item.has-unread, #dashboard-conversations-container .comm-email-subject.unread'
+        );
+        if (unread) paintChannelDot(channel);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncUnreadDotsFromList);
+    } else {
+        syncUnreadDotsFromList();
+    }
+    document.body.addEventListener('htmx:afterSwap', syncUnreadDotsFromList);
+    document.body.addEventListener('htmx:afterSettle', syncUnreadDotsFromList);
+})();
+</script>
 
 {% block comm_js %}{% endblock %}
 {% endblock %}

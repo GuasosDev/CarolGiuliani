@@ -168,28 +168,27 @@
         el.classList.toggle('is-on', !!on);
         var btn = el.closest ? el.closest('.sidebar-icon-btn') : null;
         if (btn) btn.classList.toggle('has-channel-unread', !!on);
-        if (on) {
-            el.style.cssText = [
-                'display:block',
-                'position:absolute',
-                'top:4px',
-                'right:4px',
-                'width:12px',
-                'height:12px',
-                'min-width:12px',
-                'min-height:12px',
-                'margin:0',
-                'padding:0',
-                'border-radius:50%',
-                'background:#e11d48',
-                'border:2px solid #fff',
-                'box-shadow:0 0 0 1px #e11d48',
-                'z-index:30',
-                'pointer-events:none'
-            ].join(';');
-        } else {
-            el.style.display = 'none';
-        }
+        var props = {
+            display: on ? 'block' : 'none',
+            position: 'absolute',
+            top: '3px',
+            right: '3px',
+            width: '14px',
+            height: '14px',
+            'min-width': '14px',
+            'min-height': '14px',
+            margin: '0',
+            padding: '0',
+            'border-radius': '50%',
+            background: '#e11d48',
+            border: '2px solid #fff',
+            'box-shadow': '0 0 0 1px #e11d48',
+            'z-index': '80',
+            'pointer-events': 'none'
+        };
+        Object.keys(props).forEach(function (prop) {
+            el.style.setProperty(prop, props[prop], 'important');
+        });
     }
 
     function applyFlags(data) {
