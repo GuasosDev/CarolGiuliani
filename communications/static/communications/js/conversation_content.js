@@ -1144,6 +1144,11 @@
         if (tpl === 'saludo_personalizado') {
             var txt = (document.querySelector('[name="wa_body_param_0"]') || {}).value || '';
             preview.textContent = 'Hola ' + (txt.trim() || '{{1}}') + '\n\nSaludos.\nEstudio Carol G.';
+            return;
+        }
+        if (tpl === 'adjunto_con_mensaje') {
+            var nm = (document.querySelector('[name="wa_body_param_0"]') || {}).value || '';
+            preview.textContent = 'Hola ' + (nm.trim() || '{{1}}') + ',\n\nEnvio el adjunto.\n\nEstudio Carol Giuliani';
         }
     };
 
@@ -1299,6 +1304,21 @@
                     '<div class="mt-3"><div class="form-text">Vista previa</div><div class="border rounded p-2 small bg-light" id="waTemplateDynamicPreview" style="white-space: pre-wrap;"></div></div>';
                 var txt = document.querySelector('[name="wa_body_param_0"]');
                 if (txt) txt.addEventListener('input', window.updateWaTemplateDynamicPreview);
+                window.updateWaTemplateDynamicPreview();
+                return;
+            }
+            if (templateName === 'adjunto_con_mensaje') {
+                paramsWrap.innerHTML += '<div class="mb-2"><label class="form-label fw-bold mb-1">Cliente</label>' +
+                    '<input type="text" class="form-control" name="wa_body_param_0" id="waTemplateClientNameInput" placeholder="Nombre del cliente"></div>' +
+                    '<div class="mt-3"><div class="form-text">Vista previa</div><div class="border rounded p-2 small bg-light" id="waTemplateDynamicPreview" style="white-space: pre-wrap;"></div></div>';
+                var clientNameInput = document.getElementById('waTemplateClientNameInput');
+                if (clientNameInput && !clientNameInput.value) clientNameInput.value = cfg('displayName') || '';
+                if (clientNameInput) clientNameInput.addEventListener('input', window.updateWaTemplateDynamicPreview);
+                var presetHeaderInput = document.getElementById('waTemplateHeaderFile');
+                if (presetHeaderInput && !presetHeaderInput.dataset.previewBound) {
+                    presetHeaderInput.dataset.previewBound = '1';
+                    presetHeaderInput.addEventListener('change', window.updateWaTemplateDynamicPreview);
+                }
                 window.updateWaTemplateDynamicPreview();
                 return;
             }
