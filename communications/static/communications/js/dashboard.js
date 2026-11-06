@@ -482,6 +482,9 @@
             restoreSelectionFromUrl(false);
             // Por si el HTML vino con "no leído" viejo: el chat abierto ya está leído
             markListItemReadVisual();
+            if (typeof window.commRefreshUnreadDots === 'function') {
+                window.commRefreshUnreadDots();
+            }
             return;
         }
 

@@ -884,13 +884,9 @@ def _clear_unread_channel_flags_cache(user):
 def _get_unread_channel_flags(user):
     """
     Flags livianos: ¿hay al menos 1 sin leer en WP / Mail?
-    Usa EXISTS (no COUNT) + cache corto para no reintroducir lentitud.
+    EXISTS, sin COUNT y sin cache: un cache viejo dejaba el punto apagado
+    mientras la lista ya mostraba "Nuevo".
     """
-    cache_key = f'unread_flags_{user.id}'
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-
     base_qs = get_agent_conversations(user)
     user_email_account = _get_user_email_account(user)
 
@@ -918,12 +914,10 @@ def _get_unread_channel_flags(user):
     else:
         email_has_unread = False
 
-    flags = {
+    return {
         'whatsapp_has_unread': wa_qs.exists(),
         'email_has_unread': email_has_unread,
     }
-    cache.set(cache_key, flags, 45)
-    return flags
 
 
 def _get_conversation_counts(user, channel=None):

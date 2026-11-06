@@ -310,20 +310,30 @@ body {
 
 .sidebar-icon-btn .sidebar-unread-dot {
     position: absolute;
-    top: 6px;
-    right: 8px;
-    width: 9px;
-    height: 9px;
+    top: 5px;
+    right: 5px;
+    width: 11px;
+    height: 11px;
+    min-width: 11px;
+    min-height: 11px;
+    margin: 0;
+    padding: 0;
     border-radius: 50%;
     background: #dc3545;
-    border: 1.5px solid #fff;
-    box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.25);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #dc3545;
     display: none;
+    z-index: 4;
     pointer-events: none;
+    font-size: 0 !important;
+    font-weight: 400;
+    line-height: 0;
+    text-transform: none;
+    letter-spacing: 0;
 }
 
 .sidebar-icon-btn .sidebar-unread-dot.is-on {
-    display: block;
+    display: block !important;
 }
 
 .sidebar-icon-btn:hover {
