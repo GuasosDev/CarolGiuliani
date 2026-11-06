@@ -166,6 +166,8 @@
     function paintDot(el, on) {
         if (!el) return;
         el.classList.toggle('is-on', !!on);
+        var btn = el.closest ? el.closest('.sidebar-icon-btn') : null;
+        if (btn) btn.classList.toggle('has-channel-unread', !!on);
         if (on) {
             el.style.cssText = [
                 'display:block',

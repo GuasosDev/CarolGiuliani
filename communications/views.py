@@ -867,7 +867,7 @@ def dashboard(request):
         'search_scope': search_scope,
         'user_email_signature': EmailSignature.get_default_for(request.user),
         **counts,
-        **_get_unread_channel_flags(request.user),
+        **_unread_flags_for_dashboard(request.user, channel_filter, conversations),
     }
 
     return render(request, 'communications/dashboard.html', context)
@@ -879,6 +879,34 @@ def _clear_unread_channel_flags_cache(user):
         cache.delete(f'unread_flags_{user.id}')
     except Exception:
         pass
+
+
+def _visible_list_has_unread(conversations):
+    """True si la página que se está viendo tiene alguna fila Nuevo."""
+    rows = getattr(conversations, 'object_list', conversations)
+    try:
+        iterator = list(rows or [])
+    except TypeError:
+        return False
+    for conv in iterator:
+        if getattr(conv, 'marked_unread', False) or getattr(conv, 'has_unread_inbound', False):
+            return True
+    return False
+
+
+def _unread_flags_for_dashboard(user, channel_filter, conversations):
+    """
+    Admin y supervisor: cualquier chat sin leer.
+    Agente: los suyos y los sin asignar.
+    Si la lista visible ya muestra Nuevo, el ícono se enciende igual.
+    """
+    flags = _get_unread_channel_flags(user)
+    if _visible_list_has_unread(conversations):
+        if channel_filter == 'whatsapp':
+            flags['whatsapp_has_unread'] = True
+        elif channel_filter == 'email':
+            flags['email_has_unread'] = True
+    return flags
 
 
 def _get_unread_channel_flags(user):

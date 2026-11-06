@@ -276,9 +276,25 @@ body {
     color: #6c757d;
     margin-bottom: 12px;
     position: relative;
+    overflow: visible;
     transition: all 0.2s ease;
     background-color: #fff;
     flex-shrink: 0;
+}
+
+.sidebar-icon-btn.has-channel-unread::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #e11d48;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #e11d48;
+    z-index: 40;
+    pointer-events: none;
 }
 
 .sidebar-icon-btn i {

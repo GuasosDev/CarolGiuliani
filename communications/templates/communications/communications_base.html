@@ -93,7 +93,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}?v=unread-dot-2">
+<link rel="stylesheet" href="{% static 'communications/css/communications.css' %}?v=unread-dot-4">
 <link rel="stylesheet" href="{% static 'communications/css/communications_inline_moved.css' %}?v=wa-expand-modal-1">
 {% block comm_css %}{% endblock %}
 {% endblock %}
@@ -136,7 +136,7 @@
 
         <!-- WhatsApp -->
         <a href="{% url 'communications:dashboard' %}?channel=whatsapp" 
-           class="sidebar-icon-btn {% if current_channel == 'whatsapp' %}active{% endif %}"
+           class="sidebar-icon-btn {% if current_channel == 'whatsapp' %}active{% endif %}{% if whatsapp_has_unread %} has-channel-unread{% endif %}"
            data-comm-channel="whatsapp"
            title="WhatsApp">
             <i class="fab fa-whatsapp" style="color: #25D366;"></i>
@@ -150,7 +150,7 @@
 
         <!-- Email -->
         <a href="{% url 'communications:dashboard' %}?channel=email" 
-           class="sidebar-icon-btn {% if current_channel == 'email' %}active{% endif %}"
+           class="sidebar-icon-btn {% if current_channel == 'email' %}active{% endif %}{% if email_has_unread %} has-channel-unread{% endif %}"
            data-comm-channel="email"
            title="Email">
             <i class="fas fa-envelope" style="color: #0d6efd;"></i>
@@ -393,7 +393,7 @@
 <script src="{% static 'communications/js/email_global_attach.js' %}?v=attach-chips-1"></script>
 <script src="{% static 'communications/js/email_drafts.js' %}?v=4"></script>
 <script src="{% static 'communications/js/comm_notify.js' %}?v=notify-tones-4"></script>
-<script src="{% static 'communications/js/communications_base.js' %}?v=unread-dot-3"></script>
+<script src="{% static 'communications/js/communications_base.js' %}?v=unread-dot-4"></script>
 
 {% block comm_js %}{% endblock %}
 {% endblock %}
