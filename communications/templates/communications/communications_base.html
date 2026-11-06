@@ -143,6 +143,7 @@
             <span>WhatsApp</span>
             <span class="sidebar-unread-dot{% if whatsapp_has_unread %} is-on{% endif %}"
                   data-comm-unread-dot="whatsapp"
+                  {% if whatsapp_has_unread %}style="display:block;position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;background:#e11d48;border:2px solid #fff;z-index:30;"{% endif %}
                   title="Hay conversaciones sin leer"
                   aria-hidden="true"></span>
         </a>
@@ -156,6 +157,7 @@
             <span>Email</span>
             <span class="sidebar-unread-dot{% if email_has_unread %} is-on{% endif %}"
                   data-comm-unread-dot="email"
+                  {% if email_has_unread %}style="display:block;position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;background:#e11d48;border:2px solid #fff;z-index:30;"{% endif %}
                   title="Hay correos sin leer"
                   aria-hidden="true"></span>
         </a>
@@ -391,7 +393,7 @@
 <script src="{% static 'communications/js/email_global_attach.js' %}?v=attach-chips-1"></script>
 <script src="{% static 'communications/js/email_drafts.js' %}?v=4"></script>
 <script src="{% static 'communications/js/comm_notify.js' %}?v=notify-tones-4"></script>
-<script src="{% static 'communications/js/communications_base.js' %}?v=unread-dot-1"></script>
+<script src="{% static 'communications/js/communications_base.js' %}?v=unread-dot-3"></script>
 
 {% block comm_js %}{% endblock %}
 {% endblock %}

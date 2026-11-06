@@ -163,12 +163,49 @@
         return el ? (el.dataset.unreadFlagsUrl || '') : '';
     }
 
+    function paintDot(el, on) {
+        if (!el) return;
+        el.classList.toggle('is-on', !!on);
+        if (on) {
+            el.style.cssText = [
+                'display:block',
+                'position:absolute',
+                'top:4px',
+                'right:4px',
+                'width:12px',
+                'height:12px',
+                'min-width:12px',
+                'min-height:12px',
+                'margin:0',
+                'padding:0',
+                'border-radius:50%',
+                'background:#e11d48',
+                'border:2px solid #fff',
+                'box-shadow:0 0 0 1px #e11d48',
+                'z-index:30',
+                'pointer-events:none'
+            ].join(';');
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
     function applyFlags(data) {
         if (!data) return;
-        var wa = document.querySelector('[data-comm-unread-dot="whatsapp"]');
-        var em = document.querySelector('[data-comm-unread-dot="email"]');
-        if (wa) wa.classList.toggle('is-on', !!data.whatsapp_has_unread);
-        if (em) em.classList.toggle('is-on', !!data.email_has_unread);
+        paintDot(document.querySelector('[data-comm-unread-dot="whatsapp"]'), !!data.whatsapp_has_unread);
+        paintDot(document.querySelector('[data-comm-unread-dot="email"]'), !!data.email_has_unread);
+        syncDotsFromVisibleList();
+    }
+
+    function syncDotsFromVisibleList() {
+        var dash = document.querySelector('[data-comm-dashboard]');
+        var channel = dash ? (dash.getAttribute('data-current-channel') || '') : '';
+        if (channel !== 'whatsapp' && channel !== 'email') return;
+        var hasUnread = !!document.querySelector(
+            '#dashboard-conversations-container .comm-unread-pill, #dashboard-conversations-container .conversation-item.has-unread'
+        );
+        if (!hasUnread) return;
+        paintDot(document.querySelector('[data-comm-unread-dot="' + channel + '"]'), true);
     }
 
     function refreshUnreadDots() {
@@ -193,6 +230,10 @@
     document.body.addEventListener('commRefreshUnreadDots', refreshUnreadDots);
 
     if (document.querySelector('[data-comm-unread-dot]')) {
+        document.querySelectorAll('.sidebar-unread-dot.is-on').forEach(function (el) {
+            paintDot(el, true);
+        });
+        syncDotsFromVisibleList();
         startPoll();
     }
 })();
