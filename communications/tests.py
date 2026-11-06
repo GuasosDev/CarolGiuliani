@@ -531,7 +531,7 @@ class WelcomeMenuAgentOutreachTests(TestCase):
             direction='inbound',
             content='hola',
         )
-        self.assertTrue(_has_unanswered_template(self.contact, inbound))
+        self.assertTrue(_has_unanswered_template(self.conversation, inbound))
 
     def test_client_first_message_does_not_look_like_template_reply(self):
         from communications.whatsapp_handler import _has_unanswered_template
@@ -542,7 +542,7 @@ class WelcomeMenuAgentOutreachTests(TestCase):
             direction='inbound',
             content='hola',
         )
-        self.assertFalse(_has_unanswered_template(self.contact, inbound))
+        self.assertFalse(_has_unanswered_template(self.conversation, inbound))
 
 
 class InboundReplyAfterTransferTests(TestCase):
@@ -768,7 +768,8 @@ class ForceWelcomeMenuOnManualCloseTests(TestCase):
             metadata__welcome_menu=True,
         )
         self.assertTrue(handled)
-        self.assertEqual(welcome_messages.count(), 2)
+        # La respuesta sigue siendo a la plantilla: no se reabre el menú.
+        self.assertEqual(welcome_messages.count(), 1)
         self.assertFalse(self.contact.force_welcome_menu)
         self.assertEqual(self.conversation.assigned_to_id, self.agent.id)
         self.assertFalse(
@@ -777,7 +778,7 @@ class ForceWelcomeMenuOnManualCloseTests(TestCase):
         self.assertFalse(
             Message.objects.filter(content__icontains='Opción no válida').exists()
         )
-        self.assertTrue(ContactMenuState.objects.filter(contact=self.contact, menu=self.menu).exists())
+        self.assertFalse(ContactMenuState.objects.filter(contact=self.contact, menu=self.menu).exists())
 
     @patch('communications.whatsapp_handler.requests.post')
     def test_template_after_close_does_not_force_menu(self, post):
@@ -859,7 +860,7 @@ class ForceWelcomeMenuOnManualCloseTests(TestCase):
 
         self.assertTrue(handled)
         inbound = Message.objects.get(direction='inbound', whatsapp_data__whatsapp_message_id='wamid.cliente.img')
-        self.assertIn('[IMAGE]', inbound.content)
+        self.assertNotIn('[IMAGE]', (inbound.content or ''))
         welcome = Message.objects.filter(
             direction='outbound',
             metadata__welcome_menu=True,

@@ -963,15 +963,86 @@ def _has_unanswered_template(conversation, inbound_message):
         .order_by('-created_at', '-id')
         .first()
     )
-    template_messages = prior_messages.filter(
-        direction='outbound',
-        metadata__template_name__isnull=False,
-    )
+    template_messages = prior_messages.filter(direction='outbound')
     if last_inbound:
         template_messages = template_messages.filter(
             created_at__gt=last_inbound.created_at
         )
-    return template_messages.exists()
+    for msg in template_messages.order_by('-created_at', '-id')[:15]:
+        if _message_is_template(msg):
+            return True
+    return False
+
+
+def _inbound_answers_unanswered_template(contact, conversation, inbound_message):
+    """
+    True si este mensaje responde una plantilla nuestra todavía sin respuesta.
+    Mira el teléfono (contactos relacionados), no solo el hilo de hoy.
+    """
+    if inbound_message is None or not getattr(inbound_message, 'created_at', None):
+        return False
+
+    contact_ids = set(_contact_ids_for_welcome_flag(contact, conversation))
+    raw_number = getattr(contact, 'whatsapp_number', None) or ''
+    suffix = ''.join(filter(str.isdigit, str(raw_number)))
+    suffix = suffix[-10:] if len(suffix) >= 10 else ''
+    if suffix:
+        contact_ids.update(_phone_contact_ids(raw_number))
+
+    scoped = Message.objects.filter(
+        message_type='whatsapp',
+        created_at__lt=inbound_message.created_at,
+    )
+    if contact_ids:
+        scoped = scoped.filter(conversation__contact_id__in=contact_ids)
+    elif conversation is not None and getattr(conversation, 'pk', None):
+        scoped = scoped.filter(conversation_id=conversation.pk)
+    else:
+        scoped = scoped.none()
+
+    template = None
+    for msg in scoped.order_by('-created_at', '-id')[:40]:
+        if msg.direction == 'outbound' and _message_is_welcome_menu(msg):
+            continue
+        if msg.direction == 'outbound' and _message_is_template(msg):
+            template = msg
+            break
+        if msg.direction == 'inbound':
+            return False
+        if msg.direction == 'outbound':
+            return False
+
+    if template is None and suffix:
+        extras = (
+            Message.objects.filter(
+                message_type='whatsapp',
+                direction='outbound',
+                created_at__lt=inbound_message.created_at,
+            )
+            .order_by('-created_at', '-id')[:60]
+        )
+        for msg in extras:
+            if _message_is_welcome_menu(msg) or not _message_is_template(msg):
+                continue
+            to_digits = ''.join(filter(str.isdigit, str((msg.metadata or {}).get('to') or '')))
+            if to_digits.endswith(suffix):
+                template = msg
+                break
+
+    if template is None:
+        return False
+
+    answered = Message.objects.filter(
+        message_type='whatsapp',
+        direction='inbound',
+        created_at__gt=template.created_at,
+        created_at__lt=inbound_message.created_at,
+    )
+    if contact_ids:
+        answered = answered.filter(conversation__contact_id__in=contact_ids)
+    else:
+        answered = answered.filter(conversation_id=template.conversation_id)
+    return not answered.exists()
 
 
 def _contact_ids_for_welcome_flag(contact, conversation=None):
@@ -1093,6 +1164,19 @@ def _handle_welcome_menu(
     """
     text_stripped = (text or '').strip().lower()
     if not text_stripped and not media_contact_attempt:
+        return
+
+    # Respuesta a una plantilla: no abrir el menú, aunque el hilo esté cerrado
+    # o la plantilla sea de otro día / otro contacto del mismo teléfono.
+    if _inbound_answers_unanswered_template(contact, conversation, inbound_message):
+        logger.info(
+            "Skip welcome menu for contact %s: reply to unanswered template",
+            getattr(contact, 'pk', None),
+        )
+        _clear_forced_welcome_menu(
+            contact, conversation, getattr(contact, 'whatsapp_number', None)
+        )
+        _discard_pending_menu_state(contact, conversation)
         return
 
     if _welcome_menu_is_forced(contact, conversation):
